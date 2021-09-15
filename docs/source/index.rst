@@ -1,14 +1,14 @@
 **MINT**
-======================
+========
 
-**M**odified **I**ntraneuronal **N**anoparticle **T**racking (**MINT**) is a Python script used to extract intraneuronal transport parameters from microscopy data.
+**M**\odified **I**\ntraneuronal **N**\anoparticle **T**\racking (**MINT**) is a Python script used to extract intraneuronal transport parameters from microscopy data.
 
 It relies on `\trackpy <https://github.com/soft-matter/trackpy>`_ to generate trajectories from video files, from which transport parameters are then extracted and statistically tested.
 
 Its purpose is to automate workflow to the point where an input of raw video files results in an output of graphs and p-values.
 
 .. image:: https://badgen.net/badge/icon/github?icon=github&label
-   :target: https://github.com
+   :target: https://github.com/biophotlumin/mint
 
 
 

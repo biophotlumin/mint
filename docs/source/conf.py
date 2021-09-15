@@ -14,7 +14,7 @@ import os
 import sys
 #sys.path.insert(0, os.path.abspath('.'))
 #sys.path.insert(0, os.path.abspath('../'))
-sys.path.insert(0, os.path.abspath('../../intraneuronal_tracking'))
+sys.path.insert(0, os.path.abspath('../../mint'))
 
 
 # -- Project information -----------------------------------------------------
