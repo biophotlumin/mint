@@ -1,7 +1,7 @@
-intraneuronal_tracking
+**MINT**
 ======================
 
-intraneuronal_tracking is a Python script used to extract intraneuronal transport parameters from microscopy data.
+**M**odified **I**ntraneuronal **N**anoparticle **T**racking (**MINT**) is a Python script used to extract intraneuronal transport parameters from microscopy data.
 
 It relies on `\trackpy <https://github.com/soft-matter/trackpy>`_ to generate trajectories from video files, from which transport parameters are then extracted and statistically tested.
 

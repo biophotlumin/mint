@@ -19,12 +19,12 @@ sys.path.insert(0, os.path.abspath('../../intraneuronal_tracking'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'intraneuronal_tracking'
-copyright = '2021, lumin'
-author = 'lumin'
+project = 'MINT'
+copyright = '2021, LuMIn'
+author = 'LuMIn'
 
 # The full version, including alpha/beta/rc tags
-release = '1.0.0'
+release = '0.1.0'
 
 
 # -- General configuration ---------------------------------------------------
