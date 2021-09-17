@@ -1,41 +1,8 @@
 """ Script used to track particles in video files and extract trajectories.
 
     This Python script performs frame by frame analysis of video files, localizes particles and then reconstructs trajectories. 
-    It can optionnally denoise individual frames, filter by mean square displacement (MSD), rejoin trajectories, and estimate signal to noise ratio.
 
-    Parameters : 
-        For particle localization (trackpy.batch) : 
-
-            'diameter': Feature’s extent in each dimension.
-            'minmass': Minimum integrated brightness.
-            'separation': Minimum separation between features.
-
-        For trajectory reconstitution (trackpy.link) : 
-            'search_range': Maximum distance features can move between frames.
-            'memory': Maximum number of frames during which a feature can vanish, then reappear nearby, and be considered the same particle.
-            'adaptive_stop': When encountering an oversize subnet, retry by progressively reducing search_range until the subnet is solvable.
-            'adaptive_step': Reduce search_range by multiplying it by this factor.
-
-        For MSD filtering : 
-            'threshold': Level against which the computed Mean Square Displacement is compared.
-
-        For SNR estimation : 
-            'BaseLevel': Base level of the detector.
-
-    Settings : 
-        'tophat' : Applies white top-hat transform to each individual frame.
-        'wavelet' : Applies wavelet denoising to each individual frame.
-        'MSD' : Filters trajectories based on computed Mean Square Displacement.
-        'rejoining' : Rejoins trajectories that appear to be disjointed.
-        'SNR_estimation' : Adds columns to the DataFrame containing the signal to noise ratio, the volume of the 2D Gaussian as well as its feet.
-
-    input_folder is the root folder containing video files to be analyzed. For now, only .tif files are supported.
-    The output is a clone of the root folder, identified by the time and date of the start of the run. Each .tif file creates a matching folder.
-    Inside each file-specific folder is a .csv file containing the raw coordinates of trajectories found in that file. 
-    Optionally, this folder will also contain a .csv file containing the coordinates of rejoined trajectories.
-    For each trajectory, this script will optionally output a .txt file containing the coordinates of each particle, as well as an image of that trajectory plotted on the first frame of the video.
-    It will also optionally output an image of all found trajectories plotted on the first frame of the video.
-    If MSD filtering is enabled and the threshold is too high, no viable trajectories will be found and only the first .csv file will be created. 
+    Please refer to https://github.com/biophotlumin/mint and https://lumin-mint.readthedocs.io/en/latest/ for more information.
 """
 #Imports modules
 from utils import *
@@ -89,9 +56,9 @@ settings = {
     'rejoining':True,
     'SNR_estimation':True,
     #Outputs
-    'individual_images':True,
-    'individual_txt':True,
-    'group_image':True,
+    'individual_images':False,
+    'individual_txt':False,
+    'group_image':False,
     #Data Extraction
     'polynomial_fit':True,
     'minimization':True,
@@ -109,15 +76,17 @@ log = {
 
 #Define root input folder
 
-input_folder = Path(r"F:\INSERM")
+input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/124")
 
 start = time.time()
 
 if __name__ == '__main__':
+    
     #Output folder initialization
     log['output_folder'],log['identifier'],log['root_input_folder'] = folder_structure_creation(input_folder)
     print(log['output_folder'])
     print(Path(log['output_folder']).joinpath(input_folder.name))
+
     #Calling main functions
     tracking(input_folder,parameters,settings,log)
 

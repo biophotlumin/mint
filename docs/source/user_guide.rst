@@ -4,6 +4,16 @@
 .. contents:: :backlinks: None
  
 
+**General information**
+===============================
+
+Input data must be in the form of .tif files, and should be placed in a dedicated folder. Proper folder structure is detailed in :ref:`Statistical analysis`.
+
+Default parameters are provided for both CLI and GUI, but as they are very specific to our experimental setup please expect a lot of trial and errors 
+before obtaining satisfactory results. 
+
+You can use the "Test locate" function to try feature findind parameters.
+
 
 **Parameters and settings**
 ===============================

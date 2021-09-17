@@ -5,7 +5,12 @@ If you are starting from scratch, we recommend installing `Anaconda <https://doc
 
 Then, download the latest release and extract it into a dedicated folder.
 
-You can then create an environment with proper dependencies by using ``pip install -r requirements.txt`` or ``conda create --name <env_name> --file requirements.txt``.
+You can then create an environment with proper dependencies by using ``conda create --name <env_name> --file requirements.txt``, 
+or install dependencies to an already existing environment with ``pip install -r requirements.txt``.
+
+If you have trouble installing ``cvxpy`` with ``pip``, please use ``conda``.
+
+If ``requirements.txt`` does not install dependencies properly, you can install them individually with ``pip`` or ``conda``.
 
 **CLI**
 ^^^^^^^^^^^
