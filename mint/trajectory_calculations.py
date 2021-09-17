@@ -290,12 +290,6 @@ def polynomial_fit(data,parameters):
 
     if (len(x)>=parameters['len_cutoff']):
 
-        xm = x[:,np.newaxis]
-        ym = y[:,np.newaxis]
-
-        model = linear_model.LinearRegression()
-        model.fit(xm, ym)
-
         x=np.array(x)
         y=np.array(y)
         val,cov=optimize.curve_fit(f,x,y)

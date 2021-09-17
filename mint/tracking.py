@@ -56,7 +56,7 @@ def tracking(input_folder,parameters,settings,log):
 
             print('Locating '+name)
             raw_coordinates = tp.batch(processed_frames, minmass=parameters['minmass'], diameter=parameters['diameter'], \
-                separation=parameters['separation'],preprocess=False,engine='numba',processes='auto')
+                separation=parameters['separation'],preprocess=False,engine='numba',processes=1)
 
             print('Linking '+name)
             raw_trajectory = tp.link_df(raw_coordinates, search_range=parameters['search_range'], adaptive_step= \
