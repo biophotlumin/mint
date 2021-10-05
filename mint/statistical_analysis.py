@@ -50,7 +50,7 @@ def statistical_analysis(settings,input_folder):
                 continue #Skips to next file if not correct .csv 
             file_path = os.path.join(path, name)
             print(os.path.dirname(name))
-            data = pd.read_csv(file_path,sep=',')
+            data = pd.read_csv(file_path,sep='\t')
 
             if settings['antero_retro']==True:
                 variables_antero_retro(data,input_folder)
@@ -120,8 +120,9 @@ def variables_antero_retro(data,input_folder):
             results.append('Distribution of '+str(item)+' is not normal \n')
             results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
             dunn(data,item)
-            boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            #violinplot(data,item,str(round((kruskal(data,item)),6)))
         elif normality(data,item) == True:
                 results.append('Distribution of '+str(item)+' is normal \n')
                 #Yet to implement t-test
@@ -231,7 +232,7 @@ def violinplot(data,variable,p):
         p is the p-value of whichever test was performed before, to be displayed within the graph.
     """
     
-    sns.violinplot(x=data['slide'],y=data[variable],inner='box')
+    sns.violinplot(x=data['condition'],y=data[variable],inner='box',cut=0)
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(ylabels[variable])
@@ -250,11 +251,59 @@ def normality(data,variable):
     else:
         return False
 
+colorpal_dyna = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
+colorpal_kif = {'WT':'white','HET':'white','HOM':'white'}
+
+def pub_boxplot(data, variable,input_folder,p):
+    if 'CONTROL' in data['condition'].unique():
+        colorpal = colorpal_dyna
+    else:
+        colorpal = colorpal_kif
+    sns.set_theme(style="ticks", palette="pastel")
+    
+    if variable == 'run_length_retro' or variable =='curvilign_velocity_retro':
+        sns.boxplot(x=data['condition'],
+            y=(data[variable]*-1),  width=0.35, notch=True, palette=colorpal,
+            data=data, showfliers =False)
+    else:
+
+        sns.boxplot(x=data['condition'],
+            y=data[variable],  width=0.35, notch=True, palette=colorpal,
+            data=data, showfliers =False)
+    #stripal = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
+    #sns.stripplot(x=data['condition'],
+            #y=data[variable],edgecolor='gray',palette=stripal)
+    sns.despine(trim=True)
+    plt.xlabel("Condition")
+    plt.ylabel(ylabels[variable])
+    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
+    #plt.savefig((input_folder+"\Boxplot "+str(data['condition'].unique())+" "+variable+".svg"))
+    plt.savefig(Path(input_folder).joinpath("Boxplot "+str(data['condition'].unique())+" "+variable+".svg"))
+    plt.close()
+    
+def pub_barplot(data, variable,input_folder,p):
+    if 'CONTROL' in data['condition'].unique():
+        colorpal = colorpal_dyna
+    else:
+        colorpal = colorpal_kif
+
+    if variable == 'run_length_retro' or variable == 'curvilign_velocity_retro':
+        sns.barplot(y=(data[variable]*-1),x=data['condition'],estimator=mean,yerr=stats.sem(data[variable],nan_policy='omit'),ci=None,\
+            error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
+    else:
+        sns.barplot(y=data[variable],x=data['condition'],estimator=mean,yerr=stats.sem(data[variable],nan_policy='omit'),ci=None,\
+            error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
+    sns.despine(trim=True)
+    
+    plt.xlabel("Condition")
+    plt.ylabel(ylabels[variable])
+    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
+    #plt.savefig((input_folder+"\Barplot "+str(data['condition'].unique())+" "+variable+".svg"))
+    plt.savefig(Path(input_folder).joinpath("Barplot "+str(data['condition'].unique())+" "+variable+".svg"))
+    plt.close()
+
+
 if __name__ == '__main__':
-    input_folder = r'F:\Zebrafish data\Dyna_tri - Results - 20210830_102948\Dyna_tri - Results - 20210830_200730 tri'
+    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/Dyna_tri Results - 20210922_145805 line average 4/Dyna_tri Results - 20210923_151026 dt 059 break 4 scs'
     settings = {'antero_retro':True}
     statistical_analysis(settings,input_folder)
-
-
-
-

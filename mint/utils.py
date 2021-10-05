@@ -7,6 +7,7 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
+import numpy as np
 
 def extraction_csv(input_folder):
     """Automatically extracts .csv file from an output folder containing multiple .txt and .png files.
@@ -23,7 +24,7 @@ def folder_structure_creation(input_folder):
             output_folder is the input folder with the identifier added, and is thus the root ouput folder.
             root_input_folder is the folder above input_folder in the folder structure. It is used to generate proper output file paths later on.
                 """               
-    identifier = " - Results - "+str(datetime.now().strftime('%Y%m%d_%H%M%S')) #Create a string that is added to output file paths 
+    identifier = " Results - "+str(datetime.now().strftime('%Y%m%d_%H%M%S')) #Create a string that is added to output file paths 
 
     output_folder = Path(input_folder.parent).joinpath(input_folder.name + identifier) #Set path for root output folder
     root_input_folder = os.path.dirname(input_folder) #Get folder directly before root input folder
@@ -31,4 +32,15 @@ def folder_structure_creation(input_folder):
     if os.path.dirname(root_input_folder) == root_input_folder: #Prevents conflict in case input folder is placed at the root of a drive
         root_input_folder = input_folder
 
+    if input_folder =='':
+        input_folder = root_input_folder
+
     return output_folder,identifier,root_input_folder
+
+def line_average(frames):
+    avg_frames = np.empty((int(frames.shape[0]/2),frames.shape[1],frames.shape[2]))
+
+    for i in range(0,(frames.shape[0]-2),2):
+        for j in range(frames.shape[1]):
+            avg_frames[(int(i/2)),j,] = ((frames[i,j,]+frames[i+1,j,])/2)
+    return avg_frames

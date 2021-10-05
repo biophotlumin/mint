@@ -7,6 +7,7 @@ import trajectory_calculations as ft
 from image_denoising import *
 from output_files_creation import *
 import pathlib as pl
+from utils import *
 
 def tracking(input_folder,parameters,settings,log):
     """File per file localization of particles and trajectory reconstitution. 
@@ -32,7 +33,8 @@ def tracking(input_folder,parameters,settings,log):
             print(log['output_file_path'])
             #Opening video file
             frames = imageio.volread(file_path)
-
+            frames = line_average(frames)
+            frames = line_average(frames)
             #Initializing frames array
             n_frames = frames.shape[0]
             n_rows = frames.shape[1]

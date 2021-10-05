@@ -24,7 +24,7 @@ else:
     'adaptive_stop':int(),
     'adaptive_step':float(),
     'threshold':int(),
-    'BaseLevel':int(),
+    'base_level':int(),
     'threshold_t':int(),
     'threshold_r':int(),
     'stub_length':int(),
@@ -75,8 +75,6 @@ tab_trackpy_layout =  [
                 title='Link',title_color='white',relief = sg.RELIEF_SUNKEN)],
             [sg.Button('Run tracking')]]
 
-
-
 tab_settings = [            
             [sg.Frame(layout=[      
             [sg.Checkbox('Tophat', size=(10,1), key='tophat',enable_events=True, default=default_dict['tophat'])],
@@ -97,7 +95,7 @@ tab_settings = [
                     title='',title_color='white',relief = sg.RELIEF_SUNKEN)],
             [sg.Frame(layout=[  
             [sg.Checkbox('SNR estimation', size=(11,1), key='SNR_estimation',enable_events=True,default=default_dict['SNR_estimation']),\
-                sg.Text('Base Level'), sg.InputText(default_text=default_dict['BaseLevel'],key='BaseLevel', disabled=not default_dict['SNR_estimation'],size=(5,1))]],\
+                sg.Text('Base Level'), sg.InputText(default_text=default_dict['base_level'],key='base_level', disabled=not default_dict['SNR_estimation'],size=(5,1))]],\
                     title='',title_color='white',relief = sg.RELIEF_SUNKEN)]]
                          
 tab_extraction = [
@@ -129,7 +127,6 @@ tab_extraction = [
 
             [sg.Button('Run data extraction')]
             ]
-
 
 tab_stats = [
             [sg.Frame(layout=[  
@@ -168,7 +165,7 @@ while True:
     #trackpy.motion.msd
     'threshold':int(values['threshold']),
     #SNR estimation
-    'BaseLevel':int(values['BaseLevel']),
+    'base_level':int(values['base_level']),
     #rejoining
     'threshold_t':int(values['threshold_t']),
     'threshold_r':int(values['threshold_r']),
@@ -198,6 +195,8 @@ while True:
     'antero_retro':values['antero_retro']
     }
 
+    input_folder = Path(values['input_folder'])
+
     log = {
     #Rejoining
     'number_rejoined':0,
@@ -213,7 +212,7 @@ while True:
         window['stub_length'].update(disabled=(not values['stub_filtering']))
 
     if values['SNR_estimation']==True or values['SNR_estimation']==False:
-        window['BaseLevel'].update(disabled=(not values['SNR_estimation']))
+        window['base_level'].update(disabled=(not values['SNR_estimation']))
 
     if values['polynomial_fit']==True or values['polynomial_fit']==False:
         window['len_cutoff'].update(disabled=(not values['polynomial_fit'])) 
@@ -223,29 +222,35 @@ while True:
         window['sigma'].update(disabled=(not values['minimization']))   
         
     if event == 'Run':
-        log['output_folder'],log['identifier'],log['root_input_folder'] = folder_structure_creation(values['input_folder'])
+        log['output_folder'],log['identifier'],log['root_input_folder'] = folder_structure_creation(input_folder)
         start = time.time()
 
-        tracking(values['input_folder'],parameters,settings,log)
+        tracking(input_folder,parameters,settings,log)
         data_extraction(parameters,Path(log['output_folder']).joinpath(Path(log['output_folder']).joinpath(input_folder.name)),settings)
         statistical_analysis(settings,log['output_folder'])
 
         end = time.time()
         print((end-start)/60)
 
-        parameters['input_folder'] = values['input_folder']
+        parameters['input_folder'] = str(input_folder)
+        parameters['stub_length'] = parameters['stub_filtering']
+
         default_dict = {**parameters, **settings}
         with open("default.ini", 'w') as default_ini:
             print(default_dict, file=default_ini)
 
     if event == 'Run tracking':
-        log['output_folder'],log['identifier'],log['root_input_folder'] = folder_structure_creation(values['input_folder'])
+
+        log['output_folder'],log['identifier'],log['root_input_folder'] = folder_structure_creation(input_folder)
         start = time.time()
-        tracking(values['input_folder'],parameters,settings,log)
+        print("ok")
+        tracking(input_folder,parameters,settings,log)
         end = time.time()
         print((end-start)/60)
 
-        parameters['input_folder'] = values['input_folder']
+        parameters['input_folder'] = str(input_folder)
+        parameters['stub_length'] = parameters['stub_filtering']
+        
         default_dict = {**parameters, **settings}
         with open("default.ini", 'w') as default_ini:
             print(default_dict, file=default_ini)
@@ -255,7 +260,7 @@ while True:
             whole = True
         else:
             whole = False
-        test_locate(values['input_folder'],parameters,whole,settings)
+        test_locate(input_folder,parameters,whole,settings)
     
 
 window.close()

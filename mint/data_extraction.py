@@ -489,6 +489,9 @@ def trajectory_calculations_antero_retro(phase_parameters):
             data_GO_retro=data_GO.loc[data_GO['curvilign_velocity']<0,:]
             data_GO_retro = data_GO_retro.reset_index(drop = True)
 
+            if np.mean(np.abs(data_GO_antero.curvilign_velocity)) >= 4 or np.mean(np.abs(data_GO_retro.curvilign_velocity)) >= 4 :
+                continue
+
             iteration.append(item)
             file_list.append(file)
 
@@ -689,10 +692,10 @@ if __name__ == '__main__':
     #Data Extraction
     'r_conf_cut' : 0.9**2,
     'px' : 0.175, #in µm
-    'dt' : 0.05, #in s
+    'dt' : 0.2, #in s
     'min_theoretical_precision' : 30, # in nm
     'sliding_window':3,
-    'sigma':175,
+    'sigma':60,
     'len_cutoff':30, #Number of points
     'threshold_poly3':1.4 #Deviation from third-degree polynom
     }   
@@ -715,7 +718,7 @@ if __name__ == '__main__':
     'antero_retro':True
     }
     start = time.time()
-    input_folder = Path(r"F:\Zebrafish data\124 - Results - 20210830_103303 FINAL\124")
+    input_folder = Path(r"/media/baptiste/Windows/Users/LUMIN10/Documents/semaine/Dyna_tri Results - 20210924_090504 line average 8/Dyna_tri")
     data_extraction(parameters,input_folder,settings)
     end = time.time()
     print((end-start)/60)

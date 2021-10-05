@@ -159,7 +159,7 @@ def acceleration_minimization_norm1(measure, sigma0,px, nn = 0):
     constraints = [ cp.atoms.norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
     prob = cp.Problem(objective, constraints)
     
-    prob.solve(solver='SCS') #alternatively, 'GUROBI' or 'MOSEK'
+    prob.solve(solver='MOSEK',verbose=False) #alternatively, 'GUROBI' or 'MOSEK'
     solution = variable.value
     if nn == 0:
         return solution
@@ -249,7 +249,7 @@ def _fit_spot_by_gaussian(data):
     params = parameters[1:6]
     errorfunction = lambda p: np.ravel(_gaussian(feet,*p)(*np.indices(data.shape)) -
                                  data)
-    p, success = optimize.leastsq(func=errorfunction, x0=params, maxfev=1200)
+    p, success = optimize.leastsq(func=errorfunction, x0=params, maxfev=120000) #
 
     return feet, p
 
@@ -289,12 +289,6 @@ def polynomial_fit(data,parameters):
     y = y.reset_index(drop = True)
 
     if (len(x)>=parameters['len_cutoff']):
-
-        xm = x[:,np.newaxis]
-        ym = y[:,np.newaxis]
-
-        model = linear_model.LinearRegression()
-        model.fit(xm, ym)
 
         x=np.array(x)
         y=np.array(y)
