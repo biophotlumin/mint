@@ -58,7 +58,7 @@ settings = {
     'SNR_estimation':False,
     #Outputs
     'individual_images':False,
-    'individual_txt':True,
+    'individual_txt':False,
     'group_image':True,
     #Data Extraction
     'polynomial_fit':True,
@@ -77,7 +77,9 @@ log = {
 
 #Define root input folder
 
-input_folder = Path(r"/media/baptiste/SHG_tracking_data/Jitter nKTP/troisième série")
+
+input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/124")
+
 
 start = time.time()
 
