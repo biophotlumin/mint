@@ -589,8 +589,7 @@ def trajectory_calculations_antero_retro(phase_parameters):
             if distance_total==0:
                 continue
 
-            #directionality.append(np.abs(distance_antero)/np.abs(distance_total))
-            directionality.append(np.abs(distance_retro)/np.abs(distance_total))
+            directionality.append(np.abs(distance_antero)/np.abs(distance_total))
 
             #Ratio of moving particles
             n_particles = data.n_particles.tolist()
@@ -652,16 +651,11 @@ def data_extraction(parameters,input_folder,settings):
             
             print("Per phase calculations of "+name)
             if settings['antero_retro']:
-                if name == '210114_nKTP_dynapyrazole.lif - Series059.tif':
-                    parameters['dt'] = 0.18
-                    print(parameters['dt'])
-                    phase_parameters = phase_parameters.append(phase_calculations_antero_retro(parameters,data,settings,condition,slide,name,animal))
-                else:
-                    parameters['dt'] = 0.1
-                    phase_parameters = phase_parameters.append(phase_calculations_antero_retro(parameters,data,settings,condition,slide,name,animal))
+                phase_parameters = phase_parameters.append(phase_calculations_antero_retro(parameters,data,settings,condition,slide,name,animal))
             else:
                 phase_parameters = phase_parameters.append(phase_calculations(parameters,data,condition,slide,name))
-    phase_parameters.to_csv(phase_parameters_output, sep = '\t')
+            phase_parameters.to_csv(phase_parameters_output, sep = '\t')
+
     print("Per trajectory calculations of "+name)
     if settings['antero_retro']==True:
         trajectory_parameters = trajectory_calculations_antero_retro(phase_parameters)
@@ -699,10 +693,10 @@ if __name__ == '__main__':
     #Data Extraction
     'r_conf_cut' : 0.9**2,
     'px' : 0.175, #in µm
-    'dt' : 0.1, #in s
+    'dt' : 0.05, #in s
     'min_theoretical_precision' : 30, # in nm
     'sliding_window':3,
-    'sigma':100,
+    'sigma':175,
     'len_cutoff':30, #Number of points
     'threshold_poly3':1.4 #Deviation from third-degree polynom
     }   
@@ -726,11 +720,7 @@ if __name__ == '__main__':
     }
 
     start = time.time()
-    input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/Dyna_tri Results - 20210922_145805 line average 4/Dyna_tri")
+    input_folder = Path(r"F:\Zebrafish data\124 - Results - 20210830_103303 FINAL\124")
     data_extraction(parameters,input_folder,settings)
     end = time.time()
     print((end-start)/60)
-
-    """data = pd.read_csv(r'/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20210921_182942 line average 4/124 Results - 20211012_102907/Per phase parameters.csv',sep='\t')
-    rev = trajectory_calculations_antero_retro(data)
-    rev.to_csv(r'/home/baptiste/rev.csv',sep='\t')"""

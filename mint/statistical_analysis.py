@@ -253,67 +253,6 @@ def normality(data,variable):
     else:
         return False
 
-colorpal_dyna = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
-colorpal_kif = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
-
-def pub_boxplot(data, variable,input_folder,p):
-    if 'CONTROL' in data['condition'].unique():
-        colorpal = colorpal_dyna
-    else:
-        colorpal = colorpal_kif
-    sns.set_theme(style="ticks", palette="pastel")
-    
-    if variable == 'run_length_retro' or variable =='curvilign_velocity_retro':
-        sns.boxplot(x=data['condition'],
-            y=(data[variable]*-1),  width=0.35, notch=True, palette=colorpal,
-            data=data, showfliers =False)
-    
-    elif variable == 'directionality':
-        colorpal = {'CONTROL':'white','DYNAPYRAZOLE':'white'}
-        #colorpal = {'WT':'white','HET':'white','HOM':'white'}
-        sns.boxplot(x=data['condition'],
-            y=(data[variable]),  width=0.35, notch=True, palette=colorpal,
-            data=data, showfliers =False)
-        #stripal = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
-        stripal = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
-        sns.stripplot(x=data['condition'],
-            y=data[variable],edgecolor='gray',palette=stripal)
-
-    else:
-        sns.boxplot(x=data['condition'],
-            y=data[variable],  width=0.35, notch=True, palette=colorpal,
-            data=data, showfliers =False)
-
-    sns.despine(trim=True)
-    plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
-    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
-    #plt.savefig((input_folder+"\Boxplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.savefig(Path(input_folder).joinpath("Boxplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.close()
-    
-def pub_barplot(data, variable,input_folder,p):
-    if 'CONTROL' in data['condition'].unique():
-        colorpal = colorpal_dyna
-    else:
-        colorpal = colorpal_kif
-
-    if variable == 'run_length_retro' or variable == 'curvilign_velocity_retro':
-        sns.barplot(y=(data[variable]*-1),x=data['condition'],estimator=mean,yerr=stats.sem(data[variable],nan_policy='omit'),ci=None,\
-            error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
-    else:
-        sns.barplot(y=data[variable],x=data['condition'],estimator=mean,yerr=stats.sem(data[variable],nan_policy='omit'),ci=None,\
-            error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
-    sns.despine(trim=True)
-    
-    plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
-    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
-    #plt.savefig((input_folder+"\Barplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.savefig(Path(input_folder).joinpath("Barplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.close()
-
-
 if __name__ == '__main__':
     input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20210921_182942 line average 4/124 Results - 20211020_160146 rotation tri sélectif'
     settings = {'antero_retro':True}

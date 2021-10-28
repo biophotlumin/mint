@@ -7,7 +7,6 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-import numpy as np
 
 def extraction_csv(input_folder):
     """Automatically extracts .csv file from an output folder containing multiple .txt and .png files.
@@ -36,11 +35,3 @@ def folder_structure_creation(input_folder):
         input_folder = root_input_folder
 
     return output_folder,identifier,root_input_folder
-
-def line_average(frames):
-    avg_frames = np.empty((int(frames.shape[0]/2),frames.shape[1],frames.shape[2]))
-
-    for i in range(0,(frames.shape[0]-2),2):
-        for j in range(frames.shape[1]):
-            avg_frames[(int(i/2)),j,] = ((frames[i,j,]+frames[i+1,j,])/2)
-    return avg_frames
