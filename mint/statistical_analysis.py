@@ -35,7 +35,7 @@ ylabels = {
         'run_length_retro':'Retrograde run length (µm)',
         'diag_size':'Length of trajectory (µm)',
         'fraction_paused':'Fraction of time paused',
-        'directionality':'Ratio of anterograde to retrograde transport'
+        'directionality':'Ratio of anterograde to retrograde transport',
 }
 
 def statistical_analysis(settings,input_folder):
@@ -50,7 +50,9 @@ def statistical_analysis(settings,input_folder):
                 continue #Skips to next file if not correct .csv 
             file_path = os.path.join(path, name)
             print(os.path.dirname(name))
-            data = pd.read_csv(file_path,sep='\t')
+            data = pd.read_csv(file_path,sep=',')
+            #print(data.shape)
+            #data = data.dropna(axis=0,how='all')
 
             if settings['antero_retro']==True:
                 variables_antero_retro(data,input_folder)
@@ -120,8 +122,8 @@ def variables_antero_retro(data,input_folder):
             results.append('Distribution of '+str(item)+' is not normal \n')
             results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
             dunn(data,item)
-            pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            #pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            #pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
             #violinplot(data,item,str(round((kruskal(data,item)),6)))
         elif normality(data,item) == True:
                 results.append('Distribution of '+str(item)+' is normal \n')
@@ -252,7 +254,7 @@ def normality(data,variable):
         return False
 
 colorpal_dyna = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
-colorpal_kif = {'WT':'white','HET':'white','HOM':'white'}
+colorpal_kif = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
 
 def pub_boxplot(data, variable,input_folder,p):
     if 'CONTROL' in data['condition'].unique():
@@ -265,14 +267,23 @@ def pub_boxplot(data, variable,input_folder,p):
         sns.boxplot(x=data['condition'],
             y=(data[variable]*-1),  width=0.35, notch=True, palette=colorpal,
             data=data, showfliers =False)
-    else:
+    
+    elif variable == 'directionality':
+        colorpal = {'CONTROL':'white','DYNAPYRAZOLE':'white'}
+        #colorpal = {'WT':'white','HET':'white','HOM':'white'}
+        sns.boxplot(x=data['condition'],
+            y=(data[variable]),  width=0.35, notch=True, palette=colorpal,
+            data=data, showfliers =False)
+        #stripal = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
+        stripal = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
+        sns.stripplot(x=data['condition'],
+            y=data[variable],edgecolor='gray',palette=stripal)
 
+    else:
         sns.boxplot(x=data['condition'],
             y=data[variable],  width=0.35, notch=True, palette=colorpal,
             data=data, showfliers =False)
-    #stripal = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
-    #sns.stripplot(x=data['condition'],
-            #y=data[variable],edgecolor='gray',palette=stripal)
+
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(ylabels[variable])
@@ -304,6 +315,6 @@ def pub_barplot(data, variable,input_folder,p):
 
 
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/Dyna_tri Results - 20210922_145805 line average 4/Dyna_tri Results - 20210923_151026 dt 059 break 4 scs'
+    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20210921_182942 line average 4/124 Results - 20211020_160146 rotation tri sélectif'
     settings = {'antero_retro':True}
     statistical_analysis(settings,input_folder)

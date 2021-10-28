@@ -34,7 +34,7 @@ def tracking(input_folder,parameters,settings,log):
             #Opening video file
             frames = imageio.volread(file_path)
             frames = line_average(frames)
-            frames = line_average(frames)
+
             #Initializing frames array
             n_frames = frames.shape[0]
             n_rows = frames.shape[1]

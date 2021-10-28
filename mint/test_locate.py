@@ -66,9 +66,9 @@ def test_locate(input_folder,parameters,whole_file,settings):
 
 parameters = {
     #trackpy.batch
-    'diameter':5,
+    'diameter':9,
     'minmass':300,
-    'separation':10,
+    'separation':12,
 }
 
 #Optional image processing
@@ -78,5 +78,5 @@ settings = {
     'wavelet':False,
 }
 if __name__ == '__main__':
-    input_folder = "C:\\Users\\LUMIN10\\Desktop\\Programme Baptiste\\INSERM"
+    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/124/Exp1_20190205_06_kif5a_nKTP/HOM/larve12/oeil_droit'
     test_locate(input_folder,parameters,whole_file=False,settings=settings)

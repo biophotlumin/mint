@@ -93,15 +93,13 @@ def final_image_ouput(log,name,frames,processed_trajectory):
     plt.gca().invert_yaxis() #Plotting the y axis inverts it by default, so it must be inverted again
     bbox_props = dict(boxstyle="round", fc="w", ec="w")
     arrow_props = dict(arrowstyle="simple")
-    trajectory_number = 1
 
     for item in set(processed_trajectory.particle): #Loops for each sub trajectory
         x = processed_trajectory[processed_trajectory.particle==item].x
         y = processed_trajectory[processed_trajectory.particle==item].y
         plt.plot(x,y,lw=0.5)
         x0,y0 = x.iloc[0],y.iloc[0]
-        plt.annotate(trajectory_number,xy=(x0,y0),xytext=(x0+30,y0+30),bbox=bbox_props,arrowprops=arrow_props, size = 4)
-        trajectory_number += 1
+        plt.annotate(str(item),xy=(x0,y0),xytext=(x0+30,y0+30),bbox=bbox_props,arrowprops=arrow_props, size = 4)
 
     plt.savefig(filepng,dpi=300)
     plt.close()

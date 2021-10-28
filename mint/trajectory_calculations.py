@@ -20,8 +20,8 @@ from scipy.signal import *
 import pandas as pd
 import trackpy as tp
 import math
-from sklearn import linear_model
 import cvxpy as cp
+from scipy.stats import *
 
 def rejoining(tracks,threshold_t,threshold_r):
     """Rejoins split trajectories that are visually part of the same entity. Inputs a DataFrame and two integers, returns a DataFrame.
@@ -159,7 +159,7 @@ def acceleration_minimization_norm1(measure, sigma0,px, nn = 0):
     constraints = [ cp.atoms.norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
     prob = cp.Problem(objective, constraints)
     
-    prob.solve(solver='MOSEK',verbose=False) #alternatively, 'GUROBI' or 'MOSEK'
+    prob.solve(solver='SCS',verbose=False) #alternatively, 'GUROBI' or 'MOSEK'
     solution = variable.value
     if nn == 0:
         return solution
@@ -278,8 +278,11 @@ def polynomial_fit(data,parameters):
 
         Inputs a DataFrame with x and y coordinates. Returns a boolean.
         """
-    x = data.x
-    y = data.y
+    #x = data.x
+    #y = data.y
+    rot = rotate_single_track(data)
+    x = rot.x_rotated
+    y = rot.y_rotated
     n = len(x)
     nn = 10 #Supresses the first and last 10 points
     x = x.iloc[nn:n-nn]
@@ -294,9 +297,29 @@ def polynomial_fit(data,parameters):
         y=np.array(y)
         val,cov=optimize.curve_fit(f,x,y)
         deviation=np.sqrt(np.mean((y-f(x,val[0],val[1],val[2],val[3]))**2))
-
+        #print(deviation)
+        #print(np.mean(cov))
+        #r = scipy.stats.linregress(x,y)[2]
+        #print(r**2)
         if (deviation<parameters['threshold_poly3']):
             return True
         else:
             return False
 
+def rotate_single_track(data):
+    coords = data.loc[:, ['x', 'y']].values
+    coords = coords - coords[0, :]
+
+    distances = (coords ** 2).sum(axis=1)
+    furthest = np.argmax(distances)
+
+    theta = np.arctan2(coords[furthest, 1], coords[furthest, 0])
+    rotation = np.array([
+        [np.cos(theta), -np.sin(theta)],
+        [np.sin(theta), np.cos(theta)]
+    ])
+    coords = np.matmul(coords, rotation)
+    return pd.DataFrame({
+        'x_rotated': coords[:, 0],
+        'y_rotated': coords[:, 1],
+    })
