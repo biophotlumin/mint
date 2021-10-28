@@ -489,6 +489,9 @@ def trajectory_calculations_antero_retro(phase_parameters):
             data_GO_retro=data_GO.loc[data_GO['curvilign_velocity']<0,:]
             data_GO_retro = data_GO_retro.reset_index(drop = True)
 
+            if np.mean(np.abs(data_GO_antero.curvilign_velocity)) >= 4 or np.mean(np.abs(data_GO_retro.curvilign_velocity)) >= 4 :
+                continue
+
             iteration.append(item)
             file_list.append(file)
 
@@ -651,6 +654,7 @@ def data_extraction(parameters,input_folder,settings):
                 phase_parameters = phase_parameters.append(phase_calculations_antero_retro(parameters,data,settings,condition,slide,name,animal))
             else:
                 phase_parameters = phase_parameters.append(phase_calculations(parameters,data,condition,slide,name))
+            phase_parameters.to_csv(phase_parameters_output, sep = '\t')
 
     print("Per trajectory calculations of "+name)
     if settings['antero_retro']==True:
@@ -714,6 +718,7 @@ if __name__ == '__main__':
     'minimization':True,
     'antero_retro':True
     }
+
     start = time.time()
     input_folder = Path(r"F:\Zebrafish data\124 - Results - 20210830_103303 FINAL\124")
     data_extraction(parameters,input_folder,settings)

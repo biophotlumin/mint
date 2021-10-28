@@ -35,7 +35,7 @@ ylabels = {
         'run_length_retro':'Retrograde run length (µm)',
         'diag_size':'Length of trajectory (µm)',
         'fraction_paused':'Fraction of time paused',
-        'directionality':'Ratio of anterograde to retrograde transport'
+        'directionality':'Ratio of anterograde to retrograde transport',
 }
 
 def statistical_analysis(settings,input_folder):
@@ -51,6 +51,8 @@ def statistical_analysis(settings,input_folder):
             file_path = os.path.join(path, name)
             print(os.path.dirname(name))
             data = pd.read_csv(file_path,sep=',')
+            #print(data.shape)
+            #data = data.dropna(axis=0,how='all')
 
             if settings['antero_retro']==True:
                 variables_antero_retro(data,input_folder)
@@ -120,8 +122,9 @@ def variables_antero_retro(data,input_folder):
             results.append('Distribution of '+str(item)+' is not normal \n')
             results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
             dunn(data,item)
-            boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            #pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            #pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            #violinplot(data,item,str(round((kruskal(data,item)),6)))
         elif normality(data,item) == True:
                 results.append('Distribution of '+str(item)+' is normal \n')
                 #Yet to implement t-test
@@ -231,7 +234,7 @@ def violinplot(data,variable,p):
         p is the p-value of whichever test was performed before, to be displayed within the graph.
     """
     
-    sns.violinplot(x=data['slide'],y=data[variable],inner='box')
+    sns.violinplot(x=data['condition'],y=data[variable],inner='box',cut=0)
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(ylabels[variable])
@@ -251,10 +254,6 @@ def normality(data,variable):
         return False
 
 if __name__ == '__main__':
-    input_folder = r'F:\Zebrafish data\Dyna_tri - Results - 20210830_102948\Dyna_tri - Results - 20210830_200730 tri'
+    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20210921_182942 line average 4/124 Results - 20211020_160146 rotation tri sélectif'
     settings = {'antero_retro':True}
     statistical_analysis(settings,input_folder)
-
-
-
-

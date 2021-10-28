@@ -5,6 +5,7 @@
     Please refer to https://github.com/biophotlumin/mint and https://lumin-mint.readthedocs.io/en/latest/ for more information.
 """
 #Imports modules
+from enum import Flag
 from utils import *
 from image_denoising import *
 from output_files_creation import *
@@ -36,10 +37,10 @@ parameters = {
     #Data Extraction
     'r_conf_cut' : 0.9**2,
     'px' : 0.175, #in µm
-    'dt' : 0.05, #in s
+    'dt' : 0.1, #in s
     'min_theoretical_precision' : 30, # in nm
     'sliding_window':3,
-    'sigma':175,
+    'sigma':100,
     'len_cutoff':30, #Number of points
     'threshold_poly3':1.4 #Deviation from third-degree polynom
 }
@@ -52,16 +53,16 @@ settings = {
     'wavelet':False,
     #Processing
     'stub_filtering':False,
-    'MSD':True,
-    'rejoining':True,
-    'SNR_estimation':True,
+    'MSD':False,
+    'rejoining':False,
+    'SNR_estimation':False,
     #Outputs
     'individual_images':False,
     'individual_txt':False,
-    'group_image':False,
+    'group_image':True,
     #Data Extraction
     'polynomial_fit':True,
-    'minimization':True,
+    'minimization':False,
     'antero_retro':True
 }
 
@@ -76,7 +77,9 @@ log = {
 
 #Define root input folder
 
+
 input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/124")
+
 
 start = time.time()
 

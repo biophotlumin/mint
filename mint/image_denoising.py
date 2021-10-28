@@ -69,3 +69,16 @@ def wavelet_denoising(processed_frames,i):
     processed_frames[i] = wavelet(processed_frames[i],lp1,lp2)
 
     return processed_frames
+
+def line_average(frames):
+    """Performs line-by-line frame average. Inputs and returns an array of frames.
+
+        Each line of even frames is averaged with the corresponding line of the following odd frames.
+    """
+    avg_frames = np.empty((int(frames.shape[0]/2),frames.shape[1],frames.shape[2]))
+
+    for i in range(0,(frames.shape[0]-2),2):
+        for j in range(frames.shape[1]):
+            avg_frames[(int(i/2)),j,] = ((frames[i,j,]+frames[i+1,j,])/2)
+
+    return avg_frames

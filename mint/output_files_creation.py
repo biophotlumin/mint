@@ -18,11 +18,10 @@ def trajectory_output(log,name,process,planned_output):
                 name is the name of the file currently being processed.
                 planned_output is the DataFrame that is written.
     """ 
-    #filecsv = str(log['output_file_path'])+"\\"+name+process+".csv" #Creates file path and name
-    filecsv = Path(str(log['output_file_path'])).joinpath(name+process+".csv")
+    filecsv = Path(str(log['output_file_path'])).joinpath(name+process+".csv") #Creates file path and name
     planned_output.to_csv(filecsv,sep='\t')
     
-def image_output(log,name,frames,processed_trajectory,item,trajectory_number):
+def image_output(log,name,frames,processed_trajectory,item):
     """Plots a trajectory onto the first frame of a file. Inputs a dictionary, a string, a NumPy array, a DataFrame, and two integers.
 
                 Uses matplotlib to plot a trajectory onto the first frame of a file.
@@ -33,21 +32,16 @@ def image_output(log,name,frames,processed_trajectory,item,trajectory_number):
                 item is the number of the trajectory being plotted.
                 trajectory_number is the number of the trajectory being plotted.
     """ 
-    #filepng = str(log['output_file_path'])+"\\"+name+str(trajectory_number)+".png" #Creates file path and name
-    filepng = Path(str(log['output_file_path'])).joinpath(name+"-"+str(trajectory_number)+".png")
+    filepng = Path(str(log['output_file_path'])).joinpath(name+"-"+str(item)+".png") #Creates file path and name
     pd.set_option("mode.chained_assignment", None)
     
     #Initializes plot
     plt.title('Trajectory from '+name)
     plt.imshow(frames[0])
     plt.gca().invert_yaxis() #Plotting the y axis inverts it by default, so it must be inverted again        
-    bbox_props = dict(boxstyle="round", fc="w", ec="w")
-    arrow_props = dict(arrowstyle="simple")
     x = processed_trajectory[processed_trajectory.particle==item].x
     y = processed_trajectory[processed_trajectory.particle==item].y
     plt.plot(x,y,lw=0.5)
-    x0,y0 = x.iloc[0],y.iloc[0]
-    plt.annotate(trajectory_number,xy=(x0,y0),xytext=(x0+30,y0+30),bbox=bbox_props,arrowprops=arrow_props, size = 4) #Plots arrows with number pointing to each trajectory
     plt.savefig(filepng,dpi=300)
     plt.close()
 
@@ -93,15 +87,23 @@ def final_image_ouput(log,name,frames,processed_trajectory):
     plt.gca().invert_yaxis() #Plotting the y axis inverts it by default, so it must be inverted again
     bbox_props = dict(boxstyle="round", fc="w", ec="w")
     arrow_props = dict(arrowstyle="simple")
-    trajectory_number = 1
 
     for item in set(processed_trajectory.particle): #Loops for each sub trajectory
         x = processed_trajectory[processed_trajectory.particle==item].x
         y = processed_trajectory[processed_trajectory.particle==item].y
         plt.plot(x,y,lw=0.5)
         x0,y0 = x.iloc[0],y.iloc[0]
-        plt.annotate(trajectory_number,xy=(x0,y0),xytext=(x0+30,y0+30),bbox=bbox_props,arrowprops=arrow_props, size = 4)
-        trajectory_number += 1
+        plt.annotate(str(item),xy=(x0,y0),xytext=(x0+30,y0+30),bbox=bbox_props,arrowprops=arrow_props, size = 4)
 
     plt.savefig(filepng,dpi=300)
     plt.close()
+
+def dict_dump(log,dict,file_name):
+    """Writes the content of a dictionary into a text file.
+
+        Inputs two dictionaries and a string.
+    """
+
+    with open(Path(log['output_folder']).joinpath(str(file_name)+".txt"), 'w') as dict_txt:
+        for k, v in dict.items():
+            print(str(k)+" : "+str(v), file=dict_txt)

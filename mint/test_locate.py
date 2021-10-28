@@ -28,27 +28,23 @@ def test_locate(input_folder,parameters,whole_file,settings):
             #Opening video file
             frames = imageio.volread(file_path)
 
-            #Initializing frames array
-            n_frames = frames.shape[0]
-            n_rows = frames.shape[1]
-            n_columns = frames.shape[2]
-            frames_array_init = np.zeros((n_frames,n_rows,n_columns))
-
             #Per frame denoising process
             if whole_file == True:
-                length = n_frames
+                length = len(frames)
             else:
                 length = 1
+            frames_init = np.zeros(frames.shape)
             for i in range(length):
-                if settings['tophat']==True:
-                    processed_frames = tophat(parameters,frames_array_init,i,frames) #Tophat denoising
+                if settings['tophat']:
+                    processed_frames = tophat(parameters,frames_init,i,frames) #Tophat denoising
                 else:
-                    processed_frames = frames_array_init
-                    processed_frames[i] = frames[i]
-                if settings['wavelet']==True:
+                    processed_frames = frames
+
+                if settings['wavelet']:
                     processed_frames = wavelet_denoising(processed_frames,i) #Wavelet denoising
             
             #Localizing particles and finding trajectories
+            tp.quiet([True]) #Silencing TrackPy messages
             raw_coordinates = tp.batch(processed_frames, minmass=parameters['minmass'], diameter=parameters['diameter'], \
                 separation=parameters['separation'],preprocess=False,engine='numba',processes=1)
             
@@ -78,5 +74,5 @@ settings = {
     'wavelet':False,
 }
 if __name__ == '__main__':
-    input_folder = "C:\\Users\\LUMIN10\\Desktop\\Programme Baptiste\\INSERM"
+    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/124/Exp1_20190205_06_kif5a_nKTP/HOM/larve12/oeil_droit'
     test_locate(input_folder,parameters,whole_file=False,settings=settings)
