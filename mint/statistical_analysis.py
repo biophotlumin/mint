@@ -50,7 +50,7 @@ def statistical_analysis(settings,input_folder):
                 continue #Skips to next file if not correct .csv 
             file_path = os.path.join(path, name)
             print(os.path.dirname(name))
-            data = pd.read_csv(file_path,sep=',')
+            data = pd.read_csv(file_path,sep='\t')
             #print(data.shape)
             #data = data.dropna(axis=0,how='all')
 
@@ -122,8 +122,8 @@ def variables_antero_retro(data,input_folder):
             results.append('Distribution of '+str(item)+' is not normal \n')
             results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
             dunn(data,item)
-            #pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            #pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
             #violinplot(data,item,str(round((kruskal(data,item)),6)))
         elif normality(data,item) == True:
                 results.append('Distribution of '+str(item)+' is normal \n')
@@ -315,6 +315,6 @@ def pub_barplot(data, variable,input_folder,p):
 
 
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20210921_182942 line average 4/124 Results - 20211020_160146 rotation tri sélectif'
+    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/Dyna_tri Results - 20211105_091209/Dyna_tri Results - 20211105_204959'
     settings = {'antero_retro':True}
     statistical_analysis(settings,input_folder)

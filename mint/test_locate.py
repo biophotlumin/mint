@@ -78,5 +78,5 @@ settings = {
     'wavelet':False,
 }
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/124/Exp1_20190205_06_kif5a_nKTP/HOM/larve12/oeil_droit'
+    input_folder = r'/media/baptiste/SHG_tracking_data/Jitter nKTP/troisième série/LA2'
     test_locate(input_folder,parameters,whole_file=False,settings=settings)

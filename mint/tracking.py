@@ -6,12 +6,11 @@ import trackpy as tp
 import trajectory_calculations as ft
 from image_denoising import *
 from output_files_creation import *
-import pathlib as pl
-from utils import *
+
+
 
 def tracking(input_folder,parameters,settings,log):
     """File per file localization of particles and trajectory reconstitution. 
-
         input_folder is the root folder containing all files to be analyzed.
         parameters is a dictionary of calculation parameters, as defined in script.py.
         settings is a dictionary containing boolean values for optional data processing, as defined in script.py.
@@ -31,25 +30,20 @@ def tracking(input_folder,parameters,settings,log):
 
             os.makedirs(log['output_file_path']) #Create output folder for current file
             print(log['output_file_path'])
+
             #Opening video file
             frames = imageio.volread(file_path)
-            frames = line_average(frames)
-
-            #Initializing frames array
-            n_frames = frames.shape[0]
-            n_rows = frames.shape[1]
-            n_columns = frames.shape[2]
-            frames_array_init = np.zeros((n_frames,n_rows,n_columns))
-
+            #frames = frame_accu(frames)
+            
             #Per frame denoising process
-            for i in range(n_frames):
-                if settings['tophat']==True:
-                    processed_frames = tophat(parameters,frames_array_init,i,frames) #Tophat denoising
+            frames_init = np.zeros(frames.shape)
+            for i in range(len(frames)):
+                if settings['tophat']:
+                    processed_frames = tophat(parameters,frames_init,i,frames) #Tophat denoising
                 else:
-                    processed_frames = frames_array_init
-                    processed_frames[i] = frames[i]
+                    processed_frames = frames
 
-                if settings['wavelet']==True:
+                if settings['wavelet']:
                     processed_frames = wavelet_denoising(processed_frames,i) #Wavelet denoising
             
             #Localizing particles and finding trajectories
@@ -61,10 +55,10 @@ def tracking(input_folder,parameters,settings,log):
                 separation=parameters['separation'],preprocess=False,engine='numba',processes=1)
 
             print('Linking '+name)
-            raw_trajectory = tp.link_df(raw_coordinates, search_range=parameters['search_range'], adaptive_step= \
+            raw_trajectory = tp.link(raw_coordinates, search_range=parameters['search_range'], adaptive_step= \
                 parameters['adaptive_step'], adaptive_stop=parameters['adaptive_stop'],memory=parameters['memory'])
 
-            if settings['stub_filtering'] == True:
+            if settings['stub_filtering']:
                 print('Stub filtering '+name)
                 raw_trajectory = tp.filter_stubs(raw_trajectory,parameters['stub_filtering'])
 
@@ -75,7 +69,7 @@ def tracking(input_folder,parameters,settings,log):
             trajectory_output(log,name,"",raw_trajectory)
             
             #Optional trajectory processing
-            if settings['MSD'] == True: 
+            if settings['MSD']: 
                 print('MSD '+name)
                 processed_trajectory = ft.MSD_filtering(raw_trajectory,parameters['threshold'])
                 if len(processed_trajectory) == 0: #Check if any trajectories were found. If not, the threshold might be too high.
@@ -83,12 +77,14 @@ def tracking(input_folder,parameters,settings,log):
             else:
                 processed_trajectory = raw_trajectory
 
-            if settings['rejoining'] == True:
+            if settings['rejoining']:
                 print('Rejoining '+name)
                 processed_trajectory, n_rejoined  = ft.rejoining(processed_trajectory,parameters['threshold_t'],parameters['threshold_r'])
                 log['number_rejoined'] += n_rejoined
+            else: 
+                processed_trajectory['rejoined_particle'] = processed_trajectory['particle']
 
-            if settings['SNR_estimation'] == True:
+            if settings['SNR_estimation']:
                 processed_trajectory = ft.SNR_spot_estimation(frames,processed_trajectory,parameters['base_level'])
 
             #Estimating ratio of moving particles
@@ -102,27 +98,20 @@ def tracking(input_folder,parameters,settings,log):
             trajectory_output(log,name,"_rejoined",processed_trajectory)
 
             #Per trajectory data extraction
-            trajectory_number = 1
-            if settings['individual_images'] or settings['individual_txt'] or settings['group_image'] == True:
+            if settings['individual_images'] or settings['individual_txt'] or settings['group_image']:
                 print("Saving plots and trajectories")
                 for item in set(processed_trajectory.particle):
                     sub_trajectory = processed_trajectory[processed_trajectory.particle==item]
-                    if settings['individual_images'] == True:
-                        image_output(log,name,frames,processed_trajectory,item,trajectory_number) #Plots individual trajectory onto the first frame of the video
-                    if settings['individual_txt'] == True:
-                        trajectory_separation(log,name,trajectory_number,settings,sub_trajectory) #Dumps individual trajectory into txt file
-                    trajectory_number += 1
+                    if settings['individual_images']:
+                        image_output(log,name,frames,processed_trajectory,item) #Plots individual trajectory onto the first frame of the video
+                    if settings['individual_txt']:
+                        trajectory_separation(log,name,item,settings,sub_trajectory) #Dumps individual trajectory into txt file
 
                 #Plots all trajectories onto the first frame of the video
-                if settings['group_image'] == True:
+                if settings['group_image']:
                     final_image_ouput(log,name,frames,processed_trajectory)
 
     #Writes down parameters and settings used for that run into txt files at the root of the output folder
-    with open(Path(log['output_folder']).joinpath("parameters.txt"), 'w') as param_txt:
-        print(parameters, file=param_txt)
-
-    with open(Path(log['output_folder']).joinpath("settings.txt"), 'w') as settings_txt:
-        print(settings, file=settings_txt)      
-
-    with open(Path(log['output_folder']).joinpath("log.txt"), 'w') as log_txt:
-        print(log, file=log_txt)               
+    dict_dump(log,parameters,'parameters')
+    dict_dump(log,settings,'settings')
+    dict_dump(log,log,'log')
