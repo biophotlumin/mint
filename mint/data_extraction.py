@@ -666,11 +666,11 @@ def data_extraction(parameters,input_folder,settings):
             print("Per phase calculations of "+name)
             if settings['antero_retro']:
                 if name == '210114_nKTP_dynapyrazole.lif - Series059.tif':
-                    parameters['dt'] = 0.18
+                    parameters['dt'] = 0.09
                     print(parameters['dt'])
                     phase_parameters = phase_parameters.append(phase_calculations_antero_retro(parameters,data,settings,condition,slide,name,animal))
                 else:
-                    parameters['dt'] = 0.1
+                    parameters['dt'] = 0.05
                     phase_parameters = phase_parameters.append(phase_calculations_antero_retro(parameters,data,settings,condition,slide,name,animal))
             else:
                 phase_parameters = phase_parameters.append(phase_calculations(parameters,data,condition,slide,name))

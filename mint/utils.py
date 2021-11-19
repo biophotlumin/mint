@@ -7,7 +7,7 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-import numpy as np
+import csv
 
 def extraction_csv(input_folder):
     """Automatically extracts .csv file from an output folder containing multiple .txt and .png files.
@@ -36,3 +36,8 @@ def folder_structure_creation(input_folder):
         input_folder = root_input_folder
 
     return output_folder,identifier,root_input_folder
+
+def csv_sniffer(file_path):
+    with open(file_path, newline='') as csvfile:
+        dialect = csv.Sniffer().sniff(csvfile.read(1))
+    return dialect.delimiter

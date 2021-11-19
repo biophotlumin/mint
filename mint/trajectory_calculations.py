@@ -297,10 +297,7 @@ def polynomial_fit(data,parameters):
         y=np.array(y)
         val,cov=optimize.curve_fit(f,x,y)
         deviation=np.sqrt(np.mean((y-f(x,val[0],val[1],val[2],val[3]))**2))
-        #print(deviation)
-        #print(np.mean(cov))
-        #r = scipy.stats.linregress(x,y)[2]
-        #print(r**2)
+
         if (deviation<parameters['threshold_poly3']):
             return True
         else:

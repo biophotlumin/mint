@@ -35,11 +35,11 @@ parameters = {
     'threshold_r':40,
     #Data Extraction
     'r_conf_cut' : 0.9**2,
-    'px' : 0.175, #in µm
+    'px' : 0.173, #in µm
     'dt' : 0.05, #in s
-    'min_theoretical_precision' : 30, # in nm
+    'min_theoretical_precision' : 50, # in nm
     'sliding_window':3,
-    'sigma':175,
+    'sigma':129,
     'len_cutoff':30, #Number of points
     'threshold_poly3':1.4 #Deviation from third-degree polynom
 }
@@ -76,7 +76,7 @@ log = {
 
 #Define root input folder
 
-input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/Dyna_tri")
+input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/ML")
 
 start = time.time()
 

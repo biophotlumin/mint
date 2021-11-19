@@ -12,6 +12,7 @@
     normality tests wether or not a sample fits a normal distribution.
 """
 #Imports
+from utils import *
 from numpy.core.fromnumeric import mean
 from scipy import stats
 import pandas as pd
@@ -36,6 +37,10 @@ ylabels = {
         'diag_size':'Length of trajectory (µm)',
         'fraction_paused':'Fraction of time paused',
         'directionality':'Ratio of anterograde to retrograde transport',
+        'switch':'switch',
+        'variance_GO':'variance_GO',
+        'variance_STOP':'variance_STOP',
+        
 }
 
 def statistical_analysis(settings,input_folder):
@@ -50,9 +55,7 @@ def statistical_analysis(settings,input_folder):
                 continue #Skips to next file if not correct .csv 
             file_path = os.path.join(path, name)
             print(os.path.dirname(name))
-            data = pd.read_csv(file_path,sep='\t')
-            #print(data.shape)
-            #data = data.dropna(axis=0,how='all')
+            data = pd.read_csv(file_path,sep=csv_sniffer(file_path))
 
             if settings['antero_retro']==True:
                 variables_antero_retro(data,input_folder)
@@ -115,16 +118,17 @@ def variables_antero_retro(data,input_folder):
     """
     voi = ['curvilign_velocity_antero','curvilign_velocity_retro','processivity_antero','processivity_retro',\
         'run_length_antero','run_length_retro','diag_size','directionality',\
-            'fraction_paused','pausing_frequency','pausing_time'] #Variables of interest
+            'fraction_paused','pausing_frequency','pausing_time','switch','variance_GO','variance_STOP'] #Variables of interest
     results = []
     for item in set(voi):
         if normality(data,item) == False: #Check for normality
             results.append('Distribution of '+str(item)+' is not normal \n')
             results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
-            dunn(data,item)
-            pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            #dunn(data,item)
+            #pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            #pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
             #violinplot(data,item,str(round((kruskal(data,item)),6)))
+            means(data,item)
         elif normality(data,item) == True:
                 results.append('Distribution of '+str(item)+' is normal \n')
                 #Yet to implement t-test
@@ -218,7 +222,10 @@ def barplot(data,variable,input_folder,p):
         p is the p-value of whichever test was performed before, to be displayed within the graph. 
     """
     
-    sns.barplot(x=data['condition'],y=data[variable],capsize=0.02,estimator=mean,yerr=stats.sem(data[variable],nan_policy='omit'),ci=None)
+    error = []
+    for i in set(data['condition'].unique()):
+        error.append(stats.sem(data[variable].loc[data['condition']==i],nan_policy='omit'))
+    sns.barplot(x=data['condition'],y=data[variable],capsize=0.02,estimator=mean,yerr=error,ci=None)
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(ylabels[variable])
@@ -269,13 +276,13 @@ def pub_boxplot(data, variable,input_folder,p):
             data=data, showfliers =False)
     
     elif variable == 'directionality':
-        colorpal = {'CONTROL':'white','DYNAPYRAZOLE':'white'}
-        #colorpal = {'WT':'white','HET':'white','HOM':'white'}
+        #colorpal = {'CONTROL':'white','DYNAPYRAZOLE':'white'}
+        colorpal = {'WT':'white','HET':'white','HOM':'white'}
         sns.boxplot(x=data['condition'],
             y=(data[variable]),  width=0.35, notch=True, palette=colorpal,
             data=data, showfliers =False)
-        #stripal = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
-        stripal = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
+        stripal = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
+        #stripal = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
         sns.stripplot(x=data['condition'],
             y=data[variable],edgecolor='gray',palette=stripal)
 
@@ -295,14 +302,21 @@ def pub_boxplot(data, variable,input_folder,p):
 def pub_barplot(data, variable,input_folder,p):
     if 'CONTROL' in data['condition'].unique():
         colorpal = colorpal_dyna
+        error = []
+        error.append(stats.sem(data[variable].loc[data['condition']=='CONTROL'],nan_policy='omit'))
+        error.append(stats.sem(data[variable].loc[data['condition']=='DYNAPYRAZOLE'],nan_policy='omit'))
     else:
         colorpal = colorpal_kif
+        error = []
+        error.append(stats.sem(data[variable].loc[data['condition']=='HET'],nan_policy='omit'))
+        error.append(stats.sem(data[variable].loc[data['condition']=='HOM'],nan_policy='omit'))
+        error.append(stats.sem(data[variable].loc[data['condition']=='WT'],nan_policy='omit'))
 
     if variable == 'run_length_retro' or variable == 'curvilign_velocity_retro':
-        sns.barplot(y=(data[variable]*-1),x=data['condition'],estimator=mean,yerr=stats.sem(data[variable],nan_policy='omit'),ci=None,\
+        sns.barplot(y=(data[variable]*-1),x=data['condition'],estimator=mean,yerr=error,ci=None,\
             error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
     else:
-        sns.barplot(y=data[variable],x=data['condition'],estimator=mean,yerr=stats.sem(data[variable],nan_policy='omit'),ci=None,\
+        sns.barplot(y=data[variable],x=data['condition'],estimator=mean,yerr=error,ci=None,\
             error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
     sns.despine(trim=True)
     
@@ -313,8 +327,14 @@ def pub_barplot(data, variable,input_folder,p):
     plt.savefig(Path(input_folder).joinpath("Barplot "+str(data['condition'].unique())+" "+variable+".svg"))
     plt.close()
 
+def means(data,variable):
+    print(variable)
+    for cond in set(data.condition.unique()):
+        print(cond)
+        subdata = data.loc[data.condition==cond, variable]
+        print(subdata.mean())
 
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/Dyna_tri Results - 20211105_091209/Dyna_tri Results - 20211105_204959'
+    input_folder = r'/media/baptiste/Windows/Users/LUMIN10/Documents/wfh/Dyna_tri Results - 20211105_091209/Dyna_tri Results - 20211108_102254 final/yerr'
     settings = {'antero_retro':True}
     statistical_analysis(settings,input_folder)
