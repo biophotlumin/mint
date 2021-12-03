@@ -128,6 +128,7 @@ def variables_antero_retro(data,input_folder):
             #pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
             #pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
             #violinplot(data,item,str(round((kruskal(data,item)),6)))
+            #fraction_moving(data)
             means(data,item)
         elif normality(data,item) == True:
                 results.append('Distribution of '+str(item)+' is normal \n')
@@ -333,6 +334,66 @@ def means(data,variable):
         print(cond)
         subdata = data.loc[data.condition==cond, variable]
         print(subdata.mean())
+        
+def fraction_moving(data):
+    if 'CONTROL' in data['condition'].unique():
+        colorpal = colorpal_dyna
+    else:
+        colorpal = colorpal_kif
+    list_of_arrays = []
+    conditions_list = []
+    for index in set(data.condition.unique()):
+        arr = []
+        conditions_list.append(index)
+        subdata = data.loc[data.condition==index]
+        for file in subdata.file.unique():
+            arr.append(float((subdata.loc[data.file==file]).fraction_moving.unique()))
+        list_of_arrays.append(arr)
+    
+    pdunn = sp.posthoc_dunn(list_of_arrays)
+    index = []
+    for i in range(len(list_of_arrays)): #Rename DataFrame with analysed conditions
+        index.append(i+1)
+    label_dict = dict(zip(index, conditions_list))
+    pdunn.rename(index=label_dict,columns=label_dict,inplace=True)
+    pkw = stats.kruskal(*list_of_arrays,nan_policy='omit')[1]
+
+    print("Kruskal-Wallis "+str(pkw))
+    print("Dunn test \n"+str(pdunn))
+    data_per_file = data.drop_duplicates('file')
+    for i in set(data_per_file.condition.unique()):
+        sub = data_per_file['fraction_moving'].loc[data.condition ==i]
+        print(i)
+        print(sub.mean())
+
+    sns.set_theme(style="ticks", palette="pastel")
+
+    #colorpal = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
+    sns.boxplot(x=data_per_file['condition'],
+            y=data_per_file['fraction_moving'],  width=0.35, notch=True, palette=colorpal,
+            data=data, showfliers =False)#,hue=data_per_file['condition'])
+    sns.despine(trim=True)
+    plt.xlabel("Condition")
+    plt.ylabel("Ratio of moving particles")
+    plt.annotate(("p-value : "+str(pkw)),xy=(195,310),xycoords='figure points')
+    plt.savefig(Path(input_folder).joinpath("Boxplot "+str(data['condition'].unique())+" "+"fraction_moving.svg"))
+    plt.close()
+    error = []
+    error.append(stats.sem(data_per_file['fraction_moving'].loc[data['condition']=='HET'],nan_policy='omit'))
+    #error.append(stats.sem(data_per_file['fraction_moving'].loc[data['condition']=='HOM'],nan_policy='omit'))
+    error.append(stats.sem(data_per_file['fraction_moving'].loc[data['condition']=='WT'],nan_policy='omit'))
+    #error.append(stats.sem(data_per_file['fraction_moving'].loc[data['condition']=='CONTROL'],nan_policy='omit'))
+    #error.append(stats.sem(data_per_file['fraction_moving'].loc[data['condition']=='DYNAPYRAZOLE'],nan_policy='omit'))
+    print(error)
+    sns.barplot(y=data_per_file['fraction_moving'],x=data_per_file['condition'],estimator=mean,yerr=error,ci=None,\
+        error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
+    sns.despine(trim=True)
+    
+    plt.xlabel("Condition")
+    plt.ylabel('Ratio of moving particles')
+    plt.annotate(("p-value : "+str(pkw)),xy=(195,310),xycoords='figure points')
+    plt.savefig(Path(input_folder).joinpath("Barplot "+str(data['condition'].unique())+" "+"fraction_moving.svg"))
+    plt.close()
 
 if __name__ == '__main__':
     input_folder = r'/media/baptiste/Windows/Users/LUMIN10/Documents/wfh/Dyna_tri Results - 20211105_091209/Dyna_tri Results - 20211108_102254 final/yerr'
