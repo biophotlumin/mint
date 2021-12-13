@@ -308,7 +308,6 @@ def rotate_single_track(data):
         Input DataFrame must contain x and y columns with coordinates.
         This function returns an equivalent DataFrame with x and y coordinates.
         It is used to improve the efficiency of the polynomial fit.
-    
     """
     coords = data.loc[:, ['x', 'y']].values
     coords = coords - coords[0, :]

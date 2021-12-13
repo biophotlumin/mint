@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 import csv
 
+
 def extraction_csv(input_folder):
     """Automatically extracts .csv file from an output folder containing multiple .txt and .png files.
         """
@@ -34,6 +35,7 @@ def folder_structure_creation(input_folder):
 
     if input_folder =='':
         input_folder = root_input_folder
+
 
     return output_folder,identifier,root_input_folder
 

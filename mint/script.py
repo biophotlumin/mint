@@ -76,7 +76,7 @@ log = {
 
 #Define root input folder
 
-input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/ML")
+input_folder = Path(r"")
 
 start = time.time()
 

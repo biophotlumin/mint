@@ -95,8 +95,10 @@ def final_image_ouput(log,name,frames,processed_trajectory):
 
 def dict_dump(log,dict,file_name):
     """Writes the content of a dictionary into a text file.
+    
         Inputs two dictionaries and a string.
     """
+
     with open(Path(log['output_folder']).joinpath(str(file_name)+".txt"), 'w') as dict_txt:
         for k, v in dict.items():
             print(str(k)+" : "+str(v), file=dict_txt)

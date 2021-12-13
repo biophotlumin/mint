@@ -589,8 +589,7 @@ def trajectory_calculations_antero_retro(phase_parameters):
             if distance_total==0:
                 continue
 
-            #directionality.append(np.abs(distance_antero)/np.abs(distance_total))
-            directionality.append(np.abs(distance_retro)/np.abs(distance_total))
+            directionality.append(np.abs(distance_antero)/np.abs(distance_total))
 
             #Ratio of moving particles
             n_particles = data.n_particles.tolist()
@@ -665,16 +664,11 @@ def data_extraction(parameters,input_folder,settings):
             
             print("Per phase calculations of "+name)
             if settings['antero_retro']:
-                if name == '210114_nKTP_dynapyrazole.lif - Series059.tif':
-                    parameters['dt'] = 0.09
-                    print(parameters['dt'])
-                    phase_parameters = phase_parameters.append(phase_calculations_antero_retro(parameters,data,settings,condition,slide,name,animal))
-                else:
-                    parameters['dt'] = 0.05
-                    phase_parameters = phase_parameters.append(phase_calculations_antero_retro(parameters,data,settings,condition,slide,name,animal))
+                phase_parameters = phase_parameters.append(phase_calculations_antero_retro(parameters,data,settings,condition,slide,name,animal))
             else:
                 phase_parameters = phase_parameters.append(phase_calculations(parameters,data,condition,slide,name))
-    phase_parameters.to_csv(phase_parameters_output, sep = '\t')
+            phase_parameters.to_csv(phase_parameters_output, sep = '\t')
+
     print("Per trajectory calculations of "+name)
     if settings['antero_retro']==True:
         trajectory_parameters = trajectory_calculations_antero_retro(phase_parameters)
@@ -739,11 +733,8 @@ if __name__ == '__main__':
     }
 
     start = time.time()
+
     input_folder = Path(r"")
     data_extraction(parameters,input_folder,settings)
     end = time.time()
-    print((end-start)/60)
 
-    """data = pd.read_csv(r'/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20210921_182942 line average 4/124 Results - 20211028_174342/Per phase parameters.csv',sep='\t')
-    rev = trajectory_calculations_antero_retro(data)
-    rev.to_csv(r'/home/baptiste/rev3.csv',sep='\t')"""

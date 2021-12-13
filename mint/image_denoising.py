@@ -106,3 +106,4 @@ def frame_accu(frames):
         add_frames[(int(i/2))] = ((frames[i]+frames[i+1]))
 
     return add_frames
+
