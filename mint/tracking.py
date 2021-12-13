@@ -7,8 +7,6 @@ import trajectory_calculations as ft
 from image_denoising import *
 from output_files_creation import *
 
-
-
 def tracking(input_folder,parameters,settings,log):
     """File per file localization of particles and trajectory reconstitution. 
         input_folder is the root folder containing all files to be analyzed.
@@ -33,8 +31,7 @@ def tracking(input_folder,parameters,settings,log):
 
             #Opening video file
             frames = imageio.volread(file_path)
-            #frames = frame_accu(frames)
-            
+        
             #Per frame denoising process
             frames_init = np.zeros(frames.shape)
             for i in range(len(frames)):
@@ -111,7 +108,7 @@ def tracking(input_folder,parameters,settings,log):
                 if settings['group_image']:
                     final_image_ouput(log,name,frames,processed_trajectory)
 
-    #Writes down parameters and settings used for that run into txt files at the root of the output folder
+    #Writes down parameters and settings used in that run into txt files at the root of the output folder
     dict_dump(log,parameters,'parameters')
     dict_dump(log,settings,'settings')
     dict_dump(log,log,'log')

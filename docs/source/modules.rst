@@ -4,6 +4,7 @@ intraneuronal_tracking
 .. toctree::
    :maxdepth: 4
 
+   cli
    data_extraction
    gui
    image_denoising

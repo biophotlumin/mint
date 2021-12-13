@@ -37,9 +37,9 @@ ylabels = {
         'diag_size':'Length of trajectory (µm)',
         'fraction_paused':'Fraction of time paused',
         'directionality':'Ratio of anterograde to retrograde transport',
-        'switch':'switch',
-        'variance_GO':'variance_GO',
-        'variance_STOP':'variance_STOP',
+        'switch':'Reversal of transport direction',
+        'variance_GO':'Variation of intensity in GO phases',
+        'variance_STOP':'Variation of intensity in STOP phases',
         
 }
 
@@ -116,19 +116,19 @@ def variables_antero_retro(data,input_folder):
         data is a DataFrame containing transport parameters, as defined in data_extraction.py.
         input_folder is the path to the input folder.
     """
+    #Variables of interest
     voi = ['curvilign_velocity_antero','curvilign_velocity_retro','processivity_antero','processivity_retro',\
-        'run_length_antero','run_length_retro','diag_size','directionality',\
-            'fraction_paused','pausing_frequency','pausing_time','switch','variance_GO','variance_STOP'] #Variables of interest
+            'run_length_antero','run_length_retro','diag_size','directionality','fraction_paused',\
+            'pausing_frequency','pausing_time','switch','variance_GO','variance_STOP'] 
     results = []
     for item in set(voi):
         if normality(data,item) == False: #Check for normality
             results.append('Distribution of '+str(item)+' is not normal \n')
             results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
-            #dunn(data,item)
-            #pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            #pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            #violinplot(data,item,str(round((kruskal(data,item)),6)))
-            means(data,item)
+            dunn(data,item)
+            boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            
         elif normality(data,item) == True:
                 results.append('Distribution of '+str(item)+' is normal \n')
                 #Yet to implement t-test
@@ -223,9 +223,15 @@ def barplot(data,variable,input_folder,p):
     """
     
     error = []
-    for i in set(data['condition'].unique()):
+    #print(type(data['condition'].unique()))   
+    for i in data['condition'].unique():
+        print("error")
+        print(i)
+        print(stats.sem(data[variable].loc[data['condition']==i],nan_policy='omit'))
         error.append(stats.sem(data[variable].loc[data['condition']==i],nan_policy='omit'))
-    sns.barplot(x=data['condition'],y=data[variable],capsize=0.02,estimator=mean,yerr=error,ci=None)
+    
+    #sns.barplot(x=data['condition'],y=data[variable],capsize=0.02,estimator=mean,yerr=error,ci=None)
+    sns.barplot(x=data['condition'],y=data[variable],estimator=mean,yerr=error,ci=None,error_kw={'elinewidth':2,'capsize':4,'capthick':2})
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(ylabels[variable])
@@ -328,6 +334,11 @@ def pub_barplot(data, variable,input_folder,p):
     plt.close()
 
 def means(data,variable):
+    """Calculates the mean of each variable and each condition.
+
+        data is a DataFrame containing transport parameters, as defined in data_extraction.py.
+        variable is the name of the variable of interest being tested.
+    """
     print(variable)
     for cond in set(data.condition.unique()):
         print(cond)
@@ -335,6 +346,6 @@ def means(data,variable):
         print(subdata.mean())
 
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/Windows/Users/LUMIN10/Documents/wfh/Dyna_tri Results - 20211105_091209/Dyna_tri Results - 20211108_102254 final/yerr'
+    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/paper'
     settings = {'antero_retro':True}
     statistical_analysis(settings,input_folder)

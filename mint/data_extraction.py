@@ -739,7 +739,7 @@ if __name__ == '__main__':
     }
 
     start = time.time()
-    input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20211104_102617/124")
+    input_folder = Path(r"/media/baptiste/Windows/Users/LUMIN10/Documents/wfh/tests SCS/Dyna_tri")
     data_extraction(parameters,input_folder,settings)
     end = time.time()
     print((end-start)/60)

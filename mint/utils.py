@@ -38,6 +38,8 @@ def folder_structure_creation(input_folder):
     return output_folder,identifier,root_input_folder
 
 def csv_sniffer(file_path):
+    """Returns the separator used in a csv file. Inputs a string or Path object, returns a string.
+    """
     with open(file_path, newline='') as csvfile:
         dialect = csv.Sniffer().sniff(csvfile.read(1))
     return dialect.delimiter

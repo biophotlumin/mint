@@ -13,7 +13,7 @@ from scipy import signal
 def tophat(parameters,processed_frames,i,frames):
     """Applies top-hat transform to each individual frames. Inputs a dictionary, a NumPy array, an integer, and a NumPy array. Returns a NumPy array.
 
-                Uses cv2 MORPH_TOPHAT function to remove artifacts.
+                Uses cv2's MORPH_TOPHAT function to remove artifacts.
                 parameters is a dictionary containing calculation parameters. This function uses the 'separation' key. Refer to script.py for its use.
                 processed_frames is an empty NumPy array, shaped according to the number of frames, rows and columns of the current file.
                 i is the index of the for loop processing each frame.
@@ -72,6 +72,7 @@ def wavelet_denoising(processed_frames,i):
 
 def line_average(frames):
     """Performs line-by-line frame average. Inputs and returns an array of frames.
+
         Each line of even frames is averaged with the corresponding line of the following odd frames.
     """
     avg_frames = np.empty((int(frames.shape[0]/2),frames.shape[1],frames.shape[2]))
@@ -83,8 +84,9 @@ def line_average(frames):
     return avg_frames
 
 def frame_average(frames):
-    """Performs line-by-line frame average. Inputs and returns an array of frames.
-        Each line of even frames is averaged with the corresponding line of the following odd frames.
+    """Performs frame by frame average. Inputs and returns an array of frames.
+
+        Averages even frames with the following odd frames.
     """
     avg_frames = np.empty((int(frames.shape[0]/2),frames.shape[1],frames.shape[2]))
 
@@ -94,12 +96,13 @@ def frame_average(frames):
     return avg_frames
 
 def frame_accu(frames):
-    """Performs line-by-line frame average. Inputs and returns an array of frames.
-        Each line of even frames is averaged with the corresponding line of the following odd frames.
+    """Performs line-by-line frame accumulation. Inputs and returns an array of frames.
+
+        Adds even frames to the following odd frames.
     """
-    avg_frames = np.empty((int(frames.shape[0]/2),frames.shape[1],frames.shape[2]))
+    add_frames = np.empty((int(frames.shape[0]/2),frames.shape[1],frames.shape[2]))
 
     for i in range(0,(frames.shape[0]-2),2):
-        avg_frames[(int(i/2))] = ((frames[i]+frames[i+1]))
+        add_frames[(int(i/2))] = ((frames[i]+frames[i+1]))
 
-    return avg_frames
+    return add_frames

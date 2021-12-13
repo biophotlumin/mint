@@ -64,19 +64,21 @@ def test_locate(input_folder,parameters,whole_file,settings):
             plt.close()
             break
 
-parameters = {
-    #trackpy.batch
-    'diameter':9,
-    'minmass':300,
-    'separation':12,
-}
+if __name__ == '__main__':
+
+    parameters = {
+        #trackpy.batch
+        'diameter':9,
+        'minmass':300,
+        'separation':12,
+    }
 
 #Optional image processing
 
-settings = {
-    'tophat':True,
-    'wavelet':False,
-}
-if __name__ == '__main__':
+    settings = {
+        'tophat':True,
+        'wavelet':False,
+    }
+    
     input_folder = r'/media/baptiste/SHG_tracking_data/Jitter nKTP/troisième série/LA2'
     test_locate(input_folder,parameters,whole_file=False,settings=settings)
