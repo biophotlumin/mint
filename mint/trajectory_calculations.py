@@ -278,8 +278,6 @@ def polynomial_fit(data,parameters):
 
         Inputs a DataFrame with x and y coordinates. Returns a boolean.
         """
-    #x = data.x
-    #y = data.y
     rot = rotate_single_track(data)
     x = rot.x_rotated
     y = rot.y_rotated

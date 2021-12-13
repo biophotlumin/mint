@@ -79,6 +79,6 @@ if __name__ == '__main__':
         'tophat':True,
         'wavelet':False,
     }
-    
-    input_folder = r'/media/baptiste/SHG_tracking_data/Jitter nKTP/troisième série/LA2'
+
+    input_folder = r''
     test_locate(input_folder,parameters,whole_file=False,settings=settings)

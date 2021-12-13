@@ -202,10 +202,8 @@ def boxplot(data,variable,input_folder,p):
 
     sns.set_theme(style="ticks", palette="pastel")
     sns.boxplot(x=data['condition'],
-            y=data[variable],  width=0.35, notch=True, #hue=data['slide'],palette=["m", "g"],
+            y=data[variable],  width=0.35, notch=True,
             data=data, showfliers =False,linewidth=1)
-    #sns.stripplot(x=data['condition'],
-            #y=data[variable],edgecolor='gray',palette=("flare"))
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(ylabels[variable])
@@ -223,14 +221,9 @@ def barplot(data,variable,input_folder,p):
     """
     
     error = []
-    #print(type(data['condition'].unique()))   
     for i in data['condition'].unique():
-        print("error")
-        print(i)
-        print(stats.sem(data[variable].loc[data['condition']==i],nan_policy='omit'))
         error.append(stats.sem(data[variable].loc[data['condition']==i],nan_policy='omit'))
     
-    #sns.barplot(x=data['condition'],y=data[variable],capsize=0.02,estimator=mean,yerr=error,ci=None)
     sns.barplot(x=data['condition'],y=data[variable],estimator=mean,yerr=error,ci=None,error_kw={'elinewidth':2,'capsize':4,'capthick':2})
     sns.despine(trim=True)
     plt.xlabel("Condition")
@@ -266,73 +259,6 @@ def normality(data,variable):
     else:
         return False
 
-colorpal_dyna = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
-colorpal_kif = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
-
-def pub_boxplot(data, variable,input_folder,p):
-    if 'CONTROL' in data['condition'].unique():
-        colorpal = colorpal_dyna
-    else:
-        colorpal = colorpal_kif
-    sns.set_theme(style="ticks", palette="pastel")
-    
-    if variable == 'run_length_retro' or variable =='curvilign_velocity_retro':
-        sns.boxplot(x=data['condition'],
-            y=(data[variable]*-1),  width=0.35, notch=True, palette=colorpal,
-            data=data, showfliers =False)
-    
-    elif variable == 'directionality':
-        #colorpal = {'CONTROL':'white','DYNAPYRAZOLE':'white'}
-        colorpal = {'WT':'white','HET':'white','HOM':'white'}
-        sns.boxplot(x=data['condition'],
-            y=(data[variable]),  width=0.35, notch=True, palette=colorpal,
-            data=data, showfliers =False)
-        stripal = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
-        #stripal = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
-        sns.stripplot(x=data['condition'],
-            y=data[variable],edgecolor='gray',palette=stripal)
-
-    else:
-        sns.boxplot(x=data['condition'],
-            y=data[variable],  width=0.35, notch=True, palette=colorpal,
-            data=data, showfliers =False)
-
-    sns.despine(trim=True)
-    plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
-    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
-    #plt.savefig((input_folder+"\Boxplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.savefig(Path(input_folder).joinpath("Boxplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.close()
-    
-def pub_barplot(data, variable,input_folder,p):
-    if 'CONTROL' in data['condition'].unique():
-        colorpal = colorpal_dyna
-        error = []
-        error.append(stats.sem(data[variable].loc[data['condition']=='CONTROL'],nan_policy='omit'))
-        error.append(stats.sem(data[variable].loc[data['condition']=='DYNAPYRAZOLE'],nan_policy='omit'))
-    else:
-        colorpal = colorpal_kif
-        error = []
-        error.append(stats.sem(data[variable].loc[data['condition']=='HET'],nan_policy='omit'))
-        error.append(stats.sem(data[variable].loc[data['condition']=='HOM'],nan_policy='omit'))
-        error.append(stats.sem(data[variable].loc[data['condition']=='WT'],nan_policy='omit'))
-
-    if variable == 'run_length_retro' or variable == 'curvilign_velocity_retro':
-        sns.barplot(y=(data[variable]*-1),x=data['condition'],estimator=mean,yerr=error,ci=None,\
-            error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
-    else:
-        sns.barplot(y=data[variable],x=data['condition'],estimator=mean,yerr=error,ci=None,\
-            error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
-    sns.despine(trim=True)
-    
-    plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
-    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
-    #plt.savefig((input_folder+"\Barplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.savefig(Path(input_folder).joinpath("Barplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.close()
-
 def means(data,variable):
     """Calculates the mean of each variable and each condition.
 
@@ -346,6 +272,6 @@ def means(data,variable):
         print(subdata.mean())
 
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/paper'
+    input_folder = r''
     settings = {'antero_retro':True}
     statistical_analysis(settings,input_folder)
