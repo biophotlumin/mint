@@ -159,7 +159,7 @@ def acceleration_minimization_norm1(measure, sigma0,px, nn = 0):
     constraints = [ cp.atoms.norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
     prob = cp.Problem(objective, constraints)
     
-    prob.solve(solver='SCS',verbose=False) #alternatively, 'GUROBI' or 'MOSEK'
+    prob.solve(solver='SCS',verbose=False,max_iters=100000) #alternatively, 'GUROBI' or 'MOSEK'
     solution = variable.value
     if nn == 0:
         return solution
@@ -278,8 +278,6 @@ def polynomial_fit(data,parameters):
 
         Inputs a DataFrame with x and y coordinates. Returns a boolean.
         """
-    #x = data.x
-    #y = data.y
     rot = rotate_single_track(data)
     x = rot.x_rotated
     y = rot.y_rotated
@@ -304,9 +302,12 @@ def polynomial_fit(data,parameters):
             return False
 
 def rotate_single_track(data):
-    """Align trajectories in the horizontal plane.
+    """Rotates trajectory to the horizontal plane. Inputs and returns a DataFrame.
 
-        Inputs and returns a Dataframe with x and y coordinates.
+        This functions transforms the coordinates of a trajectory so that it is as horizontal as possible.
+        Input DataFrame must contain x and y columns with coordinates.
+        This function returns an equivalent DataFrame with x and y coordinates.
+        It is used to improve the efficiency of the polynomial fit.
     """
     coords = data.loc[:, ['x', 'y']].values
     coords = coords - coords[0, :]

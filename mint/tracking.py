@@ -9,9 +9,9 @@ from output_files_creation import *
 from pathlib import Path
 from utils import *
 
+
 def tracking(input_folder,parameters,settings,log):
     """File per file localization of particles and trajectory reconstitution. 
-
         input_folder is the root folder containing all files to be analyzed.
         parameters is a dictionary of calculation parameters, as defined in script.py.
         settings is a dictionary containing boolean values for optional data processing, as defined in script.py.
@@ -34,8 +34,7 @@ def tracking(input_folder,parameters,settings,log):
 
             #Opening video file
             frames = imageio.volread(file_path)
-            frames = line_average(frames)
-            
+
             #Per frame denoising process
             frames_init = np.zeros(frames.shape)
             for i in range(len(frames)):

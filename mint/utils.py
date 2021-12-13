@@ -7,6 +7,8 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
+import csv
+
 
 def extraction_csv(input_folder):
     """Automatically extracts .csv file from an output folder containing multiple .txt and .png files.
@@ -34,4 +36,12 @@ def folder_structure_creation(input_folder):
     if input_folder =='':
         input_folder = root_input_folder
 
+
     return output_folder,identifier,root_input_folder
+
+def csv_sniffer(file_path):
+    """Returns the separator used in a csv file. Inputs a string or Path object, returns a string.
+    """
+    with open(file_path, newline='') as csvfile:
+        dialect = csv.Sniffer().sniff(csvfile.read(1))
+    return dialect.delimiter

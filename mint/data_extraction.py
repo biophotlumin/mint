@@ -459,7 +459,7 @@ def trajectory_calculations_antero_retro(phase_parameters):
     phase_parameters.sort_values(by=['rejoined_trajectory'],inplace=True)
     intensity_GO,intensity_STOP,variance_GO,variance_STOP,curvilign_velocity_antero,curvilign_velocity_retro,\
         processivity_antero,processivity_retro,run_length_antero,run_length_retro,pausing_frequency,pausing_time,\
-        diag_size,fraction_paused,directionality,moving_particles,number_stop = ([] for i in range(17)) #Initializes lists
+        diag_size,fraction_paused,directionality,moving_particles,number_stop,t_switch = ([] for i in range(18)) #Initializes lists
 
     mean_condition = pd.DataFrame({'condition':[]},dtype=str)
     mean_animal = pd.DataFrame({'animal':[]},dtype=str)
@@ -595,6 +595,19 @@ def trajectory_calculations_antero_retro(phase_parameters):
             n_particles = data.n_particles.tolist()
             moving_particles.append((phase_parameters[(phase_parameters.file==file)].rejoined_trajectory.nunique()/np.unique(n_particles))[0])
 
+            switch = 0
+            for p in set(data.trajectory):
+                p_data = data.loc[data.trajectory==p]
+                if len(p_data) > 2:
+                    for i in range(len(p_data.phase_number)-2):
+                                if (p_data[p_data.phase_number==i].phase.values==2) & (p_data[p_data.phase_number==i+1].phase.values==0) & (p_data[p_data.phase_number==i+2].phase.values==2):
+                                    if (p_data[p_data.phase_number==i].curvilign_velocity.values > 0) & (p_data[p_data.phase_number==i+2].curvilign_velocity.values <0):
+                                        switch += 1
+                                    elif (p_data[p_data.phase_number==i].curvilign_velocity.values < 0) & (p_data[p_data.phase_number==i+2].curvilign_velocity.values >0):
+                                        switch += 1
+                    
+            t_switch.append(switch)
+
     cond_list = mean_condition['condition'].tolist()
     slide_list = mean_slide['slide'].tolist()
     animal_list = mean_animal['animal'].tolist()
@@ -602,7 +615,7 @@ def trajectory_calculations_antero_retro(phase_parameters):
     trajectory_parameters = pd.DataFrame({'pausing_time':pausing_time, 'pausing_frequency':pausing_frequency,\
          'curvilign_velocity_antero':curvilign_velocity_antero,'curvilign_velocity_retro':curvilign_velocity_retro,\
           'intensity_GO':intensity_GO,'intensity_STOP':intensity_STOP,'variance_GO':variance_GO,'variance_STOP':variance_STOP,\
-           'processivity_antero':processivity_antero,'processivity_retro':processivity_retro,\
+           'processivity_antero':processivity_antero,'processivity_retro':processivity_retro,'switch':t_switch,\
             'run_length_antero':run_length_antero,'run_length_retro':run_length_retro,\
              'diag_size':diag_size,'fraction_paused':fraction_paused,'trajectory':iteration,\
               'n_stop':number_stop,'fraction_moving':moving_particles,'directionality':directionality,
@@ -692,11 +705,11 @@ if __name__ == '__main__':
     'threshold_r':60,
     #Data Extraction
     'r_conf_cut' : 0.9**2,
-    'px' : 0.175, #in µm
+    'px' : 0.173, #in µm
     'dt' : 0.05, #in s
-    'min_theoretical_precision' : 30, # in nm
+    'min_theoretical_precision' : 50, # in nm
     'sliding_window':3,
-    'sigma':175,
+    'sigma':129,
     'len_cutoff':30, #Number of points
     'threshold_poly3':1.4 #Deviation from third-degree polynom
     }   
@@ -720,7 +733,8 @@ if __name__ == '__main__':
     }
 
     start = time.time()
-    input_folder = Path(r"F:\Zebrafish data\124 - Results - 20210830_103303 FINAL\124")
+
+    input_folder = Path(r"")
     data_extraction(parameters,input_folder,settings)
     end = time.time()
-    print((end-start)/60)
+
