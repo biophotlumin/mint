@@ -13,7 +13,7 @@ Its purpose is to automate workflow to the point where an input of raw video fil
 
 
 .. image:: https://zenodo.org/badge/DOI/10.1007/978-3-319-76207-4_15.svg
-   :target: https://doi.org/10.1007/978-3-319-76207-4_15
+   :target: https://doi.org/10.5281/zenodo.5948651
 
 
 
