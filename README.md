@@ -18,14 +18,11 @@ Download the lastest release and extract its contents to a dedicated folder.
 
 ### **CLI**
 
-Run ``cli.py``.
-
-### **GUI**
-
-Run `gui.py`.
-
-### **Script**
-
 Edit calculation parameters and settings as needed in `script.py`.
 
 Run `script.py` through command line or any IDE.
+
+
+### **GUI** (work in progress)
+
+Run `gui.py`.
