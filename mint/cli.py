@@ -1,5 +1,4 @@
 """Provides an interactive command line interface (CLI), as an alternative to the GUI or script.py
-
     The CLI essentially recapitulates the parameters and settings available in script.py.
     It should also raise an error if the parameters provided are not in the right format.
 """

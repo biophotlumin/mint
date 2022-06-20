@@ -8,6 +8,7 @@
     trajectory_calculations_antero_retro behaves like trajectory_calculations but can distinguish between anterograde and retrograde transport.
     data_extraction scans the output folder for .csv files and calls the aforementioned functions.
 """
+
 #Imports
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ from scipy import *
 from scipy.fftpack import *
 from scipy.signal import *
 from matplotlib.pyplot import *
-from utils import folder_structure_creation
+from utils import folder_structure_creation, csv_sniffer
 from trajectory_calculations import *
 
 def inst_velocity(x,y,parameters):
@@ -39,6 +40,7 @@ def inst_velocity(x,y,parameters):
 
 def confinement(x,y,parameters):
     """Calculates the confinement ratio of a trajectory to segment it into phases. Inputs two floats and a dictionary, returns a list.
+
         x and y are coordinates (in pixels).
         parameters is a dictionary of calculation parameters, as defined in script.py.
     """
@@ -47,22 +49,22 @@ def confinement(x,y,parameters):
     size=len(x)
     sliding_window = parameters['sliding_window']
     if (size>=2*sliding_window+1):
-        for i in range(sliding_window): #Extrapolate the first 5 points
+        for i in range(sliding_window): #Extrapolate the confinement ratio at the beginning of the trajectory
             d_net = np.sqrt((x[sliding_window*2]-x[0])**2+(y[sliding_window*2]-y[0])**2)
             d_total = 0
             for u in range(2*sliding_window):
                 d_total = d_total + np.sqrt((x[u+1]-x[u])**2+(y[u+1]-y[u])**2)
-            r_conf.append((d_net/d_total)**2)
+            r_conf.append((d_net/d_total))
 
         for i in range (sliding_window,size-sliding_window):
-            if (i == size-sliding_window-1): #Extrapolate the last 5 points
+            if (i == size-sliding_window-1): #Extrapolate a number of points equal to the sliding window at the end
                 d_total = 0
                 d_net = np.sqrt((x[i+sliding_window]-x[i-sliding_window])**2+(y[i+sliding_window]-y[i-sliding_window])**2)
                 for j in range (2*sliding_window):
                     d_total = d_total + np.sqrt((x[(i-sliding_window)+j+1]-x[(i-sliding_window)+j])**2+(y[(i-sliding_window)+j+1]-y[(i-sliding_window)+j])**2)
                 if (d_total!=0):
                     for p in range(sliding_window+1):
-                        r_conf.append((d_net/d_total)**2)
+                        r_conf.append((d_net/d_total))
                 else:
                     for p in range(sliding_window+1):
                         r_conf.append(0)
@@ -73,22 +75,23 @@ def confinement(x,y,parameters):
                 for j in range (2*sliding_window):
                     d_total = d_total + np.sqrt((x[(i-sliding_window)+j+1]-x[(i-sliding_window)+j])**2+(y[(i-sliding_window)+j+1]-y[(i-sliding_window)+j])**2)
                 if (d_total!=0):
-                        r_conf.append((d_net/d_total)**2)
+                        r_conf.append((d_net/d_total))
                 else:
                         r_conf.append(0)
     else:
         pass
     return r_conf
 
-def phase_calculations(parameters,data,condition,slide,name):
+def phase_calculations(parameters,data,settings,condition,slide,name,animal):
     """Calculates per phase variables of interest. Inputs a dictionary, a DataFrame, and three strings. Returns a DataFrame.
 
         parameters is a dictionary of calculation parameters, as defined in script.py.
         data is a DataFrame containing data from a .csv file being processed.
-        condition, slide and name are different levels of the input folder structure. 
+        condition, slide, name and animal are different levels of the input folder structure. 
     """
 
     dt = parameters['dt']
+    sw = parameters['sliding_window']
     conf_threshold = parameters['min_theoretical_precision']*1e-3/dt # in µm/s, threshold defined by a minimal velocity of 10nm/dt (or 0.2µm/s)
     f_phase_parameters = pd.DataFrame()
 
@@ -96,6 +99,16 @@ def phase_calculations(parameters,data,condition,slide,name):
                 
         subdata = data[data.particle==trajectory]
         subdata = subdata.reset_index(drop = True)
+
+        if settings['polynomial_fit']==True: #Fit trajectories to third-degree polynom, and discard trajectories that deviate too much
+            if polynomial_fit(subdata,parameters) == True:
+                pass
+            else:
+                continue
+
+        if settings['minimization']==True: #Experimental trajectory denoising
+            subdata = minimization(subdata,parameters) #Defined noise level for every trajectories
+            #subdata = point_minimization(subdata,parameters) #Point-by-point calculation of noise level based on signal intensity
 
         x = subdata.x
         x = x.dropna()
@@ -121,27 +134,20 @@ def phase_calculations(parameters,data,condition,slide,name):
         phase = np.zeros(size)
 
         #Categorize each phase as either a GO or STOP phase
-        if (size>=2*parameters['sliding_window']+1):
+        if (size>=2*sw+1):
             for i in range(len(r_conf)):
                 if (r_conf[i]>parameters['r_conf_cut']):
                         phase[i] = 2 #GO phase
 
-            for i in range(size): #STOP phase refinment
-                if (phase[i]==2) & (v_inst[i]<conf_threshold):
-                    phase[i] = 0
         else:
-            
-            for i in range(size): #STOP phase refinment
-                phase[i]==2 
-                if (phase[i]==2) & (v_inst[i]<conf_threshold):
+            for i in range(sw,(size-sw)): #STOP phase refinment
+                vel_list = []
+                for j in range((i+(-1*(sw//2))),(i+(sw//2))):
+                    vel = (np.sqrt((x[j+1]-x[j])**2+(y[j+1]-y[j])**2))/dt
+                    vel_list.append(vel)
+
+                if (phase[i]==2) & (np.mean(vel_list)<conf_threshold):
                     phase[i] = 0
-
-        #Get min and max values for both X and Y to calculate length of rejoined trajectories later
-        min_x = np.min(x)
-        max_x = np.max(x)
-
-        min_y = np.min(y)
-        max_y = np.max(y)
         
         subdata['Vinst'] = v_inst
         subdata = subdata.reset_index(drop = True)
@@ -157,6 +163,12 @@ def phase_calculations(parameters,data,condition,slide,name):
                 cut.append(j+1)
 
         cut.append(len(subdata))
+
+        min_x = x[cut[0]-1]
+        max_x = x[(cut[len(cut)-1])-1]
+
+        min_y = y[cut[0]-1]
+        max_y = y[(cut[len(cut)-1])-1]
 
         for phase_number in range(len(cut)-1): #Per phase processing. '-1' : First and last phases are deleted
             start = cut[phase_number]
@@ -183,12 +195,13 @@ def phase_calculations(parameters,data,condition,slide,name):
                 phase_sign = 2
 
             run_length = curvilign_velocity*phase_duration
+            curv_length = curvilign_velocity*dt
             f_phase_parameters.reset_index(inplace=True, drop=True)
 
             f_phase_parameters = f_phase_parameters.append([{'trajectory': trajectory, 'phase':phase_sign,'phase_number':phase_number,'phase_length':phase_length,\
             'vectorial_velocity':vectorial_velocity,'curvilign_velocity':curvilign_velocity,'phase_duration':phase_duration,'run_length':run_length,'intensity':mean_intensity,\
-            'variance':variance,'condition':condition,'slide':slide,'rejoined_trajectory':subdata.rejoined_particle.unique()[0],\
-                'file':name,'min_x':min_x,'max_x':max_x,'min_y':min_y,'max_y':max_y,'n_particles':data.n_particles.unique()[0]}])
+            'intensity':mean_intensity,'variance':variance,'condition':condition,'slide':slide,'curv_length':curv_length,'rejoined_trajectory':subdata.rejoined_particle.unique()[0],\
+                'animal':animal,'file':name,'min_x':min_x,'max_x':max_x,'min_y':min_y,'max_y':max_y,'n_particles':data.n_particles.unique()[0]}])
 
     return f_phase_parameters
 
@@ -200,7 +213,8 @@ def phase_calculations_antero_retro(parameters,data,settings,condition,slide,nam
         condition, slide, name and animal are different levels of the input folder structure. 
     """
     dt = parameters['dt']
-    conf_threshold = parameters['min_theoretical_precision']*1e-3/dt # in µm/s, threshold defined by a minimal velocity of 10nm/dt (or 0.2µm/s)
+    sw = parameters['sliding_window']
+    conf_threshold = parameters['min_theoretical_precision']*1e-3/(dt*(sw-1)) # in µm/s, threshold defined by a minimal velocity of 10nm/dt (or 0.2µm/s)
     f_phase_parameters = pd.DataFrame()
 
     for trajectory in set(data.particle):
@@ -208,14 +222,15 @@ def phase_calculations_antero_retro(parameters,data,settings,condition,slide,nam
         subdata = data[data.particle==trajectory]
         subdata = subdata.reset_index(drop = True)
 
-        if settings['polynomial_fit']==True:
+        if settings['polynomial_fit']==True: #Fit trajectories to third-degree polynom, and discard trajectories that deviate too much
             if polynomial_fit(subdata,parameters) == True:
                 pass
             else:
                 continue
 
-        if settings['minimization']==True:
-            subdata = minimization(subdata,parameters)
+        if settings['minimization']==True: #Experimental trajectory denoising
+            subdata = minimization(subdata,parameters) #Defined noise level for every trajectories
+            #subdata = point_minimization(subdata,parameters) #Point-by-point calculation of noise level based on signal intensity
 
         x = subdata.x
         x = x.dropna()
@@ -241,27 +256,20 @@ def phase_calculations_antero_retro(parameters,data,settings,condition,slide,nam
         phase = np.zeros(size)
 
         #Categorize each phase as either a GO or STOP phase
-        if (size>=2*parameters['sliding_window']+1):
+        if (size>=2*sw+1):
             for i in range(len(r_conf)):
                 if (r_conf[i]>parameters['r_conf_cut']):
                         phase[i] = 2 #GO phase
 
-            for i in range(size): #STOP phase refinment
-                if (phase[i]==2) & (v_inst[i]<conf_threshold):
-                    phase[i] = 0
         else:
-            
-            for i in range(size): #STOP phase refinment
-                phase[i]==2 
-                if (phase[i]==2) & (v_inst[i]<conf_threshold):
-                    phase[i] = 0
-        
-        #Get min and max values for both X and Y to calculate length of rejoined trajectories later
-        min_x = np.min(x)
-        max_x = np.max(x)
+            for i in range(sw,(size-sw)): #STOP phase refinment
+                vel_list = []
+                for j in range((i+(-1*(sw//2))),(i+(sw//2))):
+                    vel = (np.sqrt((x[j+1]-x[j])**2+(y[j+1]-y[j])**2))/dt
+                    vel_list.append(vel)
 
-        min_y = np.min(y)
-        max_y = np.max(y)
+                if (phase[i]==2) & (np.mean(vel_list)<conf_threshold):
+                    phase[i] = 0
         
         subdata['Vinst'] = v_inst
         subdata = subdata.reset_index(drop = True)
@@ -278,6 +286,12 @@ def phase_calculations_antero_retro(parameters,data,settings,condition,slide,nam
 
         cut.append(len(subdata))
 
+        min_x = x[cut[0]-1]
+        max_x = x[(cut[len(cut)-1])-1]
+
+        min_y = y[cut[0]-1]
+        max_y = y[(cut[len(cut)-1])-1]
+
         for phase_number in range(len(cut)-1): #Per phase processing. '-1' : First and last phases are deleted
             start = cut[phase_number]
             stop = cut[phase_number+1]
@@ -288,11 +302,29 @@ def phase_calculations_antero_retro(parameters,data,settings,condition,slide,nam
             phase_length = len(sub_phase)
             phase_duration = phase_length*dt
 
-            #if (np.max(sub_v_inst)>5):
-                #break
-
             variance = (np.std(intensity))**2
             mean_intensity = np.mean(intensity)
+
+            #Calculates theta angle of each particle based on variation of intensity
+            #Specific to nanoKTP or similarly behaving nanoparticles
+
+            NA=0.95 #Numerical aperture of the objective
+            am = np.arcsin(NA/1.3) #1.3 is the refractive index of water, change accordingly
+            Atot = 8*np.pi/3
+
+            C = (4*np.pi/3+2*np.pi/3*((np.cos(am))**3-3*np.cos(am)))/Atot
+            B = np.pi*np.cos(am)*(np.sin(am))**2/Atot
+
+            N_ratio = intensity/max(intensity)*(B+C)
+            thetalist = []
+            for n in N_ratio:
+                if n>C:
+                    thetalist.append(np.arcsin(sqrt((n-C)/B)))
+                else:
+                    thetalist.append(0)
+
+            theta = np.array(thetalist)*180/np.pi
+            theta_std = np.std(theta)
 
             if (phase_length==1):
                 variance = 0
@@ -320,12 +352,15 @@ def phase_calculations_antero_retro(parameters,data,settings,condition,slide,nam
                 phase_sign = 2
 
             run_length = curvilign_velocity*phase_duration
+            curv_length = curvilign_velocity*dt
             f_phase_parameters.reset_index(inplace=True, drop=True)
 
             f_phase_parameters = f_phase_parameters.append([{'trajectory': trajectory, 'phase':phase_sign,'phase_number':phase_number,'phase_length':phase_length,\
-            'vectorial_velocity':vectorial_velocity,'curvilign_velocity':curvilign_velocity,'phase_duration':phase_duration,'run_length':run_length,'intensity':mean_intensity,\
-            'variance':variance,'condition':condition,'slide':slide,'rejoined_trajectory':subdata.rejoined_particle.unique()[0],'animal':animal,\
-                'file':name,'min_x':min_x,'max_x':max_x,'min_y':min_y,'max_y':max_y,'n_particles':data.n_particles.unique()[0]}])
+            'vectorial_velocity':vectorial_velocity,'curvilign_velocity':curvilign_velocity,'phase_duration':phase_duration,'run_length':run_length,\
+                'intensity':mean_intensity,'variance':variance,'condition':condition,'slide':slide,'curv_length':curv_length,'theta_std':theta_std,\
+                    'rejoined_trajectory':subdata.rejoined_particle.unique()[0],'animal':animal,'file':name,'min_x':min_x,'max_x':max_x,'min_y':min_y,'max_y':max_y,\
+                        'n_particles':data.n_particles.unique()[0]}])
+
     return f_phase_parameters
 
 def trajectory_calculations(phase_parameters):
@@ -340,126 +375,10 @@ def trajectory_calculations(phase_parameters):
     phase_parameters.sort_values(by=['file'],inplace=True)
     phase_parameters.sort_values(by=['rejoined_trajectory'],inplace=True)
 
-    intensity,variance,curvilign_velocity,processivity,run_length,pausing_frequency,pausing_time,\
-        diag_size,fraction_paused,moving_particles,number_stop = ([] for i in range(11)) #Initialize lists
-
-    mean_condition = pd.DataFrame({'condition':[]},dtype=str)
-    mean_slide = pd.DataFrame({'slide':[]},dtype=str)
-
-    for file in set(phase_parameters.file.unique()):
-        for item in set(phase_parameters[(phase_parameters.file==file)].rejoined_trajectory):
-            
-            data = phase_parameters[(phase_parameters.file==file) & (phase_parameters.rejoined_trajectory==item)]
-            data = data.reset_index(drop = True)
-
-            #STOP phases
-            data_STOP=data.loc[data['phase']==0,:]
-            data_STOP = data_STOP.reset_index(drop = True)
-
-            #GO phases
-            data_GO=data.loc[data['phase']==2,:]
-            data_GO = data_GO.reset_index(drop = True)
-
-            if len(data_GO)==0: #Check if trajectory contains at least one GO phase
-                continue
-
-            iteration.append(item)
-            file_list.append(file)
-
-            testcond = pd.Series(data=[data.loc[data.rejoined_trajectory==item,'condition'].values[0]], index=['condition'])
-            testslide = pd.Series(data=[data.loc[data.rejoined_trajectory==item,'slide'].values[0]], index=['slide'])
-
-            mean_condition = mean_condition.append(testcond,ignore_index=True)
-            mean_slide = mean_slide.append(testslide,ignore_index=True)
-
-            #Intensity
-            traj_intensity = np.mean(data.intensity)
-            intensity.append(traj_intensity)
-
-            #Variance
-            traj_variance = np.mean(data.variance)
-            variance.append(traj_variance)
-            
-            #Diagonal size
-            min_x = np.min(data.min_x)
-            max_x = np.max(data.max_x)
-
-            min_y = np.min(data.min_y)
-            max_y = np.max(data.max_y)
-
-            delta_x = max_x-min_x
-            delta_y = max_y-min_y
-
-            traj_diag_size =np.sqrt(delta_x**2+delta_y**2)
-            diag_size.append(traj_diag_size)
-
-            #Pausing frequency
-            trajectory_time = np.sum(data.phase_duration)
-            n_stop = len(data[data.phase==0])
-            number_stop.append(n_stop)
-
-            if (n_stop==0):
-                traj_pausing_frequency=0
-            else:
-                traj_pausing_frequency = 60*n_stop/trajectory_time
-
-            pausing_frequency.append(traj_pausing_frequency)
-
-            #Curvilign velocity
-            traj_curvilign_velocity = np.mean(data_GO.curvilign_velocity)
-            curvilign_velocity.append(traj_curvilign_velocity)
-
-            #Run length
-            traj_run_length = np.mean(data_GO.run_length)
-            run_length.append(traj_run_length)
-
-            #Processivity
-            traj_processivity = np.mean(data_GO.phase_duration)
-            processivity.append(traj_processivity)
-            
-            #Pausing time
-            if len(data_STOP)==0:
-                traj_pausing_time=0
-            else:
-                traj_pausing_time = np.mean(data_STOP.phase_duration)
-
-            pausing_time.append(traj_pausing_time)
-
-            #Fraction of time paused
-            if len(data_STOP)==0 or len(data_GO)==0 :
-                traj_fraction_paused=0
-            else:
-                traj_fraction_paused = traj_pausing_time/(traj_pausing_time+traj_processivity)
-
-            fraction_paused.append(traj_fraction_paused)
-
-            #Ratio of moving particles
-            n_particles = data.n_particles.tolist()
-            moving_particles.append((phase_parameters[(phase_parameters.file==file)].rejoined_trajectory.nunique()/np.unique(n_particles))[0])
-
-    cond_list = mean_condition['condition'].tolist()
-    slide_list = mean_slide['slide'].tolist()
-
-    trajectory_parameters = pd.DataFrame({'pausing_time':pausing_time, 'pausing_frequency':pausing_frequency,\
-         'curvilign_velocity':curvilign_velocity,'intensity':intensity,'variance':variance,\
-            'proc':processivity,'run_length':run_length, 'diag_size':diag_size,'fraction_paused':fraction_paused,\
-                'trajectory':iteration,'n_stop':number_stop,'fraction_moving':moving_particles,\
-                    'condition':cond_list,'slide':slide_list,'file':file_list})
-    return trajectory_parameters
-
-def trajectory_calculations_antero_retro(phase_parameters):
-    """Averages per phase data and calculates per trajectory variables of interest. Inputs a DataFrame, returns a DataFrame.
-
-        phase_parameters is a DataFrame containing data as defined in phase_calculations_antero_retro.
-    """
-    iteration = []
-    file_list=[]
-
-    phase_parameters.sort_values(by=['file'],inplace=True)
-    phase_parameters.sort_values(by=['rejoined_trajectory'],inplace=True)
-    intensity_GO,intensity_STOP,variance_GO,variance_STOP,curvilign_velocity_antero,curvilign_velocity_retro,\
-        processivity_antero,processivity_retro,run_length_antero,run_length_retro,pausing_frequency,pausing_time,\
-        diag_size,fraction_paused,directionality,moving_particles,number_stop,t_switch = ([] for i in range(18)) #Initializes lists
+    #Initializes lists
+    intensity_GO,intensity_STOP,variance_GO,variance_STOP,curvilign_velocity,processivity,run_length,\
+        pausing_frequency,pausing_time,diag_size,fraction_paused,moving_particles,number_stop,duration,\
+            curv_length = ([] for i in range(15))
 
     mean_condition = pd.DataFrame({'condition':[]},dtype=str)
     mean_animal = pd.DataFrame({'animal':[]},dtype=str)
@@ -481,15 +400,9 @@ def trajectory_calculations_antero_retro(phase_parameters):
 
             if len(data_GO)==0: #Check if trajectory contains at least one GO phase
                 continue
-
-            #Antero
-            data_GO_antero=data_GO.loc[data_GO['curvilign_velocity']>0,:]
-            data_GO_antero = data_GO_antero.reset_index(drop = True)
-            #Retro
-            data_GO_retro=data_GO.loc[data_GO['curvilign_velocity']<0,:]
-            data_GO_retro = data_GO_retro.reset_index(drop = True)
-
-            if np.mean(np.abs(data_GO_antero.curvilign_velocity)) >= 4 or np.mean(np.abs(data_GO_retro.curvilign_velocity)) >= 4 :
+            
+            #Discard spurrious trajectories
+            if np.mean(np.abs(data_GO.curvilign_velocity)) >= 4 :
                 continue
 
             iteration.append(item)
@@ -528,6 +441,166 @@ def trajectory_calculations_antero_retro(phase_parameters):
             traj_diag_size =np.sqrt(delta_x**2+delta_y**2)
             diag_size.append(traj_diag_size)
 
+            #Curvilign size
+            curv_size = np.sum(data.run_length)
+            curv_length.append(np.abs(curv_size))
+
+            #Pausing frequency
+            trajectory_time = np.sum(data.phase_duration)
+            n_stop = len(data[data.phase==0])
+            number_stop.append(n_stop)
+
+            if (n_stop==0):
+                traj_pausing_frequency=0
+            else:
+                traj_pausing_frequency = 60*n_stop/trajectory_time
+
+            pausing_frequency.append(traj_pausing_frequency)
+
+            #Curvilign velocity
+            traj_curvilign_velocity = np.mean(data_GO.curvilign_velocity)
+            curvilign_velocity.append(traj_curvilign_velocity)
+
+            #Run length
+            traj_run_length = np.mean(data_GO.run_length)
+            run_length.append(traj_run_length)
+
+            #Processivity
+            traj_processivity = np.mean(data_GO.phase_duration)
+            processivity.append(traj_processivity)
+            
+            #Trajectory duration
+            t_duration = (np.sum(data.phase_duration)*0.05)
+            duration.append(t_duration)
+
+            #Pausing time
+            if len(data_STOP)==0:
+                traj_pausing_time=0
+            else:
+                traj_pausing_time = np.mean(data_STOP.phase_duration)
+
+            pausing_time.append(traj_pausing_time)
+
+            #Fraction of time paused
+            if len(data_STOP)==0 or len(data_GO)==0 :
+                traj_fraction_paused=0
+            else:
+                traj_fraction_paused = traj_pausing_time/(traj_pausing_time+traj_processivity)
+
+            fraction_paused.append(traj_fraction_paused)
+
+            #Ratio of moving particles
+            n_particles = data.n_particles.tolist()
+            moving_particles.append((phase_parameters[(phase_parameters.file==file)].rejoined_trajectory.nunique()/np.unique(n_particles))[0])
+
+    cond_list = mean_condition['condition'].tolist()
+    slide_list = mean_slide['slide'].tolist()
+    animal_list = mean_animal['animal'].tolist()
+
+    trajectory_parameters = pd.DataFrame({'pausing_time':pausing_time, 'pausing_frequency':pausing_frequency,\
+         'curvilign_velocity':curvilign_velocity,'intensity_GO':intensity_GO,'intensity_STOP':intensity_STOP,\
+            'variance_GO':variance_GO,'variance_STOP':variance_STOP,'processivity':processivity,'run_length':run_length,\
+                'duration':duration,'diag_size':diag_size,'fraction_paused':fraction_paused,'trajectory':iteration,\
+                    'curvilign_length':curv_length,'n_stop':number_stop,'fraction_moving':moving_particles,\
+                    'condition':cond_list,'slide':slide_list,'animal':animal_list,'file':file_list})
+
+    return trajectory_parameters
+
+def trajectory_calculations_antero_retro(phase_parameters):
+    """Averages per phase data and calculates per trajectory variables of interest. Inputs a DataFrame, returns a DataFrame.
+
+        phase_parameters is a DataFrame containing data as defined in phase_calculations_antero_retro.
+    """
+    iteration = []
+    file_list=[]
+
+    phase_parameters.sort_values(by=['file'],inplace=True)
+    phase_parameters.sort_values(by=['rejoined_trajectory'],inplace=True)
+
+    #Initializes lists
+    intensity_GO,intensity_STOP,variance_GO,variance_STOP,curvilign_velocity_antero,curvilign_velocity_retro,\
+        processivity_antero,processivity_retro,run_length_antero,run_length_retro,pausing_frequency,pausing_time,\
+        diag_size,fraction_paused,directionality,moving_particles,number_stop,switch,duration,p_directionality_GO,\
+            curv_length,switch_a_to_r,switch_r_to_a,switch_var_STOP,theta_std_GO,theta_std_STOP,switch_normal = ([] for i in range(27))
+
+    mean_condition = pd.DataFrame({'condition':[]},dtype=str)
+    mean_animal = pd.DataFrame({'animal':[]},dtype=str)
+    mean_slide = pd.DataFrame({'slide':[]},dtype=str)
+
+    for file in set(phase_parameters.file.unique()):
+        for item in set(phase_parameters[(phase_parameters.file==file)].rejoined_trajectory):
+            
+            data = phase_parameters[(phase_parameters.file==file) & (phase_parameters.rejoined_trajectory==item)]
+            data = data.reset_index(drop = True)
+
+            #STOP phases
+            data_STOP=data.loc[data['phase']==0,:]
+            data_STOP = data_STOP.reset_index(drop = True)
+
+            #GO phases
+            data_GO=data.loc[data['phase']==2,:]
+            data_GO = data_GO.reset_index(drop = True)
+
+            if len(data_GO)==0: #Check if trajectory contains at least one GO phase
+                continue
+
+            #Antero
+            data_GO_antero=data_GO.loc[data_GO['curvilign_velocity']>0,:]
+            data_GO_antero = data_GO_antero.reset_index(drop = True)
+            #Retro
+            data_GO_retro=data_GO.loc[data_GO['curvilign_velocity']<0,:]
+            data_GO_retro = data_GO_retro.reset_index(drop = True)
+
+            #Discard spurrious trajectories
+            if np.mean(np.abs(data_GO_antero.curvilign_velocity)) >= 4 or np.mean(np.abs(data_GO_retro.curvilign_velocity)) >= 4 :
+                continue
+
+            iteration.append(item)
+            file_list.append(file)
+
+            testcond = pd.Series(data=[data.loc[data.rejoined_trajectory==item,'condition'].values[0]], index=['condition'])
+            testslide = pd.Series(data=[data.loc[data.rejoined_trajectory==item,'slide'].values[0]], index=['slide'])
+            testanimal = pd.Series(data=[data.loc[data.rejoined_trajectory==item,'animal'].values[0]], index=['animal'])
+
+            mean_condition = mean_condition.append(testcond,ignore_index=True)
+            mean_slide = mean_slide.append(testslide,ignore_index=True)
+            mean_animal = mean_animal.append(testanimal,ignore_index=True)
+
+            #Intensity
+            traj_intensity_GO = np.mean(data_GO.intensity)
+            intensity_GO.append(traj_intensity_GO)
+            traj_intensity_STOP = np.mean(data_STOP.intensity)
+            intensity_STOP.append(traj_intensity_STOP)
+
+            #Variance
+            traj_variance_GO = np.mean(data_GO.variance)
+            variance_GO.append(traj_variance_GO)
+            traj_variance_STOP = np.mean(data_STOP.variance)
+            variance_STOP.append(traj_variance_STOP)
+
+            #Theta standard deviation
+            t_theta_std_GO = np.mean(data_GO.theta_std)
+            theta_std_GO.append(t_theta_std_GO)
+            t_theta_std_STOP = np.mean(data_STOP.theta_std)
+            theta_std_STOP.append(t_theta_std_STOP)
+
+            #Diagonal size
+            min_x = np.min(data.min_x)
+            max_x = np.max(data.max_x)
+
+            min_y = np.min(data.min_y)
+            max_y = np.max(data.max_y)
+
+            delta_x = max_x-min_x
+            delta_y = max_y-min_y
+
+            traj_diag_size =np.sqrt(delta_x**2+delta_y**2)
+            diag_size.append(traj_diag_size)
+
+            #Curvilign size
+            curv_size = np.sum(data.run_length)
+            curv_length.append(np.abs(curv_size))
+
             #Pausing frequency
             trajectory_time = np.sum(data.phase_duration)
             n_stop = len(data[data.phase==0])
@@ -557,6 +630,10 @@ def trajectory_calculations_antero_retro(phase_parameters):
             processivity_antero.append(traj_processivity_antero)
             traj_processivity_retro = np.mean(data_GO_retro.phase_duration)
             processivity_retro.append(traj_processivity_retro)
+
+            #Trajectory duration
+            t_duration = (np.sum(data.phase_duration)*0.05)
+            duration.append(t_duration)
             
             #Pausing time
             if len(data_STOP)==0:
@@ -589,24 +666,42 @@ def trajectory_calculations_antero_retro(phase_parameters):
             if distance_total==0:
                 continue
 
-            directionality.append(np.abs(distance_antero)/np.abs(distance_total))
+            #Phase directionality
+            t_p_directionality_GO = len(data_GO_retro)/len(data_GO) 
+            p_directionality_GO.append(t_p_directionality_GO)
+
+            #directionality.append(np.abs(distance_antero)/np.abs(distance_total)) #Fraction of anterograde transport
+            directionality.append(np.abs(distance_retro)/np.abs(distance_total)) #Fraction of retrograde transport
 
             #Ratio of moving particles
             n_particles = data.n_particles.tolist()
             moving_particles.append((phase_parameters[(phase_parameters.file==file)].rejoined_trajectory.nunique()/np.unique(n_particles))[0])
 
-            switch = 0
+            #Directionality reversal
+            t_switch = 0 #Overall number of reversals
+            t_switch_a_to_r = 0 #Anterograde to retrograde reversals
+            t_switch_r_to_a = 0 #Retrograde to anterograde reversals
+            t_switch_var_STOP = [] #Variance of signal intensity in STOP phases
             for p in set(data.trajectory):
                 p_data = data.loc[data.trajectory==p]
                 if len(p_data) > 2:
                     for i in range(len(p_data.phase_number)-2):
                                 if (p_data[p_data.phase_number==i].phase.values==2) & (p_data[p_data.phase_number==i+1].phase.values==0) & (p_data[p_data.phase_number==i+2].phase.values==2):
                                     if (p_data[p_data.phase_number==i].curvilign_velocity.values > 0) & (p_data[p_data.phase_number==i+2].curvilign_velocity.values <0):
-                                        switch += 1
+                                        t_switch += 1
+                                        t_switch_a_to_r += 1
+                                        t_switch_var_STOP.append(p_data[p_data.phase_number==i+1].variance.values)
                                     elif (p_data[p_data.phase_number==i].curvilign_velocity.values < 0) & (p_data[p_data.phase_number==i+2].curvilign_velocity.values >0):
-                                        switch += 1
+                                        t_switch += 1
+                                        t_switch_r_to_a += 1
+                                        t_switch_var_STOP.append(p_data[p_data.phase_number==i+1].variance.values)
                     
-            t_switch.append(switch)
+            switch.append(t_switch)
+            switch_normal.append(t_switch/t_duration)
+            switch_a_to_r.append(t_switch_a_to_r)
+            switch_r_to_a.append(t_switch_r_to_a)
+            switch_var_STOP.append(np.mean(t_switch_var_STOP))
+
 
     cond_list = mean_condition['condition'].tolist()
     slide_list = mean_slide['slide'].tolist()
@@ -615,11 +710,11 @@ def trajectory_calculations_antero_retro(phase_parameters):
     trajectory_parameters = pd.DataFrame({'pausing_time':pausing_time, 'pausing_frequency':pausing_frequency,\
          'curvilign_velocity_antero':curvilign_velocity_antero,'curvilign_velocity_retro':curvilign_velocity_retro,\
           'intensity_GO':intensity_GO,'intensity_STOP':intensity_STOP,'variance_GO':variance_GO,'variance_STOP':variance_STOP,\
-           'processivity_antero':processivity_antero,'processivity_retro':processivity_retro,'switch':t_switch,\
-            'run_length_antero':run_length_antero,'run_length_retro':run_length_retro,\
-             'diag_size':diag_size,'fraction_paused':fraction_paused,'trajectory':iteration,\
-              'n_stop':number_stop,'fraction_moving':moving_particles,'directionality':directionality,
-                'condition':cond_list,'slide':slide_list,'animal':animal_list,'file':file_list})
+           'processivity_antero':processivity_antero,'processivity_retro':processivity_retro,'switch':switch,'run_length_antero':run_length_antero,\
+            'run_length_retro':run_length_retro,'duration':duration,'phase_dir_GO':p_directionality_GO,'diag_size':diag_size,'fraction_paused':fraction_paused,\
+                'switch_var_STOP':switch_var_STOP,'trajectory':iteration,'curvilign_length':curv_length,'switch_a_to_r':switch_a_to_r,'switch_r_to_a':switch_r_to_a,\
+                    'switch_normal':switch_normal,'n_stop':number_stop,'fraction_moving':moving_particles,'directionality':directionality,'theta_std_GO':theta_std_GO,\
+                        'theta_std_STOP':theta_std_STOP,'condition':cond_list,'slide':slide_list,'animal':animal_list,'file':file_list})
 
     return trajectory_parameters
 
@@ -649,27 +744,24 @@ def data_extraction(parameters,input_folder,settings):
             file_path = os.path.join(path, name)
             file_folder_path = os.path.split(path)[0]
             slide_path,slide = os.path.split(file_folder_path)
-
-            if settings['antero_retro']==True:
-                animal_path,animal = os.path.split(slide_path)
-                condition = os.path.split(animal_path)[1]
-            else:
-                condition = os.path.split(slide_path)[1]
+            
+            animal_path,animal = os.path.split(slide_path)
+            condition = os.path.split(animal_path)[1]
 
             #Define output file names
             phase_parameters_output = output_folder.joinpath("Per phase parameters.csv")
             traj_parameters_output = output_folder.joinpath("Trajectory average parameters.csv") 
 
-            data = pd.read_csv(file_path,sep='\t')
+            data = pd.read_csv(file_path,sep=csv_sniffer(file_path))
             
             print("Per phase calculations of "+name)
             if settings['antero_retro']:
                 phase_parameters = phase_parameters.append(phase_calculations_antero_retro(parameters,data,settings,condition,slide,name,animal))
             else:
-                phase_parameters = phase_parameters.append(phase_calculations(parameters,data,condition,slide,name))
-            phase_parameters.to_csv(phase_parameters_output, sep = '\t')
+                phase_parameters = phase_parameters.append(phase_calculations(parameters,data,settings,condition,slide,name,animal))
+    phase_parameters.to_csv(phase_parameters_output, sep = '\t')
 
-    print("Per trajectory calculations of "+name)
+    print("Per trajectory calculations")
     if settings['antero_retro']==True:
         trajectory_parameters = trajectory_calculations_antero_retro(phase_parameters)
     else:
@@ -704,7 +796,7 @@ if __name__ == '__main__':
     'threshold_t':10,
     'threshold_r':60,
     #Data Extraction
-    'r_conf_cut' : 0.9**2,
+    'r_conf_cut' : 0.64,
     'px' : 0.173, #in µm
     'dt' : 0.05, #in s
     'min_theoretical_precision' : 50, # in nm
@@ -733,8 +825,8 @@ if __name__ == '__main__':
     }
 
     start = time.time()
-
-    input_folder = Path(r"")
+    input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20220214_180447/124_test")
     data_extraction(parameters,input_folder,settings)
     end = time.time()
-
+    duration = end - start
+    print('%dh%s' % (int(duration//3600),f'{int((duration%3600)/60):02d}'))

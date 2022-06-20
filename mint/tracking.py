@@ -6,8 +6,7 @@ import trackpy as tp
 import trajectory_calculations as ft
 from image_denoising import *
 from output_files_creation import *
-from pathlib import Path
-from utils import *
+
 
 
 def tracking(input_folder,parameters,settings,log):
@@ -34,7 +33,8 @@ def tracking(input_folder,parameters,settings,log):
 
             #Opening video file
             frames = imageio.volread(file_path)
-
+            #frames = frame_accu(frames)
+            
             #Per frame denoising process
             frames_init = np.zeros(frames.shape)
             for i in range(len(frames)):

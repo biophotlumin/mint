@@ -28,23 +28,27 @@ def test_locate(input_folder,parameters,whole_file,settings):
             #Opening video file
             frames = imageio.volread(file_path)
 
+            length = 1
+            if whole_file:
+                length = frames.shape[0]
+
+            #Initializing frames array
+            frames_init = np.zeros((length,frames.shape[1],frames.shape[2]))
+
             #Per frame denoising process
-            if whole_file == True:
-                length = len(frames)
-            else:
-                length = 1
-            frames_init = np.zeros(frames.shape)
+            
             for i in range(length):
                 if settings['tophat']:
                     processed_frames = tophat(parameters,frames_init,i,frames) #Tophat denoising
                 else:
                     processed_frames = frames
-
                 if settings['wavelet']:
-                    processed_frames = wavelet_denoising(processed_frames,i) #Wavelet denoising
+                    processed_frames = wavelet_denoising(processed_frames,i)
             
             #Localizing particles and finding trajectories
+
             tp.quiet([True]) #Silencing TrackPy messages
+
             raw_coordinates = tp.batch(processed_frames, minmass=parameters['minmass'], diameter=parameters['diameter'], \
                 separation=parameters['separation'],preprocess=False,engine='numba',processes=1)
             
@@ -60,22 +64,19 @@ def test_locate(input_folder,parameters,whole_file,settings):
             plt.close()
             break
 
-if __name__ == '__main__':
-
-    parameters = {
-        #trackpy.batch
-        'diameter':9,
-        'minmass':300,
-        'separation':12,
-    }
-
+parameters = {
+    #trackpy.batch
+    'diameter':9,
+    'minmass':300,
+    'separation':12,
+}
 
 #Optional image processing
 
-    settings = {
-        'tophat':True,
-        'wavelet':False,
-    }
-
-    input_folder = r''
-    test_locate(input_folder,parameters,whole_file=False,settings=settings)
+settings = {
+    'tophat':True,
+    'wavelet':False,
+}
+if __name__ == '__main__':
+    input_folder = r'/media/baptiste/SHG_tracking_data/Test ML'
+    test_locate(input_folder,parameters,whole_file=True,settings=settings)

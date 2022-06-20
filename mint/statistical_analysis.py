@@ -10,6 +10,8 @@
     barplot generates a barplot, with SEM as error bars, and saves it as a .png.
     violinplot generates a violinplot.
     normality tests wether or not a sample fits a normal distribution.
+    means calculates the mean and the median for each variable of each condition.
+    fraction_moving calculates the fraction of moving particules.
 """
 #Imports
 from utils import *
@@ -21,6 +23,7 @@ import matplotlib.pyplot as plt
 import os
 import scikit_posthocs as sp
 from pathlib import Path
+import numpy as np
 
 ylabels = {
         'pausing_time':'Pausing time (s)',
@@ -36,10 +39,19 @@ ylabels = {
         'run_length_retro':'Retrograde run length (µm)',
         'diag_size':'Length of trajectory (µm)',
         'fraction_paused':'Fraction of time paused',
-        'directionality':'Ratio of anterograde to retrograde transport',
-        'switch':'Reversal of transport direction',
-        'variance_GO':'Variation of intensity in GO phases',
-        'variance_STOP':'Variation of intensity in STOP phases',
+        'directionality':'Ratio of retrograde to anterograde transport',
+        'switch':'Directionality reversal',
+        'variance_GO':'Variance of intensity in GO phases',
+        'variance_STOP':'Variance of intensity in STOP phases',
+        'duration':'Trajectory duration (s)',
+        'curvilign_length':'Curvilign length (µm)',
+        'switch_a_to_r':'Anterograde to retrograde reversal',
+        'switch_r_to_a':'Retrograde to anterograde  reversal',
+        'phase_dir_GO':'Directionality as number of retrograde phases over total number of GO phases',
+        'switch_normal':'Directionality reversal per second (events/s)',
+        'switch_var_STOP':'Variation of intensity in STOP phases of reversal',
+        'theta_std_GO':'Standard deviation of θ angle in GO phases (°)',
+        'theta_std_STOP':'Standard deviation of θ angle in STOP phases (°)'
         
 }
 
@@ -68,59 +80,18 @@ def variables(data,input_folder):
         data is a DataFrame containing transport parameters, as defined in data_extraction.py.
         input_folder is the path to the input folder.
     """
-    voi = ['curvilign_velocity','processivity','run_length','diag_size','directionality',\
-            'fraction_paused','pausing_frequency','pausing_time'] #Variables of interest
-
-    for condition in set(data.condition): #Loop for different experiments
-        subset = data.loc[data.condition==condition]
-        results = []
-        if subset['slide'].nunique() == 2: #Applies tests for two samples
-            for item in set(voi):
-                if normality(data,item) == False: #Check for normality
-                    results.append('Distribution of '+str(item)+' is not normal \n')
-                    results.append("p-value of Wilcoxon rank sum test for "+item+" is "+str(round((ranksums(subset,item)),6))+"\n")
-                    boxplot(subset,item,input_folder,str(round((ranksums(subset,item)),6)))
-                    barplot(subset,item,input_folder,str(round((ranksums(subset,item)),6)))
-                elif normality(data,item) == True:
-                        results.append('Distribution of '+str(item)+' is normal \n')
-                        #Yet to implement t-test
-                        #results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
-                        #boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-                        #barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            
-            text_file = open((Path(input_folder).joinpath("Kruskal-Wallis test results.txt")),'w')
-            text_file.writelines(results)
-            text_file.close()
-
-        elif subset['slide'].nunique() > 2: #Applies tests for three or more samples
-            for item in set(voi):
-                if normality(data,item) == False: #Check for normality
-                    results.append('Distribution of '+str(item)+' is not normal \n')
-                    results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(subset,item)),6))+"\n")
-                    dunn(subset,item)
-                    boxplot(subset,item,input_folder,str(round((kruskal(subset,item)),6)))
-                    barplot(subset,item,input_folder,str(round((kruskal(subset,item)),6)))
-                elif normality(data,item) == True:
-                        results.append('Distribution of '+str(item)+' is normal \n')
-                        #Yet to implement t-test
-                        #results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
-                        #boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-                        #barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            text_file = open((Path(input_folder).joinpath("Kruskal-Wallis test results.txt")),'w') 
-            text_file.writelines(results)
-            text_file.close()
-        
-def variables_antero_retro(data,input_folder):
-    """Calls statistical tests and plotting functions for each variable of interest. Inputs a DataFrame and a string.
-
-        data is a DataFrame containing transport parameters, as defined in data_extraction.py.
-        input_folder is the path to the input folder.
-    """
-    #Variables of interest
-    voi = ['curvilign_velocity_antero','curvilign_velocity_retro','processivity_antero','processivity_retro',\
-            'run_length_antero','run_length_retro','diag_size','directionality','fraction_paused',\
-            'pausing_frequency','pausing_time','switch','variance_GO','variance_STOP'] 
+    voi = ['curvilign_velocity','processivity','curvilign_length','run_length','diag_size','duration','fraction_paused',\
+        'pausing_frequency','pausing_time','variance_GO','variance_STOP'] #Variables of interest
     results = []
+
+    #Optionally test for subpopulation of trajectories
+    #non_antero = data.loc[data['directionality']>0] #Everything except purely anterograde trajectories
+    #non_retro = data.loc[data['directionality']<1] #Everything except purely retrograde trajectories
+    #mixed = non_antero.loc[non_antero['directionality']<1] #Bidirectional trajectories
+    #pure_retro = data.loc[data['directionality']==1] #Purely retrograde trajectories
+    #pure_antero = data.loc[data['directionality']==0] #Purely anterograde trajectories
+    #data = mixed
+
     for item in set(voi):
         if normality(data,item) == False: #Check for normality
             results.append('Distribution of '+str(item)+' is not normal \n')
@@ -128,10 +99,47 @@ def variables_antero_retro(data,input_folder):
             dunn(data,item)
             boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
             barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            
+            #means(data,item) #Display means and medians for each variable 
         elif normality(data,item) == True:
                 results.append('Distribution of '+str(item)+' is normal \n')
-                #Yet to implement t-test
+                #Yet to implement parametric tests
+                #results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
+                #boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+                #barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+    text_file = open((Path(input_folder).joinpath("Kruskal-Wallis test results.txt")),'w')
+    text_file.writelines(results)
+    text_file.close()
+        
+def variables_antero_retro(data,input_folder):
+    """Calls statistical tests and plotting functions for each variable of interest. Inputs a DataFrame and a string.
+
+        data is a DataFrame containing transport parameters, as defined in data_extraction.py.
+        input_folder is the path to the input folder.
+    """
+    voi = ['curvilign_velocity_antero','curvilign_velocity_retro','processivity_antero','processivity_retro','curvilign_length','switch_a_to_r',\
+        'run_length_antero','run_length_retro','diag_size','directionality','duration','phase_dir_GO','switch_r_to_a','switch_normal',\
+            'fraction_paused','pausing_frequency','pausing_time','switch','variance_GO','variance_STOP','theta_std_GO','theta_std_STOP'] #Variables of interest
+    results = []
+
+    #Optionally test for subpopulation of trajectories
+    #non_antero = data.loc[data['directionality']>0] #Everything except purely anterograde trajectories
+    #non_retro = data.loc[data['directionality']<1] #Everything except purely retrograde trajectories
+    #mixed = non_antero.loc[non_antero['directionality']<1] #Bidirectional trajectories
+    #pure_retro = data.loc[data['directionality']==1] #Purely retrograde trajectories
+    #pure_antero = data.loc[data['directionality']==0] #Purely anterograde trajectories
+    #data = mixed
+
+    for item in set(voi):
+        if normality(data,item) == False: #Check for normality
+            results.append('Distribution of '+str(item)+' is not normal \n')
+            results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
+            dunn(data,item)
+            boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            #means(data,item) #Display means and medians for each variable 
+        elif normality(data,item) == True:
+                results.append('Distribution of '+str(item)+' is normal \n')
+                #Yet to implement parametric tests
                 #results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
                 #boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
                 #barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
@@ -221,10 +229,9 @@ def barplot(data,variable,input_folder,p):
     """
     
     error = []
-    for i in data['condition'].unique():
+    for i in set(data['condition'].unique()):
         error.append(stats.sem(data[variable].loc[data['condition']==i],nan_policy='omit'))
-    
-    sns.barplot(x=data['condition'],y=data[variable],estimator=mean,yerr=error,ci=None,error_kw={'elinewidth':2,'capsize':4,'capthick':2})
+    sns.barplot(x=data['condition'],y=data[variable],capsize=0.02,estimator=mean,yerr=error,ci=None)
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(ylabels[variable])
@@ -253,23 +260,75 @@ def normality(data,variable):
         data is a DataFrame containing transport parameters, as defined in data_extraction.py.
         variable is the name of the variable of interest being tested.
     """
-    p = stats.normaltest(a=data[variable],nan_policy='omit')[1]
-    if p > 0.05:
-        return True
-    else:
-        return False
+    if len(data) > 0:
+        p = stats.normaltest(a=data[variable],nan_policy='omit')[1]
+        if p > 0.05:
+            return True
+        else:
+            return False
 
 def means(data,variable):
-    """Calculates the mean of each variable and each condition.
-
-        data is a DataFrame containing transport parameters, as defined in data_extraction.py.
-        variable is the name of the variable of interest being tested.
-    """
     print(variable)
     for cond in set(data.condition.unique()):
         print(cond)
         subdata = data.loc[data.condition==cond, variable]
+        print(np.nanmean(subdata))
+        print(subdata.median())
+        print()
+
+def fraction_moving(data):
+    """
+    Calculates the fraction of moving particles. Inputs a DataFrame.
+    """
+    list_of_arrays = []
+    conditions_list = []
+    for index in set(data.condition.unique()):
+        arr = []
+        conditions_list.append(index)
+        subdata = data.loc[data.condition==index]
+        for file in subdata.file.unique():
+            arr.append(float((subdata.loc[data.file==file]).fraction_moving.unique()))
+        list_of_arrays.append(arr)
+    pdunn = sp.posthoc_dunn(list_of_arrays)
+    index = []
+    for i in range(len(list_of_arrays)): #Rename DataFrame with analysed conditions
+        index.append(i+1)
+    label_dict = dict(zip(index, conditions_list))
+    pdunn.rename(index=label_dict,columns=label_dict,inplace=True)
+    pkw = stats.kruskal(*list_of_arrays,nan_policy='omit')[1]
+
+    print("Kruskal-Wallis "+str(pkw))
+    print("Dunn test ")
+    print(str(pdunn))
+    data_per_file = data.drop_duplicates('file')
+    for cond in set(data_per_file.condition.unique()):
+        print(cond)
+        subdata = data_per_file.loc[data_per_file.condition==cond].fraction_moving
         print(subdata.mean())
+        print(subdata.median())
+        print()
+
+    sns.set_theme(style="ticks", palette="pastel")
+    sns.boxplot(x=data_per_file['condition'],
+            y=data_per_file['fraction_moving'],  width=0.35, notch=True,
+            data=data, showfliers =False)
+    sns.despine(trim=True)
+    plt.xlabel("Condition")
+    plt.ylabel("Ratio of moving particles")
+    plt.annotate(("p-value : "+str(pkw)),xy=(195,310),xycoords='figure points')
+    plt.show()
+    plt.close()
+
+    print(stats.sem(data_per_file['fraction_moving'].loc[data['condition']=='WT'],nan_policy='omit'))
+    sns.barplot(y=data_per_file['fraction_moving'],x=data_per_file['condition'],estimator=mean,yerr=stats.sem(data_per_file['fraction_moving'],nan_policy='omit'),ci=None,\
+        error_kw={'elinewidth':2,'capsize':4,'capthick':2})
+    sns.despine(trim=True)
+    
+    plt.xlabel("Condition")
+    plt.ylabel('Ratio of moving particles')
+    plt.annotate(("p-value : "+str(pkw)),xy=(195,310),xycoords='figure points')
+    plt.show()
+    plt.close()
 
 if __name__ == '__main__':
     input_folder = r''

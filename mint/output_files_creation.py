@@ -95,7 +95,6 @@ def final_image_ouput(log,name,frames,processed_trajectory):
 
 def dict_dump(log,dict,file_name):
     """Writes the content of a dictionary into a text file.
-    
         Inputs two dictionaries and a string.
     """
 

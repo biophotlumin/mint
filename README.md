@@ -17,15 +17,10 @@ Quickstart
 Download the lastest release and extract its contents to a dedicated folder.
 
 ### **CLI**
-
 Run ``cli.py``.
 
 ### **GUI**
-
-Run `gui.py`.
+Run ``gui.py``.
 
 ### **Script**
-
-Edit calculation parameters and settings as needed in `script.py`.
-
-Run `script.py` through command line or any IDE.
+Edit the ``parameters`` and ``settings`` dictionaries found in ``script.py``, then run it either through command line or directly from an IDE.

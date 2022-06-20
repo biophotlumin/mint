@@ -76,7 +76,7 @@ log = {
 
 #Define root input folder
 
-input_folder = Path(r"")
+input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/TRI")
 
 start = time.time()
 
@@ -96,5 +96,10 @@ if __name__ == '__main__':
 
 
 end = time.time()
-print((end-start)/60)
+
+duration = end - start
+if duration < 3600:
+    print((duration)/60)
+else:
+    print('%dh%s' % (int(duration//3600),f'{int((duration%3600)/60):02d}'))
 
