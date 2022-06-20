@@ -12,8 +12,8 @@ Its purpose is to automate workflow to the point where an input of raw video fil
 
 
 
-.. image:: https://zenodo.org/badge/DOI/10.1007/978-3-319-76207-4_15.svg
-   :target: https://doi.org/10.1007/978-3-319-76207-4_15
+.. image:: https://zenodo.org/badge/doi/10.5281/zenodo.5713847.svg
+   :target: https://doi.org/10.5281/zenodo.5713847
 
 
 
@@ -42,14 +42,12 @@ Download the lastest release and extract its contents to a dedicated folder.
 
 **CLI**
 ^^^^^^^^^^^
+Run ``cli.py``.
 
-
-Edit calculation parameters and settings as needed in ``script.py``.
-
-Run ``script.py`` through command line or any IDE.
-
-**GUI** (work in progress)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-
+**GUI**
+^^^^^^^^^^^^^^^^
 Run ``gui.py``.
+
+**Script**
+^^^^^^^^^^^^^
+Edit the ``parameters`` and ``settings`` dictionaries found in ``script.py``, then run it either through command line or directly from an IDE.
