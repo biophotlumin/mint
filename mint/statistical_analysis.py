@@ -12,7 +12,6 @@
     normality tests wether or not a sample fits a normal distribution.
 """
 #Imports
-from re import sub
 from utils import *
 from numpy.core.fromnumeric import mean
 from scipy import stats
@@ -48,10 +47,10 @@ ylabels = {
         'switch_r_to_a':'Retrograde to anterograde  reversal',
         'phase_dir_GO':'Directionality as number of retrograde phases over total number of GO phases',
         'phase_dir_total':'Directionality as number of retrograde phases over total number of phases',
-        'switch_normal':'Directionality reversal per µm',
+        'switch_normal':'Directionality reversal per second (events/s)',
         'switch_var_STOP':'Variation of intensity in STOP phases of reversal',
-        'theta_std_GO':'theta_std_GO',
-        'theta_std_STOP':'theta_std_STOP'
+        'theta_std_GO':'Standard deviation of θ angle in GO phases (°)',
+        'theta_std_STOP':'Standard deviation of θ angle in STOP phases (°)'
         
 }
 
@@ -80,47 +79,35 @@ def variables(data,input_folder):
         data is a DataFrame containing transport parameters, as defined in data_extraction.py.
         input_folder is the path to the input folder.
     """
-    voi = ['curvilign_velocity','processivity','run_length','diag_size','directionality',\
-            'fraction_paused','pausing_frequency','pausing_time'] #Variables of interest
+    voi = ['curvilign_velocity','processivity','curvilign_length','run_length','diag_size','duration','fraction_paused',\
+        'pausing_frequency','pausing_time','variance_GO','variance_STOP'] #Variables of interest
+    results = []
 
-    for condition in set(data.condition): #Loop for different experiments
-        subset = data.loc[data.condition==condition]
-        results = []
-        if subset['slide'].nunique() == 2: #Applies tests for two samples
-            for item in set(voi):
-                if normality(data,item) == False: #Check for normality
-                    results.append('Distribution of '+str(item)+' is not normal \n')
-                    results.append("p-value of Wilcoxon rank sum test for "+item+" is "+str(round((ranksums(subset,item)),6))+"\n")
-                    boxplot(subset,item,input_folder,str(round((ranksums(subset,item)),6)))
-                    barplot(subset,item,input_folder,str(round((ranksums(subset,item)),6)))
-                elif normality(data,item) == True:
-                        results.append('Distribution of '+str(item)+' is normal \n')
-                        #Yet to implement t-test
-                        #results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
-                        #boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-                        #barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            
-            text_file = open((Path(input_folder).joinpath("Kruskal-Wallis test results.txt")),'w')
-            text_file.writelines(results)
-            text_file.close()
+    #Optionally test for subpopulation of trajectories
+    #non_antero = data.loc[data['directionality']>0] #Everything except purely anterograde trajectories
+    #non_retro = data.loc[data['directionality']<1] #Everything except purely retrograde trajectories
+    #mixed = non_antero.loc[non_antero['directionality']<1] #Bidirectional trajectories
+    #pure_retro = data.loc[data['directionality']==1] #Purely retrograde trajectories
+    #pure_antero = data.loc[data['directionality']==0] #Purely anterograde trajectories
+    #data = mixed
 
-        elif subset['slide'].nunique() > 2: #Applies tests for three or more samples
-            for item in set(voi):
-                if normality(data,item) == False: #Check for normality
-                    results.append('Distribution of '+str(item)+' is not normal \n')
-                    results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(subset,item)),6))+"\n")
-                    dunn(subset,item)
-                    boxplot(subset,item,input_folder,str(round((kruskal(subset,item)),6)))
-                    barplot(subset,item,input_folder,str(round((kruskal(subset,item)),6)))
-                elif normality(data,item) == True:
-                        results.append('Distribution of '+str(item)+' is normal \n')
-                        #Yet to implement t-test
-                        #results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
-                        #boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-                        #barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            text_file = open((Path(input_folder).joinpath("Kruskal-Wallis test results.txt")),'w') 
-            text_file.writelines(results)
-            text_file.close()
+    for item in set(voi):
+        if normality(data,item) == False: #Check for normality
+            results.append('Distribution of '+str(item)+' is not normal \n')
+            results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
+            dunn(data,item)
+            pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+            #means(data,item) #Display means and medians for each variable 
+        elif normality(data,item) == True:
+                results.append('Distribution of '+str(item)+' is normal \n')
+                #Yet to implement parametric tests
+                #results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
+                #boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+                #barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
+    text_file = open((Path(input_folder).joinpath("Kruskal-Wallis test results.txt")),'w')
+    text_file.writelines(results)
+    text_file.close()
         
 def variables_antero_retro(data,input_folder):
     """Calls statistical tests and plotting functions for each variable of interest. Inputs a DataFrame and a string.
@@ -132,17 +119,15 @@ def variables_antero_retro(data,input_folder):
         'run_length_antero','run_length_retro','diag_size','directionality','duration','phase_dir_GO','phase_dir_total','switch_r_to_a',\
             'fraction_paused','pausing_frequency','pausing_time','switch','variance_GO','variance_STOP','theta_std_GO','theta_std_STOP'] #Variables of interest
     results = []
-    non_antero = data.loc[data['directionality']>0] #Tout sauf pûrement antérograde
-    non_retro = data.loc[data['directionality']<1] #Tout sauf pûrement rétrograde
-    mixed = non_antero.loc[non_antero['directionality']<1]
-    pure_retro = data.loc[data['directionality']==0]
-    #print(mixed.directionality.min())
-    #print(mixed.directionality.max())
+
+    #Optionally test for subpopulation of trajectories
+    #non_antero = data.loc[data['directionality']>0] #Everything except purely anterograde trajectories
+    #non_retro = data.loc[data['directionality']<1] #Everything except purely retrograde trajectories
+    #mixed = non_antero.loc[non_antero['directionality']<1] #Bidirectional trajectories
+    #pure_retro = data.loc[data['directionality']==1] #Purely retrograde trajectories
+    #pure_antero = data.loc[data['directionality']==0] #Purely anterograde trajectories
     #data = mixed
-    #print(len(data))
-    #str(round((kruskal(non_antero,'diag_size')),6))
-    #pub_boxplot(data,'duration',input_folder,str(round((kruskal(data,'duration')),6)))
-    #pub_barplot(data,'duration',input_folder,str(round((kruskal(data,'duration')),6)))
+
     for item in set(voi):
         if normality(data,item) == False: #Check for normality
             results.append('Distribution of '+str(item)+' is not normal \n')
@@ -150,11 +135,10 @@ def variables_antero_retro(data,input_folder):
             dunn(data,item)
             pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
             pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            #violinplot(data,item,str(round((kruskal(data,item)),6)))
-            #means(data,item)
+            #means(data,item) #Display means and medians for each variable 
         elif normality(data,item) == True:
                 results.append('Distribution of '+str(item)+' is normal \n')
-                #Yet to implement t-test
+                #Yet to implement parametric tests
                 #results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
                 #boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
                 #barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
@@ -358,15 +342,11 @@ def means(data,variable):
     for cond in set(data.condition.unique()):
         print(cond)
         subdata = data.loc[data.condition==cond, variable]
-        subdata.to_csv(r'/home/baptiste/dwhelper/'+variable+'_'+cond+'.csv')
-        print(len(subdata))
-        print(subdata.mean())
         print(np.nanmean(subdata))
-        #print(subdata.median())
+        print(subdata.median())
         print()
         
-
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20220214_180447/WT HOM/theta'
+    input_folder = r''
     settings = {'antero_retro':True}
     statistical_analysis(settings,input_folder)

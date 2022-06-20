@@ -172,6 +172,10 @@ def acceleration_minimization_norm1(measure, sigma0,px, nn = 0):
         return solution[nn:n-nn]
 
 def prec(N):
+    """Estimates spatial noise based on signal intensity. Inputs and returns floats.
+
+        Derived from a fit of spatial noise related to signal intensity on experimental data.
+    """
     return(30+(600/(np.sqrt(N-40))))
 
 def acceleration_minimization_norm1_pointwise_adaptative_error_general(measure, Signal, Noise_function, nn = 0, Solver = 'SCS'):
@@ -392,6 +396,9 @@ def polynomial_fit(data,parameters):
             return False
 
 def rotate_single_track(data):
+    """
+    Rotates trajectories as horizontally as possible. Inputs and returns a DataFrame.
+    """
     coords = data.loc[:, ['x', 'y']].values
     coords = coords - coords[0, :]
 
