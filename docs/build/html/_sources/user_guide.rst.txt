@@ -158,19 +158,28 @@ The following transport parameters are extracted and analyzed from each trajecto
 * **Processivity** : Time, in seconds, that the feature spent in GO phases.
 * **Run length** : Length, in µm, travelled during GO phases.
 * **Diagonal size** : Overall length of the trajectory.
+* **Curvilign length** : Segmental length of the trajectory, in µm.
+* **Duration** : Duration, in seconds, of the trajectory.
 * **Fraction of time paused** : Fraction of the time that the feature spent paused.
+* **Variance in GO and STOP phases** : Variance of the intensity of the signal in GO and STOP phases.
 * 
   **Fraction of moving particles** : Ratio of moving particles to non-moving particles. 
 
-    It is estimated by dividing the number of trajectories analyzed for each file by the number of features found on the first frame of that file. 
+    It is estimated by diving the number of trajectories analyzed for each file by the number of features found on the first frame of a film. 
+
     It does not take into account trajectories that were filtered out before analysis, or features that might appear after the first frame. 
+
     It is therefore not an absolute measure of the fraction of moving particles, and should only be used for relative comparison between experimental conditions.
 
 If the antero_retro setting is enabled : 
 
 
 * Some of the parameters will be duplicated for anterograde and retrograde transport.
-* **Directionality** : ratio of anterograde to retrograde transport. 1 means a purely anterograde transport, 0 a purely retrograde transport.
+* **Directionality** : Ratio of anterograde to retrograde transport. 1 means a purely retrograde transport, 0 a purely anterograde transport.
+* **Phase directionality** : Ratio of the number of retrograde GO phases to the overall number of GO phases.
+* **Switch** : Reversals of directionality, as in a GO phase of a given direction followed by a STOP phase then a GO phase of the opposite direction.
+* **Normalized switch** : Reversals of directionality per second.
+* **Direction-specific switch** : Reversals of directionality separated into anterograde to retrograde, and retrograde to anterograde.
 
 Additionally : 
 
@@ -186,8 +195,6 @@ Additionally :
   * Phase duration : Duration of the phase, in seconds.
 
 |
-
-.. _Statistical analysis:
 
 **Statistical analysis**
 ----------------------------
@@ -210,5 +217,5 @@ A few caveats :
 * t-tests and other appropriate parametric tests have yet to be implemented.
 * Conditions to be compared are, for now, simply determined by folder structure. 
   
-  * For unidirectional transport, folder structure is as such : ``input_folder/experiment/condition/files.tif``
+  * For unidirectional transport, folder structure is as such : ``input_folder/experiment/condition/well/files.tif``
   * For anterograde and retrograde transport, folder structure is a such : ``input_folder/experiment/condition/animal/eye/files.tif``

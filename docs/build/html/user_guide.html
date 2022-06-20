@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>User guide &mdash; MINT 0.1.3 documentation</title>
+  <title>User guide &mdash; MINT 0.1.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -90,22 +90,22 @@
 <div class="contents topic" id="contents">
 <p class="topic-title">Contents</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="#user-guide" id="id3"><strong>User guide</strong></a></p>
+<li><p><a class="reference internal" href="#user-guide" id="id2"><strong>User guide</strong></a></p>
 <ul>
-<li><p><a class="reference internal" href="#general-information" id="id4"><strong>General information</strong></a></p></li>
-<li><p><a class="reference internal" href="#parameters-and-settings" id="id5"><strong>Parameters and settings</strong></a></p>
+<li><p><a class="reference internal" href="#general-information" id="id3"><strong>General information</strong></a></p></li>
+<li><p><a class="reference internal" href="#parameters-and-settings" id="id4"><strong>Parameters and settings</strong></a></p>
 <ul>
-<li><p><a class="reference internal" href="#preprocessing" id="id6"><strong>Preprocessing</strong></a></p></li>
-<li><p><a class="reference internal" href="#feature-finding-and-linking" id="id7"><strong>Feature finding and linking</strong></a></p></li>
-<li><p><a class="reference internal" href="#data-extraction" id="id8"><strong>Data extraction</strong></a></p></li>
-<li><p><a class="reference internal" href="#output" id="id9"><strong>Output</strong></a></p></li>
+<li><p><a class="reference internal" href="#preprocessing" id="id5"><strong>Preprocessing</strong></a></p></li>
+<li><p><a class="reference internal" href="#feature-finding-and-linking" id="id6"><strong>Feature finding and linking</strong></a></p></li>
+<li><p><a class="reference internal" href="#data-extraction" id="id7"><strong>Data extraction</strong></a></p></li>
+<li><p><a class="reference internal" href="#output" id="id8"><strong>Output</strong></a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#output-transport-parameters-and-statistical-analysis" id="id10"><strong>Output, transport parameters and statistical analysis</strong></a></p>
+<li><p><a class="reference internal" href="#output-transport-parameters-and-statistical-analysis" id="id9"><strong>Output, transport parameters and statistical analysis</strong></a></p>
 <ul>
-<li><p><a class="reference internal" href="#id1" id="id11"><strong>Output</strong></a></p></li>
-<li><p><a class="reference internal" href="#transport-parameters" id="id12"><strong>Transport parameters</strong></a></p></li>
-<li><p><a class="reference internal" href="#statistical-analysis" id="id13"><strong>Statistical analysis</strong></a></p></li>
+<li><p><a class="reference internal" href="#id1" id="id10"><strong>Output</strong></a></p></li>
+<li><p><a class="reference internal" href="#transport-parameters" id="id11"><strong>Transport parameters</strong></a></p></li>
+<li><p><a class="reference internal" href="#statistical-analysis" id="id12"><strong>Statistical analysis</strong></a></p></li>
 </ul>
 </li>
 </ul>
@@ -114,7 +114,7 @@
 </div>
 <section id="general-information">
 <h2><strong>General information</strong><a class="headerlink" href="#general-information" title="Permalink to this headline"></a></h2>
-<p>Input data must be in the form of .tif files, and should be placed in a dedicated folder. Proper folder structure is detailed in <a class="reference internal" href="#statistical-analysis"><span class="std std-ref">Statistical analysis</span></a>.</p>
+<p>Input data must be in the form of .tif files, and should be placed in a dedicated folder. Proper folder structure is detailed in <span class="xref std std-ref">Statistical analysis</span>.</p>
 <p>Default parameters are provided for both CLI and GUI, but as they are very specific to our experimental setup please expect a lot of trial and errors
 before obtaining satisfactory results.</p>
 <p>You can use the “Test locate” function to try feature findind parameters.</p>
@@ -261,19 +261,26 @@ Please refer to their own documentation for more details on each parameter.</p>
 <li><p><strong>Processivity</strong> : Time, in seconds, that the feature spent in GO phases.</p></li>
 <li><p><strong>Run length</strong> : Length, in µm, travelled during GO phases.</p></li>
 <li><p><strong>Diagonal size</strong> : Overall length of the trajectory.</p></li>
+<li><p><strong>Curvilign length</strong> : Segmental length of the trajectory, in µm.</p></li>
+<li><p><strong>Duration</strong> : Duration, in seconds, of the trajectory.</p></li>
 <li><p><strong>Fraction of time paused</strong> : Fraction of the time that the feature spent paused.</p></li>
+<li><p><strong>Variance in GO and STOP phases</strong> : Variance of the intensity of the signal in GO and STOP phases.</p></li>
 <li><p><strong>Fraction of moving particles</strong> : Ratio of moving particles to non-moving particles.</p>
 <blockquote>
-<div><p>It is estimated by dividing the number of trajectories analyzed for each file by the number of features found on the first frame of that file.
-It does not take into account trajectories that were filtered out before analysis, or features that might appear after the first frame.
-It is therefore not an absolute measure of the fraction of moving particles, and should only be used for relative comparison between experimental conditions.</p>
+<div><p>It is estimated by diving the number of trajectories analyzed for each file by the number of features found on the first frame of a film.</p>
+<p>It does not take into account trajectories that were filtered out before analysis, or features that might appear after the first frame.</p>
+<p>It is therefore not an absolute measure of the fraction of moving particles, and should only be used for relative comparison between experimental conditions.</p>
 </div></blockquote>
 </li>
 </ul>
 <p>If the antero_retro setting is enabled :</p>
 <ul class="simple">
 <li><p>Some of the parameters will be duplicated for anterograde and retrograde transport.</p></li>
-<li><p><strong>Directionality</strong> : ratio of anterograde to retrograde transport. 1 means a purely anterograde transport, 0 a purely retrograde transport.</p></li>
+<li><p><strong>Directionality</strong> : Ratio of anterograde to retrograde transport. 1 means a purely retrograde transport, 0 a purely anterograde transport.</p></li>
+<li><p><strong>Phase directionality</strong> : Ratio of the number of retrograde GO phases to the overall number of GO phases.</p></li>
+<li><p><strong>Switch</strong> : Reversals of directionality, as in a GO phase of a given direction followed by a STOP phase then a GO phase of the opposite direction.</p></li>
+<li><p><strong>Normalized switch</strong> : Reversals of directionality per second.</p></li>
+<li><p><strong>Direction-specific switch</strong> : Reversals of directionality separated into anterograde to retrograde, and retrograde to anterograde.</p></li>
 </ul>
 <p>Additionally :</p>
 <ul class="simple">
@@ -294,7 +301,7 @@ It is therefore not an absolute measure of the fraction of moving particles, and
 </div>
 </section>
 <section id="statistical-analysis">
-<span id="id2"></span><h3><strong>Statistical analysis</strong><a class="headerlink" href="#statistical-analysis" title="Permalink to this headline"></a></h3>
+<h3><strong>Statistical analysis</strong><a class="headerlink" href="#statistical-analysis" title="Permalink to this headline"></a></h3>
 <p>This part of the script statistically compares transport parameters for each conditions.</p>
 <p>The script first checks for normality of distribution for each parameter. It then applies appropriate statistical tests :</p>
 <ul class="simple">
@@ -310,7 +317,7 @@ It is therefore not an absolute measure of the fraction of moving particles, and
 <li><p>t-tests and other appropriate parametric tests have yet to be implemented.</p></li>
 <li><p>Conditions to be compared are, for now, simply determined by folder structure.</p>
 <ul>
-<li><p>For unidirectional transport, folder structure is as such : <code class="docutils literal notranslate"><span class="pre">input_folder/experiment/condition/files.tif</span></code></p></li>
+<li><p>For unidirectional transport, folder structure is as such : <code class="docutils literal notranslate"><span class="pre">input_folder/experiment/condition/well/files.tif</span></code></p></li>
 <li><p>For anterograde and retrograde transport, folder structure is a such : <code class="docutils literal notranslate"><span class="pre">input_folder/experiment/condition/animal/eye/files.tif</span></code></p></li>
 </ul>
 </li>

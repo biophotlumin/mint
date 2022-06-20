@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>image_denoising module &mdash; MINT 0.1.3 documentation</title>
+  <title>image_denoising module &mdash; MINT 0.1.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -92,22 +92,22 @@ wavelet_denoising applies a wavelet filter to the frames.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="image_denoising.frame_accu">
 <span class="sig-prename descclassname"><span class="pre">image_denoising.</span></span><span class="sig-name descname"><span class="pre">frame_accu</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frames</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#image_denoising.frame_accu" title="Permalink to this definition"></a></dt>
-<dd><p>Performs line-by-line frame accumulation. Inputs and returns an array of frames.</p>
-<p>Adds even frames to the following odd frames.</p>
+<dd><p>Performs line-by-line frame average. Inputs and returns an array of frames.
+Each line of even frames is averaged with the corresponding line of the following odd frames.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="image_denoising.frame_average">
 <span class="sig-prename descclassname"><span class="pre">image_denoising.</span></span><span class="sig-name descname"><span class="pre">frame_average</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frames</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#image_denoising.frame_average" title="Permalink to this definition"></a></dt>
-<dd><p>Performs frame by frame average. Inputs and returns an array of frames.</p>
-<p>Averages even frames with the following odd frames.</p>
+<dd><p>Performs line-by-line frame average. Inputs and returns an array of frames.
+Each line of even frames is averaged with the corresponding line of the following odd frames.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="image_denoising.line_average">
 <span class="sig-prename descclassname"><span class="pre">image_denoising.</span></span><span class="sig-name descname"><span class="pre">line_average</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frames</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#image_denoising.line_average" title="Permalink to this definition"></a></dt>
-<dd><p>Performs line-by-line frame average. Inputs and returns an array of frames.</p>
-<p>Each line of even frames is averaged with the corresponding line of the following odd frames.</p>
+<dd><p>Performs line-by-line frame average. Inputs and returns an array of frames.
+Each line of even frames is averaged with the corresponding line of the following odd frames.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -126,7 +126,7 @@ wavelet_denoising applies a wavelet filter to the frames.</p>
 <dt class="sig sig-object py" id="image_denoising.tophat">
 <span class="sig-prename descclassname"><span class="pre">image_denoising.</span></span><span class="sig-name descname"><span class="pre">tophat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processed_frames</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frames</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#image_denoising.tophat" title="Permalink to this definition"></a></dt>
 <dd><p>Applies top-hat transform to each individual frames. Inputs a dictionary, a NumPy array, an integer, and a NumPy array. Returns a NumPy array.</p>
-<p>Uses cv2’s MORPH_TOPHAT function to remove artifacts.
+<p>Uses cv2 MORPH_TOPHAT function to remove artifacts.
 parameters is a dictionary containing calculation parameters. This function uses the ‘separation’ key. Refer to script.py for its use.
 processed_frames is an empty NumPy array, shaped according to the number of frames, rows and columns of the current file.
 i is the index of the for loop processing each frame.

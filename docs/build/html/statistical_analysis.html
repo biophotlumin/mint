@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>statistical_analysis module &mdash; MINT 0.1.3 documentation</title>
+  <title>statistical_analysis module &mdash; MINT 0.1.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -94,7 +94,9 @@ dunn performs Dunn’s test.
 boxplot generates a boxplot, with a notch at the median, and saves it as a .png.
 barplot generates a barplot, with SEM as error bars, and saves it as a .png.
 violinplot generates a violinplot.
-normality tests wether or not a sample fits a normal distribution.</p>
+normality tests wether or not a sample fits a normal distribution.
+means calculates the mean and the median for each variable of each condition.
+fraction_moving calculates the fraction of moving particules.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="statistical_analysis.barplot">
 <span class="sig-prename descclassname"><span class="pre">statistical_analysis.</span></span><span class="sig-name descname"><span class="pre">barplot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_folder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#statistical_analysis.barplot" title="Permalink to this definition"></a></dt>
@@ -125,6 +127,12 @@ This function prints out a DataFrame of individual p-values between each conditi
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="statistical_analysis.fraction_moving">
+<span class="sig-prename descclassname"><span class="pre">statistical_analysis.</span></span><span class="sig-name descname"><span class="pre">fraction_moving</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#statistical_analysis.fraction_moving" title="Permalink to this definition"></a></dt>
+<dd><p>Calculates the fraction of moving particles. Inputs a DataFrame.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="statistical_analysis.kruskal">
 <span class="sig-prename descclassname"><span class="pre">statistical_analysis.</span></span><span class="sig-name descname"><span class="pre">kruskal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#statistical_analysis.kruskal" title="Permalink to this definition"></a></dt>
 <dd><p>Performs a Kruskal-Wallis test. Inputs a DataFrame and a string. Returns a float.</p>
@@ -136,10 +144,7 @@ p is the p-value of the resulting test.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="statistical_analysis.means">
 <span class="sig-prename descclassname"><span class="pre">statistical_analysis.</span></span><span class="sig-name descname"><span class="pre">means</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#statistical_analysis.means" title="Permalink to this definition"></a></dt>
-<dd><p>Calculates the mean of each variable and each condition.</p>
-<p>data is a DataFrame containing transport parameters, as defined in data_extraction.py.
-variable is the name of the variable of interest being tested.</p>
-</dd></dl>
+<dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="statistical_analysis.normality">
@@ -148,16 +153,6 @@ variable is the name of the variable of interest being tested.</p>
 <p>data is a DataFrame containing transport parameters, as defined in data_extraction.py.
 variable is the name of the variable of interest being tested.</p>
 </dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="statistical_analysis.pub_barplot">
-<span class="sig-prename descclassname"><span class="pre">statistical_analysis.</span></span><span class="sig-name descname"><span class="pre">pub_barplot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_folder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#statistical_analysis.pub_barplot" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="statistical_analysis.pub_boxplot">
-<span class="sig-prename descclassname"><span class="pre">statistical_analysis.</span></span><span class="sig-name descname"><span class="pre">pub_boxplot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_folder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#statistical_analysis.pub_boxplot" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="statistical_analysis.ranksums">

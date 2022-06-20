@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>trajectory_calculations module &mdash; MINT 0.1.3 documentation</title>
+  <title>trajectory_calculations module &mdash; MINT 0.1.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -88,14 +88,18 @@
 <p>rejoining rejoins trajectories that were split up.
 SNR_spot_estimation estimates SNR for each feature.
 acceleration_minimization_norm1 applies an acceleration minimization algorithm to smooth trajectories with a lot of spatial noise.
+prec estimates spatial noise from signal intensity based on experimental data.
+acceleration_minimization_norm1_pointwise_adaptative_error_general extends acceleration_minimization_norm1 with pointwise estimation of noise.
 minimization prepares data for acceleration_minimization_norm1.
+point_minimization prepares data for acceleration_minimization_norm1_pointwise_adaptative_error_general.
 SNR_threshold filters trajectories for which the average SNR is below threshold.
 _gaussian returns a gaussian function with the given parameters.
 _spot_moments returns the gaussian parameters of a 2D distribution by calculating its moments.
 _fit_spot_by_gaussian returns the gaussian parameters of a 2D distribution found by a fit.
 MSD_filtering computes Mean Square Displacement and filters trajectories accordingly.
 f returns a third-degree polynom.
-polynomial_fit filters trajectories based on how much they fit a third-degree polynom.</p>
+polynomial_fit filters trajectories based on how much they fit a third-degree polynom.
+rotate_single_track rotates track for them to be as horizontal as possible to help with polynomial_fit.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="trajectory_calculations.MSD_filtering">
 <span class="sig-prename descclassname"><span class="pre">trajectory_calculations.</span></span><span class="sig-name descname"><span class="pre">MSD_filtering</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tracks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trajectory_calculations.MSD_filtering" title="Permalink to this definition"></a></dt>
@@ -140,6 +144,31 @@ For some methods, the extreme values are less reliable</p></li>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="trajectory_calculations.acceleration_minimization_norm1_pointwise_adaptative_error_general">
+<span class="sig-prename descclassname"><span class="pre">trajectory_calculations.</span></span><span class="sig-name descname"><span class="pre">acceleration_minimization_norm1_pointwise_adaptative_error_general</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">measure</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Signal</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Noise_function</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'SCS'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trajectory_calculations.acceleration_minimization_norm1_pointwise_adaptative_error_general" title="Permalink to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>measure</strong> (<em>array</em><em> (</em><em>n</em><em>, </em><em>2</em><em>)</em>) – measured data (probably noisy) : coordinate x, y and Signal intensity</p></li>
+<li><p><strong>Signal</strong> (<em>array</em><em>(</em><em>n</em><em>)</em>) – experimental Signal. More signal means more photons so more precision of localisation.</p></li>
+<li><p><strong>Noise_function</strong> (<em>function that works with Arrays</em>) – Function that gives the empirical noise from the Signal data : Noise_function(Signal) = array of SD of noise</p></li>
+<li><p><strong>nn</strong> (<em>int</em><em>, </em><em>optional</em>) – number of data that aren’t taken into account at the extremities of the solution.
+For some methods, the extreme values are less reliable</p></li>
+<li><p><strong>Solver</strong> (<em>string</em><em>, </em><em>default is 'SCS'</em>) – The default solver in cvxpy is ECOS, sometimes doesn’t work on complicated situations. SCS is more reliable but takes more time to run</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>solution</strong> – filtered solution with
+- minimization of the norm 1 of the acceleration
+- constraint : difference between measured data and solution, weighted by Signal, inferior or equal to the esperance of difference between measured data and truth, also weighted by Signal</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array (n-2*nn, 2)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="trajectory_calculations.f">
 <span class="sig-prename descclassname"><span class="pre">trajectory_calculations.</span></span><span class="sig-name descname"><span class="pre">f</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trajectory_calculations.f" title="Permalink to this definition"></a></dt>
 <dd><p>Third-degree polynom. Inputs and returns floats.</p>
@@ -154,10 +183,25 @@ parameters is a dictionary of calculation parameters, as defined in script.py.</
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="trajectory_calculations.point_minimization">
+<span class="sig-prename descclassname"><span class="pre">trajectory_calculations.</span></span><span class="sig-name descname"><span class="pre">point_minimization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trajectory_calculations.point_minimization" title="Permalink to this definition"></a></dt>
+<dd><p>Prepares data for acceleration_minimization_norm1. Inputs a DataFrame and a dictionary.</p>
+<p>subdata is a DataFrame containing data from a .csv file being processed.
+parameters is a dictionary of calculation parameters, as defined in script.py.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="trajectory_calculations.polynomial_fit">
 <span class="sig-prename descclassname"><span class="pre">trajectory_calculations.</span></span><span class="sig-name descname"><span class="pre">polynomial_fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trajectory_calculations.polynomial_fit" title="Permalink to this definition"></a></dt>
 <dd><p>Calculates wether or not a trajectory is within a specified range of a given third-degree polynom.</p>
 <p>Inputs a DataFrame with x and y coordinates. Returns a boolean.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="trajectory_calculations.prec">
+<span class="sig-prename descclassname"><span class="pre">trajectory_calculations.</span></span><span class="sig-name descname"><span class="pre">prec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trajectory_calculations.prec" title="Permalink to this definition"></a></dt>
+<dd><p>Estimates spatial noise based on signal intensity. Inputs and returns floats.</p>
+<p>Derived from a fit of spatial noise related to signal intensity on experimental data.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -173,11 +217,7 @@ Returns a DataFrame with rejoined trajectories.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="trajectory_calculations.rotate_single_track">
 <span class="sig-prename descclassname"><span class="pre">trajectory_calculations.</span></span><span class="sig-name descname"><span class="pre">rotate_single_track</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#trajectory_calculations.rotate_single_track" title="Permalink to this definition"></a></dt>
-<dd><p>Rotates trajectory to the horizontal plane. Inputs and returns a DataFrame.</p>
-<p>This functions transforms the coordinates of a trajectory so that it is as horizontal as possible.
-Input DataFrame must contain x and y columns with coordinates.
-This function returns an equivalent DataFrame with x and y coordinates.
-It is used to improve the efficiency of the polynomial fit.</p>
+<dd><p>Rotates trajectories as horizontally as possible. Inputs and returns a DataFrame.</p>
 </dd></dl>
 
 </section>
