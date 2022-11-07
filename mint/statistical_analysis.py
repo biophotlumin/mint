@@ -487,6 +487,6 @@ def pub_barplot_ktp(data, variable,input_folder,p):
     plt.close()
 
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20220214_180447/124 Results - 20221011_145854 savgol 9/WT HOM TRI'
+    input_folder = r''
     settings = {'antero_retro':True}
     statistical_analysis(settings,input_folder)
