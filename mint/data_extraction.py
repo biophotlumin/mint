@@ -857,7 +857,7 @@ if __name__ == '__main__':
     }
 
     start = time.time()
-    input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/MINT_benchmark")
+    input_folder = Path(r"")
     data_extraction(parameters,input_folder,settings)
     end = time.time()
     duration = end - start
