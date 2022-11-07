@@ -243,7 +243,6 @@ while True:
 
         log['output_folder'],log['identifier'],log['root_input_folder'] = folder_structure_creation(input_folder)
         start = time.time()
-        print("ok")
         tracking(input_folder,parameters,settings,log)
         end = time.time()
         print((end-start)/60)

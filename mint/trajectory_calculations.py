@@ -159,10 +159,56 @@ def acceleration_minimization_norm1(measure, sigma0,px, nn = 0):
     constraints = [ cp.atoms.norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
     prob = cp.Problem(objective, constraints)
     
-    prob.solve(solver='SCS',verbose=False) #alternatively, 'GUROBI' or 'MOSEK'
+    prob.solve(solver='SCS',verbose=False,max_iters=100000) #alternatively, 'GUROBI' or 'MOSEK' #
     solution = variable.value
     if nn == 0:
         return solution
+    else:
+        return solution[nn:n-nn]
+
+def prec(N):
+    return(30+(600/(np.sqrt(N))))
+
+def acceleration_minimization_norm1_pointwise_adaptative_error_general(measure, Signal, Noise_function, nn = 0, Solver = 'SCS'):
+    """
+    Parameters
+    ----------
+    measure : array (n, 2)
+        measured data (probably noisy) : coordinate x, y and Signal intensity
+    Signal : array(n)
+        experimental Signal. More signal means more photons so more precision of localisation.
+    Noise_function : function that works with Arrays
+        Function that gives the empirical noise from the Signal data : Noise_function(Signal) = array of SD of noise
+    nn : int, optional
+        number of data that aren't taken into account at the extremities of the solution.
+        For some methods, the extreme values are less reliable
+    Solver : string, default is 'SCS'
+        The default solver in cvxpy is ECOS, sometimes doesn't work on complicated situations. SCS is more reliable but takes more time to run
+    
+    Returns
+    -------
+    solution : array (n-2*nn, 2)
+        filtered solution with 
+        - minimization of the norm 1 of the acceleration 
+        - constraint : difference between measured data and solution, weighted by Signal, inferior or equal to the esperance of difference between measured data and truth, also weighted by Signal
+    """
+
+    n = len(measure)       
+    variable = cp.Variable((n, 2))
+    objective = cp.Minimize(cp.atoms.norm1(variable[2:,0]+variable[:-2,0] - 2*variable[1:-1,0])+cp.atoms.norm1(variable[2:,1]+variable[:-2,1] - 2*variable[1:-1,1]))
+    Weights = np.zeros((n,2))
+    Estimated_Noise = Noise_function(Signal)
+    Weights[:,0] = 1/Estimated_Noise
+    Weights[:,1] = 1/Estimated_Noise
+    Constrained = cp.multiply(Weights, variable - measure)
+
+    constraints = [ cp.atoms.norm(Constrained, 'fro')**2 <= 2*n ]
+    prob = cp.Problem(objective, constraints)
+    
+    prob.solve(solver = Solver, max_iters=100000)
+    solution = variable.value
+    if nn == 0:
+        return solution, Estimated_Noise
     else:
         return solution[nn:n-nn]
 
@@ -182,14 +228,51 @@ def minimization(subdata,parameters):
     array_y = array_y[:, np.newaxis]
 
     array = np.concatenate((array_x,array_y),axis=1)
-
     processed_array = acceleration_minimization_norm1(array,sigma,px,nn=0)
+    subdata['x'] = processed_array[:,0]
+    subdata['y'] = processed_array[:,1]
+
+    subdata['x'] = subdata['x']/px
+    subdata['y'] = subdata['y']/px
+
+    subdata.drop(subdata.head(1).index,inplace=True)
+    subdata.drop(subdata.tail(1).index,inplace=True)
+    subdata = subdata.reset_index(drop = True)
+
+    return subdata
+
+def point_minimization(subdata,parameters):
+    """Prepares data for acceleration_minimization_norm1. Inputs a DataFrame and a dictionary.
+
+        subdata is a DataFrame containing data from a .csv file being processed.
+        parameters is a dictionary of calculation parameters, as defined in script.py.
+    """
+    px = parameters['px']
+    sigma = parameters['sigma']
+
+    array_x = subdata['x'].to_numpy()
+    array_x * px
+    array_x = array_x[:, np.newaxis]
+    
+    array_y = subdata['y'].to_numpy()
+    array_y * px
+    array_y = array_y[:, np.newaxis]
+
+    array_mass = subdata['mass'].to_numpy()
+    array_mass = array_mass/(11.4)
+    #array_mass = array_mass[:, np.newaxis]
+
+    array = np.concatenate((array_x,array_y),axis=1)
+
+    processed_array, estim_noise = acceleration_minimization_norm1_pointwise_adaptative_error_general(array, array_mass, prec, nn = 0, Solver = 'SCS')
 
     subdata['x'] = processed_array[:,0]
     subdata['y'] = processed_array[:,1]
 
     subdata['x'] = subdata['x']/px
     subdata['y'] = subdata['y']/px
+
+    subdata['estim_noise'] = estim_noise
 
     subdata.drop(subdata.head(1).index,inplace=True)
     subdata.drop(subdata.tail(1).index,inplace=True)

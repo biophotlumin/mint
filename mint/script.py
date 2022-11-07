@@ -34,7 +34,7 @@ parameters = {
     'threshold_t':10,
     'threshold_r':40,
     #Data Extraction
-    'r_conf_cut' : 0.9**2,
+    'r_conf_cut' : 0.64,
     'px' : 0.173, #in µm
     'dt' : 0.05, #in s
     'min_theoretical_precision' : 50, # in nm
@@ -62,7 +62,7 @@ settings = {
     #Data Extraction
     'polynomial_fit':True,
     'minimization':True,
-    'antero_retro':True
+    'antero_retro':True,
 }
 
 log = {
@@ -76,7 +76,7 @@ log = {
 
 #Define root input folder
 
-input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/ML")
+input_folder = Path(r"/home/baptiste/Documents/vis")
 
 start = time.time()
 
@@ -92,9 +92,11 @@ if __name__ == '__main__':
 
     data_extraction(parameters,Path(log['output_folder']).joinpath(Path(log['output_folder']).joinpath(input_folder.name)),settings)
 
-    statistical_analysis(settings,log['output_folder'])
+    # statistical_analysis(settings,log['output_folder'])
 
 
 end = time.time()
-print((end-start)/60)
+
+duration = end - start
+print('%dh%s' % (int(duration//3600),f'{int((duration%3600)/60):02d}'))
 

@@ -7,7 +7,7 @@
 """
 import cv2
 import numpy as np
-from scipy import signal
+from scipy import signal, ndimage
 
 
 def tophat(parameters,processed_frames,i,frames):
@@ -103,3 +103,19 @@ def frame_accu(frames):
         avg_frames[(int(i/2))] = ((frames[i]+frames[i+1]))
 
     return avg_frames
+
+def mean_blur_loop(median,processed_frames,i):  
+    processed_frames[i] = (processed_frames[i] - median)
+    processed_frames = processed_frames.clip(min=0)
+
+    return processed_frames
+
+def mean_blur(median,processed_frames):
+    processed_frames = processed_frames - median
+    return processed_frames.clip(min=0)
+
+
+def mean_avg(processed_frames,i):
+    processed_frames[i] = cv2.blur(processed_frames[i],(3,3))
+
+    return processed_frames

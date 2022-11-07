@@ -37,6 +37,8 @@ def tracking(input_folder,parameters,settings,log):
             
             #Per frame denoising process
             frames_init = np.zeros(frames.shape)
+            # median = np.median(frames,axis=0)
+            # frames = mean_blur(median,frames)
             for i in range(len(frames)):
                 if settings['tophat']:
                     processed_frames = tophat(parameters,frames_init,i,frames) #Tophat denoising
@@ -45,6 +47,7 @@ def tracking(input_folder,parameters,settings,log):
 
                 if settings['wavelet']:
                     processed_frames = wavelet_denoising(processed_frames,i) #Wavelet denoising
+                processed_frames = mean_avg(processed_frames,i)
             
             #Localizing particles and finding trajectories
 
