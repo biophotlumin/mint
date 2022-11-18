@@ -47,7 +47,6 @@ def tracking(input_folder,parameters,settings,log):
 
                 if settings['wavelet']:
                     processed_frames = wavelet_denoising(processed_frames,i) #Wavelet denoising
-                processed_frames = mean_avg(processed_frames,i)
             
             #Localizing particles and finding trajectories
 
