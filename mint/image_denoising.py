@@ -1,121 +1,73 @@
 """Functions used to reduce noise on individual video frames.
-
-    tophat applies a white top-hat transform to each individual frame.
-    wavelet_denoising applies a wavelet filter.
-    lowpass1 and lowpass2 apply a low pass filter to the frames.
-    wavelet_denoising applies a wavelet filter to the frames.
 """
+
 import cv2
 import numpy as np
-from scipy import signal, ndimage
+from scipy import signal
 
+def tophat(parameters,processed_frame):
+    """Applies top-hat transform.
 
-def tophat(parameters,processed_frames,i,frames):
-    """Applies top-hat transform to each individual frames. Inputs a dictionary, a NumPy array, an integer, and a NumPy array. Returns a NumPy array.
+    Frame-by-frame top-hat filtering with `cv2.MORPH_TOPHAT`. Removes artifacts.
 
-                Uses cv2 MORPH_TOPHAT function to remove artifacts.
-                parameters is a dictionary containing calculation parameters. This function uses the 'separation' key. Refer to script.py for its use.
-                processed_frames is an empty NumPy array, shaped according to the number of frames, rows and columns of the current file.
-                i is the index of the for loop processing each frame.
-                frames is a NumPy array containing frames from the current file.
-                """              
+    :param parameters: Dictionary containing the minimum distance (in pixels) between features under the `'separation'` key.
+    :type parameters: dict
+    :param processed_frames: Empty 3D array of identical shape to the raw frames array.
+    :type processed_frames: NumPy array
+    :param i: Index of the current frame.
+    :type i: int
+    :param frames: 3D array of raw frames over time.
+    :type frames: NumPy array
+    :return: 3D array of processed frames over time.
+    :rtype: NumPy array
+    """    
+
     kernelC = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(parameters['separation'],parameters['separation']))
-    processed_frames[i] = cv2.morphologyEx(frames[i],cv2.MORPH_TOPHAT,kernelC)
+    processed_frame = cv2.morphologyEx(processed_frame,cv2.MORPH_TOPHAT,kernelC)
 
-    return processed_frames
+    return processed_frame
 
-def lowpass1():
-    """Defines an array for low pass filtering, returns a NumPy array.
-    """
+def lowpass():
+    """Defines a pair of arrays for low pass filtering.
+
+    :return: Arrays for low pass filtering.
+    :rtype: NumPy array
+    """    
+
     h0 = 3./8
     h1 = 1./4
     h2 = 1./16
-    lowpass = np.array([h2,h1,h0,h1,h2])
-    lowpassV = lowpass.reshape(-1,1)
-    lowpassH = lowpass.reshape(1,-1)
-    array1 = np.dot(lowpassV,lowpassH)
-    return array1
 
-def lowpass2():
-    """Defines an array for low pass filtering, returns a NumPy array.
-    """
-    h0 = 3./8
-    h1 = 1./4
-    h2 = 1./16
-    lowpass = np.array([h2,0,h1,0,h0,0,h1,0,h2])
-    lowpassV = lowpass.reshape(-1,1)
-    lowpassH = lowpass.reshape(1,-1)
-    array2 = np.dot(lowpassV,lowpassH)
-    return array2
+    lowpass1 = np.array([h2,h1,h0,h1,h2])
+    lowpassV1 = lowpass1.reshape(-1,1)
+    lowpassH1 = lowpass1.reshape(1,-1)
+    array1 = np.dot(lowpassV1,lowpassH1)
 
-def wavelet(array,array1,array2):
-    """Applies a wavelet filter. Inputs three NumPy arrays, returns a NumPy array.
-    """
-    lc1 = signal.convolve2d(array,array1,mode='same')
-    lc2 = signal.convolve2d(lc1,array2,mode='same')
-    new_array = lc1 - lc2
-    return new_array
+    lowpass2 = np.array([h2,0,h1,0,h0,0,h1,0,h2])
+    lowpassV2 = lowpass2.reshape(-1,1)
+    lowpassH2 = lowpass2.reshape(1,-1)
+    array2 = np.dot(lowpassV2,lowpassH2)
 
-def wavelet_denoising(processed_frames,i):
-    """Applies wavelet denoising to each individual frames. Inputs a NumPy array and an integer, returns a NumPy array.
+    return array1,array2
 
-        Uses two low-pass filers and scipy.signal.convolve2d to remove background noise.
-        processed_frames is a NumPy array, either filled with raw frames or frames that went through top-hat transform.
-        i is the index of the for loop processing each frame.
-        """ 
-    lp1 = lowpass1()
-    lp2 = lowpass2()
+def wavelet(processed_frame):
+    """Applies wavelet denoising.
 
-    processed_frames[i] = wavelet(processed_frames[i],lp1,lp2)
+    Uses two low-pass filers and `scipy.signal.convolve2d` to remove background noise.
 
-    return processed_frames
+    :param processed_frames: 3D array of frames over time.
+    :type processed_frames: NumPy array
+    :param i: Index of the current frame.
+    :type i: int
+    :return: 3D array of processed frames over time.
+    :rtype: NumPy array
+    """    
 
-def line_average(frames):
-    """Performs line-by-line frame average. Inputs and returns an array of frames.
-        Each line of even frames is averaged with the corresponding line of the following odd frames.
-    """
-    avg_frames = np.empty((int(frames.shape[0]/2),frames.shape[1],frames.shape[2]))
+    lp1 = lowpass()[0]
+    lp2 = lowpass()[1]
 
-    for i in range(0,(frames.shape[0]-2),2):
-        for j in range(frames.shape[1]):
-            avg_frames[(int(i/2)),j,] = ((frames[i,j,]+frames[i+1,j,])/2)
+    lc1 = signal.convolve2d(processed_frame,lp1,mode='same')
+    lc2 = signal.convolve2d(lc1,lp2,mode='same')
+    processed_frame = lc1 - lc2
 
-    return avg_frames
-
-def frame_average(frames):
-    """Performs line-by-line frame average. Inputs and returns an array of frames.
-        Each line of even frames is averaged with the corresponding line of the following odd frames.
-    """
-    avg_frames = np.empty((int(frames.shape[0]/2),frames.shape[1],frames.shape[2]))
-
-    for i in range(0,(frames.shape[0]-2),2):
-        avg_frames[(int(i/2))] = ((frames[i]+frames[i+1])/2)
-
-    return avg_frames
-
-def frame_accu(frames):
-    """Performs line-by-line frame average. Inputs and returns an array of frames.
-        Each line of even frames is averaged with the corresponding line of the following odd frames.
-    """
-    avg_frames = np.empty((int(frames.shape[0]/2),frames.shape[1],frames.shape[2]))
-
-    for i in range(0,(frames.shape[0]-2),2):
-        avg_frames[(int(i/2))] = ((frames[i]+frames[i+1]))
-
-    return avg_frames
-
-def mean_blur_loop(median,processed_frames,i):  
-    processed_frames[i] = (processed_frames[i] - median)
-    processed_frames = processed_frames.clip(min=0)
-
-    return processed_frames
-
-def mean_blur(median,processed_frames):
-    processed_frames = processed_frames - median
-    return processed_frames.clip(min=0)
-
-
-def mean_avg(processed_frames,i):
-    processed_frames[i] = cv2.blur(processed_frames[i],(3,3))
-
-    return processed_frames
+    return processed_frame

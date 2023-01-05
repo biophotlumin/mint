@@ -1,13 +1,14 @@
-""" Script used to track particles in video files and extract trajectories.
+""" Script used to track particles in videos and extract trajectories.
 
-    This Python script performs frame by frame analysis of video files, localizes particles and then reconstructs trajectories. 
+    This Python script performs frame by frame analysis of videos, localizes particles and then reconstructs trajectories. 
 
     Please refer to https://github.com/biophotlumin/mint and https://lumin-mint.readthedocs.io/en/latest/ for more information.
 """
+
 #Imports modules
 from utils import *
 from image_denoising import *
-from output_files_creation import *
+from output import *
 from data_extraction import *
 from statistical_analysis import *
 from tracking import *
@@ -27,7 +28,7 @@ parameters = {
     'adaptive_step':0.9,
     'stub_filtering':3,
     #trackpy.motion.msd
-    'threshold':300,
+    'msd':300,
     #SNR estimation
     'base_level':0,
     #Rejoining
@@ -41,7 +42,7 @@ parameters = {
     'sliding_window':3,
     'sigma':129,
     'len_cutoff':30, #Number of points
-    'threshold_poly3':1.4 #Deviation from third-degree polynom
+    'threshold_poly3':1.4, #Deviation from third-degree polynom
 }
 
 #Optional image and trajectory processing
@@ -56,13 +57,18 @@ settings = {
     'rejoining':True,
     'SNR_estimation':True,
     #Outputs
-    'individual_images':False,
-    'individual_txt':False,
+    'individual_images':True,
+    'individual_txt':True,
     'group_image':True,
     #Data Extraction
     'polynomial_fit':True,
-    'minimization':True,
+    'minimization':False,
+    'theta':True,
     'antero_retro':True,
+    #Stats
+    'order':['WT','HET','HOM'],
+    'extension':'svg',
+    'dpi':300,
 }
 
 log = {
@@ -76,7 +82,7 @@ log = {
 
 #Define root input folder
 
-input_folder = Path(r"/home/baptiste/Documents/vis")
+input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/video_benchmark")
 
 start = time.time()
 
@@ -90,7 +96,7 @@ if __name__ == '__main__':
     #Calling main functions
     tracking(input_folder,parameters,settings,log)
 
-    data_extraction(parameters,Path(log['output_folder']).joinpath(Path(log['output_folder']).joinpath(input_folder.name)),settings)
+    data_extraction(Path(log['output_folder']).joinpath(input_folder.name),parameters,settings)
 
     # statistical_analysis(settings,log['output_folder'])
 
@@ -100,3 +106,9 @@ end = time.time()
 duration = end - start
 print('%dh%s' % (int(duration//3600),f'{int((duration%3600)/60):02d}'))
 
+# TODO Declare arg types in functions
+# TODO Generate report through ReportLab
+# TODO FutureWarning trajectory_calculations.py:416: 
+# FutureWarning: The frame.append method is deprecated and will be removed from pandas in a future version. Use pandas.concat instead.
+#   df = df.append(subtracks)
+# trajectory_calculations.py:134 df = df.append([{'N':N, 'SNR':SNR,'feet':feet,

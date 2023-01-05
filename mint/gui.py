@@ -1,7 +1,7 @@
 import PySimpleGUI as sg
 from utils import folder_structure_creation
 from image_denoising import *
-from output_files_creation import *
+from output import *
 from tracking import *
 from data_extraction import *
 from statistical_analysis import *
@@ -54,7 +54,7 @@ sg.theme('DarkBlue')
 
 tab_trackpy_layout =  [          
             
-            [sg.Text('Input folder', size=(8, 1)), sg.Input(default_text=default_dict['input_folder'],key='input_folder'), sg.FolderBrowse()],
+            [sg.Text('Input folder', size=(12, 1)), sg.Input(default_text=default_dict['input_folder'],key='input_folder'), sg.FolderBrowse()],
             [sg.Frame(layout=[
             [sg.Text('Diameter'), sg.InputText(default_text=default_dict['diameter'],key='diameter', size=(5,1))],
             [sg.Text('Minmass'), sg.InputText(default_text=default_dict['minmass'],key='minmass', size=(5,1))],
@@ -142,7 +142,7 @@ layout = [
         [sg.Button('Run'), sg.Button('Exit')] ]
 
 # Create the Window
-window = sg.Window('MINT', layout)
+window = sg.Window('MINT', layout, font=("Inter Regular",10))
 # Event Loop to process "events" and get the "values" of the inputs
 
 while True:

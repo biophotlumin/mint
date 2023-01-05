@@ -1,18 +1,8 @@
 """Module containing trajectory processing and filtering functions.
-
-    rejoining rejoins trajectories that were split up.
-    SNR_spot_estimation estimates SNR for each feature.
-    acceleration_minimization_norm1 applies an acceleration minimization algorithm to smooth trajectories with a lot of spatial noise.
-    minimization prepares data for acceleration_minimization_norm1.
-    SNR_threshold filters trajectories for which the average SNR is below threshold.
-    _gaussian returns a gaussian function with the given parameters.
-    _spot_moments returns the gaussian parameters of a 2D distribution by calculating its moments.
-    _fit_spot_by_gaussian returns the gaussian parameters of a 2D distribution found by a fit.
-    MSD_filtering computes Mean Square Displacement and filters trajectories accordingly.
-    f returns a third-degree polynom.
-    polynomial_fit filters trajectories based on how much they fit a third-degree polynom.
 """
 #Imports
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
 from scipy import optimize
 from scipy.fftpack import *
@@ -24,13 +14,22 @@ import cvxpy as cp
 from scipy.stats import *
 
 def rejoining(tracks,threshold_t,threshold_r):
-    """Rejoins split trajectories that are visually part of the same entity. Inputs a DataFrame and two integers, returns a DataFrame.
+    """Rejoins split trajectories.
 
-        Inputs a DataFrame of trajectories from trackpy.link as 'tracks'. 
-        threshold_t is the maximum distance, in pixels, between two trajectories for them to be rejoined.
-        threshold_r is  the maximum amout of time, in number of frames, between two trajectories for them to be rejoined.
-        Returns a DataFrame with rejoined trajectories.
-    """
+    Joins trajectories whose start and end points are within set spatial and temporal threshold of each other.  
+    
+    This function does not generate additional data points, rejoined trajectories will be considered as one for statistical purposes thus reducing oversampling. 
+
+    :param tracks: DataFrame containing trajectories.
+    :type tracks: DataFrame
+    :param threshold_t: Temporal threshold, in number of frames.
+    :type threshold_t: int
+    :param threshold_r: Spatial threshold, in pixels.
+    :type threshold_r: int
+    :return: DataFrame containing rejoined trajectories.
+    :rtype: DataFrame
+    """    
+
     df_start = pd.DataFrame()
     df_end = pd.DataFrame()
     n_rejoined = 0
@@ -80,13 +79,23 @@ def rejoining(tracks,threshold_t,threshold_r):
     return tracks, n_rejoined
 
 def SNR_spot_estimation(frames,tracks,base_level):
-    """Estimates SNR for each feature. Inputs a NumPy array, a DataFrame, and an integer. Returns a DataFrame.
+    """Estimates SNR for each feature.
 
-        tracks is a DataFrame containing particle, frame, x, y. 'base_level' is the base level of the detector (419 for FNDs experiment).
-        Returns a one-column dataframe containing SNR and one-column dataframe containing the signal=integral of the 2D gaussian.
-        SNR is defined as the height of the gaussian fit divided by the noise from the background + shot noise.
-        The signal is defined as : N=2pi(F-Fo)*sigmaX*sigmaY (volume of 2D Gaussian of standard deviation sigmaX and sigmaY in both directions)
-    """
+    Returns a DataFrame with a column containing the SNR and one column containing the signal (as the integral of the 2D gaussian).
+
+    SNR is defined as the height of the gaussian fit divided by the noise from the background + shot noise.
+
+    The signal is defined as : N = 2pi(F-Fo)*sigmaX*sigmaY (volume of 2D gaussian of standard deviation sigmaX and sigmaY in both directions).
+
+    :param frames: 2D array of a given frame.
+    :type frames: NumPy array
+    :param tracks: DataFrame containing trajectories.
+    :type tracks: DataFrame
+    :param base_level: Base level of the detector (419 for FNDs experiment).
+    :type base_level: int
+    :return: DataFrame with added SNR column.
+    :rtype: DataFrame
+    """    
 
     nb_frames,nb_rows,nb_columns = frames.shape[0],frames.shape[1],frames.shape[2]
     df = pd.DataFrame()
@@ -135,18 +144,20 @@ def SNR_spot_estimation(frames,tracks,base_level):
     tracks = tracks.merge(df, on=['particle', 'frame'], how='left')
     return tracks
 
-def acceleration_minimization_norm1(measure, sigma0,px, nn = 0):
+def acceleration_minimization_norm1(measure, sigma0, px, nn = 0):
     """
     Parameters
     ----------
     measure : array (n, 2)
-        measured data (probably noisy).
-    sigma0 : number
-        standard deviation caused by the measure (in nanometer)
+        measured data (probably noisy) : x and y coordinates
+    sigma0 : int
+        standard deviation of localisation, in nm
+    px : float
+        pixel size in µm
     nn : int, optional
-        number of data that aren't taken into account at the extremities of the solution.
-        For some methods, the extreme values are less reliable
-    
+        amount of data points not taken into account at the extremities of the solution.
+        For some methods, the extreme values are less reliable.
+
     Returns
     -------
     solution : array (n-2*nn, 2)
@@ -167,23 +178,29 @@ def acceleration_minimization_norm1(measure, sigma0,px, nn = 0):
         return solution[nn:n-nn]
 
 def prec(N):
+    """Experimental fit of the precision of localisation.
+
+    :param N: Integrated photon count.
+    :type N: float
+    """    
+
     return(30+(600/(np.sqrt(N))))
 
-def acceleration_minimization_norm1_pointwise_adaptative_error_general(measure, Signal, Noise_function, nn = 0, Solver = 'SCS'):
+def acceleration_minimization_norm1_pointwise_adaptative_error(measure, Signal, Noise_function, nn = 0, Solver = 'SCS'):
     """
     Parameters
     ----------
     measure : array (n, 2)
-        measured data (probably noisy) : coordinate x, y and Signal intensity
+        measured data (probably noisy) : x and y coordinates
     Signal : array(n)
-        experimental Signal. More signal means more photons so more precision of localisation.
-    Noise_function : function that works with Arrays
-        Function that gives the empirical noise from the Signal data : Noise_function(Signal) = array of SD of noise
+        measured photon count. Higher signal means more photons thus better precision of localisation.
+    Noise_function : function
+        empirical noise estimation Signal : Noise_function(Signal) = array of the standard deviation of noise.
     nn : int, optional
-        number of data that aren't taken into account at the extremities of the solution.
-        For some methods, the extreme values are less reliable
+        amount of data points not taken into account at the extremities of the solution.
+        For some methods, the extreme values are less reliable.
     Solver : string, default is 'SCS'
-        The default solver in cvxpy is ECOS, sometimes doesn't work on complicated situations. SCS is more reliable but takes more time to run
+        default solver in cvxpy is ECOS which sometimes fail on complicated problems. SCS is more reliable but slower.
     
     Returns
     -------
@@ -213,11 +230,17 @@ def acceleration_minimization_norm1_pointwise_adaptative_error_general(measure, 
         return solution[nn:n-nn]
 
 def minimization(subdata,parameters):
-    """Prepares data for acceleration_minimization_norm1. Inputs a DataFrame and a dictionary.
+    """Prepares data for minimization.
 
-        subdata is a DataFrame containing data from a .csv file being processed.
-        parameters is a dictionary of calculation parameters, as defined in script.py.
-    """
+    :param subdata: DataFrame containing x and y coordinates.
+    :type subdata: DataFrame
+    :param parameters: Dictionary containing the pixel size under the `'px'` key and the precision of localisation under the `'sigma'` key.
+    :type parameters: dict
+    :return: DataFrame containing denoised x and y coordinates.
+    :rtype: DataFrame
+    """    
+
+    #Convert coordinates to µm
     px = parameters['px']
     sigma = parameters['sigma']
 
@@ -228,10 +251,13 @@ def minimization(subdata,parameters):
     array_y = array_y[:, np.newaxis]
 
     array = np.concatenate((array_x,array_y),axis=1)
+
     processed_array = acceleration_minimization_norm1(array,sigma,px,nn=0)
+
     subdata['x'] = processed_array[:,0]
     subdata['y'] = processed_array[:,1]
 
+    #Convert coordinates back to pixels
     subdata['x'] = subdata['x']/px
     subdata['y'] = subdata['y']/px
 
@@ -242,14 +268,19 @@ def minimization(subdata,parameters):
     return subdata
 
 def point_minimization(subdata,parameters):
-    """Prepares data for acceleration_minimization_norm1. Inputs a DataFrame and a dictionary.
+    """Prepares data for pointwise minimization.
 
-        subdata is a DataFrame containing data from a .csv file being processed.
-        parameters is a dictionary of calculation parameters, as defined in script.py.
-    """
+    :param subdata: DataFrame containing x and y coordinates.
+    :type subdata: DataFrame
+    :param parameters: Dictionary containing the pixel size under the `'px'` key.
+    :type parameters: dict
+    :return: DataFrame containing denoised x and y coordinates.
+    :rtype: DataFrame
+    """    
+
     px = parameters['px']
-    sigma = parameters['sigma']
 
+    #Convert coordinates to µm
     array_x = subdata['x'].to_numpy()
     array_x * px
     array_x = array_x[:, np.newaxis]
@@ -258,20 +289,22 @@ def point_minimization(subdata,parameters):
     array_y * px
     array_y = array_y[:, np.newaxis]
 
+    #Convert mass to photons
     array_mass = subdata['mass'].to_numpy()
     array_mass = array_mass/(11.4)
-    #array_mass = array_mass[:, np.newaxis]
 
     array = np.concatenate((array_x,array_y),axis=1)
 
-    processed_array, estim_noise = acceleration_minimization_norm1_pointwise_adaptative_error_general(array, array_mass, prec, nn = 0, Solver = 'SCS')
+    processed_array, estim_noise = acceleration_minimization_norm1_pointwise_adaptative_error(array, array_mass, prec, nn = 0, Solver = 'SCS')
 
     subdata['x'] = processed_array[:,0]
     subdata['y'] = processed_array[:,1]
 
+    #Convert coordinates back to pixels
     subdata['x'] = subdata['x']/px
     subdata['y'] = subdata['y']/px
 
+    #Include estimated precision of localisation
     subdata['estim_noise'] = estim_noise
 
     subdata.drop(subdata.head(1).index,inplace=True)
@@ -283,8 +316,16 @@ def point_minimization(subdata,parameters):
 #Filtering functions
 
 def SNR_threshold(tracks):
-    """Returns a new tracks without trajectories for which the average SNR is below threshold. Inputs and returns a DataFrame.
-    """
+    """Filters trajectories based on their Signal to Noise Ratio.
+
+    Returns a DataFrame without trajectories for which the average SNR is below threshold.
+
+    :param tracks: DataFrame containing trajectories.
+    :type tracks: DataFrame
+    :return: DataFrame containing filtered trajectories. 
+    :rtype: DataFrame
+    """    
+
     threshold = 2
 
     df = pd.DataFrame()
@@ -297,18 +338,28 @@ def SNR_threshold(tracks):
     return df
 
 def _gaussian(feet,height, center_x, center_y, width_x, width_y):
-    """Returns a gaussian function with the given parameters. Inputs integers, returns a function.
-    """
+    """Returns a gaussian function with the given parameters.
+
+    :param feet, height, center_x, center_y, width_x, width_y: Gaussian parameters.
+    :type feet, height, center_x, center_y, width_x, width_y: float
+    :return: Gaussian function.
+    :rtype: func
+    """    
+
     width_x = float(width_x)
     width_y = float(width_y)
     return lambda x,y: feet + height*np.exp(
                 -(((center_x-x)/width_x)**2+((center_y-y)/width_y)**2)/2)
 
 def _spot_moments(data):
-    """Returns the gaussian parameters of a 2D distribution by calculating its moments. Inputs a NumPy array, returns integers.
+    """Calculates the moments of a 2D gaussian.
 
-        feet is calculated by averaging pixels on the edge of 'data'.
-    """
+    :param data: 2D array of a given frame.
+    :type data: NumPy array
+    :return: Gaussian parameters. `feet` is calculated by averaging pixels on the edge of 'data'.
+    :rtype: float
+    """    
+
     nbx = data.shape[0]
     nby = data.shape[1]
     temp = np.copy(data)
@@ -325,8 +376,16 @@ def _spot_moments(data):
     return feet, height, x, y, width_x, width_y
 
 def _fit_spot_by_gaussian(data):
-    """Returns the gaussian parameters of a 2D distribution found by a fit. Inputs a NumPy array, returns integers. 
-    """
+    """Fits a spot by a 2D gaussian.
+
+    Returns the gaussian fit parameters of a 2D distribution.
+
+    :param data: 2D array of a given frame. 
+    :type data: NumPy array
+    :return: Gaussian fit parameters.
+    :rtype: int
+    """    
+
     parameters = _spot_moments(data)
     feet = parameters[0]
     params = parameters[1:6]
@@ -337,32 +396,55 @@ def _fit_spot_by_gaussian(data):
     return feet, p
 
 def MSD_filtering(tracks,threshold):
-    """Computes Mean Square Displacement and filters trajectories accordingly. Inputs a DataFrame and an integer, returns a DataFrame.
-    """
+    """Filters trajectories based on their Mean Square Displacement.
+
+    Returns a DataFrame containing trajectories whose calculated MSD is above a set threshold.
+
+    :param tracks: DataFrame containing unfiltered trajectories.
+    :type tracks: DataFrame
+    :param threshold: MSD threshold.
+    :type threshold: int
+    :return: DataFrame of filtered trajectories.
+    :rtype: DataFrame
+    """    
 
     df = pd.DataFrame()
     for item in set(tracks.particle):
         subtracks = tracks[tracks.particle==item]
         if len(subtracks)<3:
             continue
-
         df2 = tp.motion.msd(subtracks,1,1,max_lagtime=len(subtracks))
         if max(df2.msd)>threshold:
             df = df.append(subtracks)
     return df
 
 def f(x,a,b,c,d):
-    """Third-degree polynom. Inputs and returns floats.
-        """
+    """Third-degree polynom.
+
+    :param x,a,b,c,d: Polynom parameters.
+    :type x,a,b,c,d: float
+    :return: Polynom.
+    :rtype: float
+    """
     return a*x**3+b*x**2+c*x+d
 
 def polynomial_fit(data,parameters):
-    """Calculates wether or not a trajectory is within a specified range of a given third-degree polynom.
+    """Checks wether a trajectory fits a third-degree polynom.
 
-        Inputs a DataFrame with x and y coordinates. Returns a boolean.
-        """
+    Calculates how much a trajectory deviates from a third-degree polynom,
+    returns `True` if that deviation is below a given threshold.
+
+    :param data: DataFrame containing x and y coordinates.
+    :type data: DataFrame
+    :param parameters: Dictionary with the threshold under the `'threshold_poly3'` key.
+    :type parameters: dict
+    :return: `True` if the deviation is below the threshold, `False` if it is greater or equal.
+    :rtype: Boolean.
+    """    
+
     #x = data.x
     #y = data.y
+    #Fewer trajectories are rejected if they are rotated first    
     rot = rotate_single_track(data)
     x = rot.x_rotated
     y = rot.y_rotated
@@ -375,18 +457,23 @@ def polynomial_fit(data,parameters):
     y = y.reset_index(drop = True)
 
     if (len(x)>=parameters['len_cutoff']):
-
         x=np.array(x)
         y=np.array(y)
         val,cov=optimize.curve_fit(f,x,y)
         deviation=np.sqrt(np.mean((y-f(x,val[0],val[1],val[2],val[3]))**2))
-
         if (deviation<parameters['threshold_poly3']):
             return True
         else:
             return False
 
 def rotate_single_track(data):
+    """Rotates trajectories horizontally.
+
+    :param data: DataFrame containing x and y coordinates.
+    :type data: DataFrame
+    :return: DataFrame containing rotated x and y coordinates.
+    :rtype: DataFrame
+    """    
     coords = data.loc[:, ['x', 'y']].values
     coords = coords - coords[0, :]
 
@@ -399,6 +486,7 @@ def rotate_single_track(data):
         [np.sin(theta), np.cos(theta)]
     ])
     coords = np.matmul(coords, rotation)
+
     return pd.DataFrame({
         'x_rotated': coords[:, 0],
         'y_rotated': coords[:, 1],

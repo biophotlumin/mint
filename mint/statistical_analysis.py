@@ -11,20 +11,23 @@
     violinplot generates a violinplot.
     normality tests wether or not a sample fits a normal distribution.
 """
+
+## TODO : FIGURES
+
 #Imports
-from re import sub
-from utils import *
-from numpy.core.fromnumeric import mean
-from scipy import stats
+import os
+import numpy as np
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
-import os
 import scikit_posthocs as sp
-from pathlib import Path
-import numpy as np
+import matplotlib.pyplot as plt
 
-ylabels = {
+from utils import *
+from scipy import stats
+from pathlib import Path
+from statistics import mean
+
+vars = { #Variables of interest as keys, labels as values
         'pausing_time':'Pausing time (s)',
         'pausing_frequency':'Pausing frequency (events/min)',
         'curvilign_velocity':'Curvilign velocity (µm/s)',
@@ -55,9 +58,14 @@ ylabels = {
         'pausing_time_antero':'pausing_time_antero',
         'pausing_time_retro':'pausing_time_retro',
         'pausing_time_switch':'pausing_time_switch',
-        'directionality_normal':'direction normal'
+        'directionality_normal':'direction normal',
+        'fraction_moving':'fraction_moving',
         
 }
+
+statistical_tests = {'kruskal':'Kruskal-Wallis ',
+                     'ranksums':'rank-sums ',
+                     't_test':'t-',}
 
 def statistical_analysis(settings,input_folder):
     """Scans through .csv files and runs them through statistical analysis. Inputs a dictionary and a string.
@@ -69,106 +77,112 @@ def statistical_analysis(settings,input_folder):
         for name in files:
             if name.endswith('rajectory average parameters.csv') == False:  #Check for correct file extension
                 continue #Skips to next file if not correct .csv 
+
             file_path = os.path.join(path, name)
-            print(os.path.dirname(name))
             data = pd.read_csv(file_path,sep=csv_sniffer(file_path))
-            print(csv_sniffer(file_path))
-            if settings['antero_retro']==True:
-                variables_antero_retro(data,input_folder)
-            else:
-                variables(data,input_folder)
 
-def variables(data,input_folder):
+            act_variables = {} #Get a dict of variables actually contained in the .csv
+            for k, v in vars.items():
+                if k in data.columns:
+                    act_variables[k] = v
+
+            run_stats(settings,act_variables,data,input_folder)
+
+def run_stats(settings,act_variables,data,input_folder):
     """Calls statistical tests and plotting functions for each variable of interest. Inputs a DataFrame and a string.
 
         data is a DataFrame containing transport parameters, as defined in data_extraction.py.
         input_folder is the path to the input folder.
     """
-    voi = ['curvilign_velocity','processivity','run_length','diag_size','directionality',\
-            'fraction_paused','pausing_frequency','pausing_time'] #Variables of interest
 
-    for condition in set(data.condition): #Loop for different experiments
-        subset = data.loc[data.condition==condition]
-        results = []
-        if subset['slide'].nunique() == 2: #Applies tests for two samples
-            for item in set(voi):
-                if normality(data,item) == False: #Check for normality
-                    results.append('Distribution of '+str(item)+' is not normal \n')
-                    results.append("p-value of Wilcoxon rank sum test for "+item+" is "+str(round((ranksums(subset,item)),6))+"\n")
-                    boxplot(subset,item,input_folder,str(round((ranksums(subset,item)),6)))
-                    barplot(subset,item,input_folder,str(round((ranksums(subset,item)),6)))
-                elif normality(data,item) == True:
-                        results.append('Distribution of '+str(item)+' is normal \n')
-                        #Yet to implement t-test
-                        #results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
-                        #boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-                        #barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            
-            text_file = open((Path(input_folder).joinpath("Kruskal-Wallis test results.txt")),'w')
-            text_file.writelines(results)
-            text_file.close()
+    #Uncomment for subpopulation analysis
 
-        elif subset['slide'].nunique() > 2: #Applies tests for three or more samples
-            for item in set(voi):
-                if normality(data,item) == False: #Check for normality
-                    results.append('Distribution of '+str(item)+' is not normal \n')
-                    results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(subset,item)),6))+"\n")
-                    dunn(subset,item)
-                    boxplot(subset,item,input_folder,str(round((kruskal(subset,item)),6)))
-                    barplot(subset,item,input_folder,str(round((kruskal(subset,item)),6)))
-                elif normality(data,item) == True:
-                        results.append('Distribution of '+str(item)+' is normal \n')
-                        #Yet to implement t-test
-                        #results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
-                        #boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-                        #barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            text_file = open((Path(input_folder).joinpath("Kruskal-Wallis test results.txt")),'w') 
-            text_file.writelines(results)
-            text_file.close()
-        
-def variables_antero_retro(data,input_folder):
-    """Calls statistical tests and plotting functions for each variable of interest. Inputs a DataFrame and a string.
+    # non_antero = data.loc[data['directionality']>0] #Everything but purely anterograde trajectories
+    # non_retro = data.loc[data['directionality']<1] #Everything but purely retrograde trajectories
+    # mixed = non_antero.loc[non_antero['directionality']<1] #Everything but unidirectional trajectories
+    # pure_retro = data.loc[data['directionality']==1] #Purely retrograde trajectories
+    # pure_antero = data.loc[data['directionality']==0] #Purely anterograde trajectories
+    # left = data.loc[data['slide']=='oeil_gauche'] #Left eye only
+    # right = data.loc[data['slide']=='oeil_droit'] #Right eye only
+    # data = ?
 
-        data is a DataFrame containing transport parameters, as defined in data_extraction.py.
-        input_folder is the path to the input folder.
-    """
-    voi = ['curvilign_velocity_antero','curvilign_velocity_retro','processivity_antero','processivity_retro','curvilign_length','switch_a_to_r',\
-        'run_length_antero','run_length_retro','diag_size','directionality','duration','phase_dir_GO','switch_r_to_a',\
-            'fraction_paused','pausing_frequency','pausing_time','switch','variance_GO','variance_STOP','theta_std_GO','theta_std_STOP',\
-                'pausing_time_antero','pausing_time_retro','pausing_time_switch'] #Variables of interest
-    #voi = ['curvilign_velocity_antero'] #Variables of interest
+    order = settings['order'] #Optionally order by condition
+    if len(order):
+        if len(order) != data.condition.nunique():
+            raise ValueError('Length of order list does not match number of conditions')
+        if any(c not in data.condition.unique() for c in order):
+            raise ValueError('Item(s) in order list not found in conditions')
+        if len(order) != len(set(order)):
+            raise ValueError('Order list contains duplicates')
+
+        data['condition_sorted'] = data.condition.astype("category")
+        data.condition_sorted = data.condition_sorted.cat.set_categories(order)
+        data.sort_values(['condition_sorted'],inplace=True)
+
+    #Invert retrograde variables to display them with positive values
+    data.run_length_retro = data.run_length_retro*-1
+    data.curvilign_velocity_retro = data.curvilign_velocity_retro*-1
+
     results = []
-    #print(data.head)
-    # non_antero = data.loc[data['directionality']>0] #Tout sauf pûrement antérograde
-    # non_retro = data.loc[data['directionality']<1] #Tout sauf pûrement rétrograde
-    # mixed = non_antero.loc[non_antero['directionality']<1]
-    # pure_retro = data.loc[data['directionality']==0]
-    # left = data.loc[data['slide']=='oeil_droit']
-    #print(mixed.directionality.min())
-    #print(mixed.directionality.max())#data = left
-    #print(len(data))
-    #str(round((kruskal(non_antero,'diag_size')),6))
-    #pub_boxplot(data,'duration',input_folder,str(round((kruskal(data,'duration')),6)))
-    #pub_barplot(data,'duration',input_folder,str(round((kruskal(data,'duration')),6)))
-    for item in set(voi):
-        print(item)
-        if normality(data,item) == False: #Check for normality
-            results.append('Distribution of '+str(item)+' is not normal \n')
-            results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((kruskal(data,item)),6))+"\n")
-            # fraction_moving(data)
-            dunn(data,item)
-            pub_boxplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            pub_barplot(data,item,input_folder,str(round((kruskal(data,item)),6)))
-            #violinplot(data,item,str(round((kruskal(data,item)),6)))
-            means(data,item)
-        elif normality(data,item) == True:
-                results.append('Distribution of '+str(item)+' is normal \n')
-                results.append("p-value of Kruskal-Wallis test for "+item+" is "+str(round((t_test(data,item)),6))+"\n")
-                pub_boxplot(data,item,input_folder,str(round((t_test(data,item)),6)))
-                pub_barplot(data,item,input_folder,str(round((t_test(data,item)),6)))
-    text_file = open((Path(input_folder).joinpath("Kruskal-Wallis test results.txt")),'w')
+
+    for k,v in act_variables.items():
+        print(f'Calculating stats for {k}')
+
+        if k == 'fraction_moving':
+            data = data.drop_duplicates(subset='file') #Must be kept last in the vars dict as to not interfere with the others
+
+        if data.condition.nunique() > 2:
+            if normality(data,k) == False: #Check for normality
+                results.append(run_variable(k,False,'kruskal',data,True,input_folder,settings))
+            elif normality(data,k) == True:
+                results.append(run_variable(k,True,'kruskal',data,True,input_folder,settings))
+
+        elif data.condition.nunique() == 2:
+            if normality(data,k) == False: #Check for normality
+                results.append(run_variable(k,False,'ranksums',data,False,input_folder,settings))
+            elif normality(data,k) == True:
+                results.append(run_variable(k,True,'t_test',data,False,input_folder,settings))
+
+    results = [item for sublist in results for item in sublist] #Flatten list of list
+
+    text_file = open((Path(input_folder).joinpath("Statistical test results.txt")),'w')
     text_file.writelines(results)
     text_file.close()
+
+def run_variable(var,normal,test,data,dunn_b,input_folder,settings):
+    var_res = []
+    var_res.append(f'{var.upper()}\n')
+
+    if normal:
+        var_res.append(f'Distribution of {str(var)} is normal \n')
+    else:
+        var_res.append(f'Distribution of {str(var)} is not normal \n')
+
+    p_value = eval(test)(data,var)
+    var_res.append(f'p-value of {statistical_tests[test]}test for {var} is {str(round(p_value,6))}\n')
+
+    if dunn_b:
+        var_res.append('\n'+dunn(data,var)+'\n\n')
+
+    boxplot(data,var,input_folder,str(round(p_value,6)),settings)
+    barplot(data,var,input_folder,str(round(p_value,6)),settings)
+
+    var_res.append(f'Sample size of {var} is {means(data,var)[0]}\n')
+    var_res.append(f'Mean of {var} is {means(data,var)[1]}\n')
+    var_res.append(f'Median of {var} is {means(data,var)[2]}\n')
+    var_res.append(f'Standard deviation of {var} is {means(data,var)[3]}\n')
+    var_res.append('\n')
+
+    var_df = pd.DataFrame(columns=['Condition','Sample size','Mean','Median','Standard deviation'],dtype='object')
+    var_df.set_index('Condition',inplace=True)
+
+    for cond in data.condition.unique():
+        subdata = data[data.condition == cond]
+        var_df.loc[cond] = [*means(subdata,var)]
+
+    var_res.append(var_df.to_string()+'\n\n')
+
+    return var_res
 
 def ranksums(data,variable):
     """Performs a two-sided Mann-Whitney U test. Inputs a DataFrame and a string. Returns a float.
@@ -192,7 +206,7 @@ def kruskal(data,variable):
         p is the p-value of the resulting test.
     """
     list_of_arrays = []
-    for index in set(data.condition.unique()):
+    for index in data.condition.unique():
         list_of_arrays.append(data.loc[data.condition==index, variable])
 
     p = stats.kruskal(*list_of_arrays,nan_policy='omit')[1]
@@ -206,7 +220,7 @@ def t_test(data,variable):
         p is the p-value of the resulting test.
     """
     list_of_arrays = []
-    for index in set(data.condition.unique()):
+    for index in data.condition.unique():
         list_of_arrays.append(data.loc[data.condition==index, variable])
 
     p = stats.ttest_ind(*list_of_arrays,nan_policy='omit')[1]
@@ -221,7 +235,7 @@ def dunn(data,variable):
     """
     list_of_arrays = []
     conditions_list = []
-    for index in set(data.condition.unique()):
+    for index in data.condition.unique():
         list_of_arrays.append(data.loc[data.condition==index, variable])
         conditions_list.append(index)
 
@@ -233,10 +247,9 @@ def dunn(data,variable):
     label_dict = dict(zip(index, conditions_list))
     p.rename(index=label_dict,columns=label_dict,inplace=True)
 
-    print(variable)
-    print(p)
+    return p.to_string()
 
-def boxplot(data,variable,input_folder,p):
+def boxplot(data,variable,input_folder,p,settings):
     """Generates a boxplot, with a notch at the median, and saves it as a .png. Inputs a DataFrame, two strings and a float.
 
         data is a DataFrame containing transport parameters, as defined in data_extraction.py.
@@ -245,20 +258,18 @@ def boxplot(data,variable,input_folder,p):
         p is the p-value of whichever test was performed before, to be displayed within the graph. 
     """
 
-    sns.set_theme(style="ticks", palette="pastel")
+    sns.set_theme(style="ticks", palette=sns.color_palette("crest"))
     sns.boxplot(x=data['condition'],
-            y=data[variable],  width=0.35, notch=True, #hue=data['slide'],palette=["m", "g"],
+            y=data[variable],  width=0.35, notch=True,
             data=data, showfliers =False,linewidth=1)
-    #sns.stripplot(x=data['condition'],
-            #y=data[variable],edgecolor='gray',palette=("flare"))
     sns.despine(trim=True)
     plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
-    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
-    plt.savefig(Path(input_folder).joinpath("Boxplot "+str(data['condition'].unique())+" "+variable+".png"))
+    plt.ylabel(vars[variable])
+    plt.annotate((f'p-value : {p}'),xy=(195,310),xycoords='figure points')
+    plt.savefig(Path(input_folder).joinpath(f'Boxplot {str(data["condition"].unique())} {variable}.{settings["extension"]}'),dpi=settings["dpi"])
     plt.close()
     
-def barplot(data,variable,input_folder,p):
+def barplot(data,variable,input_folder,p,settings):
     """Generates a barplot, with SEM as error bars, and saves it as a .png. Inputs a DataFrame, two strings and a float.
 
         data is a DataFrame containing transport parameters, as defined in data_extraction.py.
@@ -266,16 +277,17 @@ def barplot(data,variable,input_folder,p):
         input_folder is the path to the input folder.
         p is the p-value of whichever test was performed before, to be displayed within the graph. 
     """
-    
     error = []
-    for i in set(data['condition'].unique()):
+    
+    for i in data['condition'].unique():
         error.append(stats.sem(data[variable].loc[data['condition']==i],nan_policy='omit'))
-    sns.barplot(x=data['condition'],y=data[variable],capsize=0.02,estimator=mean,yerr=error,ci=None)
+    sns.barplot(y=data[variable],x=data['condition'],estimator=mean,yerr=error,ci=None,\
+            error_kw={'elinewidth':2,'capsize':4,'capthick':2})
     sns.despine(trim=True)
     plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
-    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
-    plt.savefig(Path(input_folder).joinpath("Barplot "+str(data['condition'].unique())+" "+variable+".png"))
+    plt.ylabel(vars[variable])
+    plt.annotate((f'p-value : {p}'),xy=(195,310),xycoords='figure points')
+    plt.savefig(Path(input_folder).joinpath(f'Barplot {str(data["condition"].unique())} {variable}.{settings["extension"]}'),dpi=settings["dpi"])
     plt.close()
 
 def violinplot(data,variable,p):
@@ -289,7 +301,7 @@ def violinplot(data,variable,p):
     sns.violinplot(x=data['condition'],y=data[variable],inner='box',cut=0)
     sns.despine(trim=True)
     plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
+    plt.ylabel(vars[variable])
     plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
     plt.show()
 
@@ -306,187 +318,22 @@ def normality(data,variable):
         else:
             return False
 
-colorpal_dyna = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
-colorpal_kif = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
-
-def pub_boxplot(data, variable,input_folder,p):
-    if 'CONTROL' in data['condition'].unique():
-        colorpal = colorpal_dyna
-    else:
-        colorpal = colorpal_kif
-    sns.set_theme(style="ticks", palette="pastel")
-    
-    if variable == 'run_length_retro' or variable =='curvilign_velocity_retro':
-        sns.boxplot(x=data['condition'],
-            y=(data[variable]*-1),  width=0.35, notch=True, palette=colorpal,
-            data=data, showfliers =False)
-    
-    elif variable == 'directionality':
-        #colorpal = {'CONTROL':'white','DYNAPYRAZOLE':'white'}
-        colorpal = {'WT':'white','HET':'white','HOM':'white'}
-        sns.boxplot(x=data['condition'],
-            y=(data[variable]),  width=0.35, notch=True, palette=colorpal,
-            data=data, showfliers =False)
-        stripal = {'WT':'darkgreen','HET':'seagreen','HOM':'lightgreen'}
-        #stripal = {'CONTROL':'tab:blue','DYNAPYRAZOLE':'tab:cyan'}
-        sns.stripplot(x=data['condition'],
-            y=data[variable],edgecolor='gray',palette=stripal)
-
-    else:
-        sns.boxplot(x=data['condition'],
-            y=data[variable],  width=0.35, notch=True, palette=colorpal,
-            data=data, showfliers =False)
-
-    sns.despine(trim=True)
-    plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
-    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
-    #plt.savefig((input_folder+"\Boxplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.savefig(Path(input_folder).joinpath("Boxplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.close()
-    
-def pub_barplot(data, variable,input_folder,p):
-    if 'CONTROL' in data['condition'].unique():
-        colorpal = colorpal_dyna
-        error = []
-        error.append(stats.sem(data[variable].loc[data['condition']=='CONTROL'],nan_policy='omit'))
-        error.append(stats.sem(data[variable].loc[data['condition']=='DYNAPYRAZOLE'],nan_policy='omit'))
-    else:
-        colorpal = colorpal_kif
-        error = []
-        # error.append(stats.sem(data[variable].loc[data['condition']=='HET'],nan_policy='omit'))
-        error.append(stats.sem(data[variable].loc[data['condition']=='HOM'],nan_policy='omit'))
-        error.append(stats.sem(data[variable].loc[data['condition']=='WT'],nan_policy='omit'))
-
-    if variable == 'run_length_retro' or variable == 'curvilign_velocity_retro':
-        sns.barplot(y=(data[variable]*-1),x=data['condition'],estimator=mean,yerr=error,ci=None,\
-            error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
-    else:
-        sns.barplot(y=data[variable],x=data['condition'],estimator=mean,yerr=error,ci=None,\
-            error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal)
-    sns.despine(trim=True)
-    
-    plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
-    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
-    #plt.savefig((input_folder+"\Barplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.savefig(Path(input_folder).joinpath("Barplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.close()
-
 def means(data,variable):
-    print(variable)
+
     for cond in set(data.condition.unique()):
-        print(cond)
         subdata = data.loc[data.condition==cond, variable]
-        #subdata.to_csv(r'/home/baptiste/dwhelper/'+variable+'_'+cond+'.csv')
-        print(len(subdata))
-        print(subdata.mean())
-        print(np.nanmean(subdata))
-        #print(subdata.median())
-        print()
-
-def fraction_moving(data):
-    """
-    Calculates the fraction of moving particles. Inputs a DataFrame.
-    """
-    list_of_arrays = []
-    conditions_list = []
-    for index in set(data.condition.unique()):
-        arr = []
-        conditions_list.append(index)
-        subdata = data.loc[data.condition==index]
-        for file in subdata.file.unique():
-            arr.append(float((subdata.loc[data.file==file]).fraction_moving.unique()))
-        list_of_arrays.append(arr)
-    pdunn = sp.posthoc_dunn(list_of_arrays)
-    index = []
-    for i in range(len(list_of_arrays)): #Rename DataFrame with analysed conditions
-        index.append(i+1)
-    label_dict = dict(zip(index, conditions_list))
-    pdunn.rename(index=label_dict,columns=label_dict,inplace=True)
-    pkw = stats.kruskal(*list_of_arrays,nan_policy='omit')[1]
-
-    print("Kruskal-Wallis "+str(pkw))
-    print("Dunn test ")
-    print(str(pdunn))
-    data_per_file = data.drop_duplicates('file')
-    for cond in set(data_per_file.condition.unique()):
-        print(cond)
-        subdata = data_per_file.loc[data_per_file.condition==cond].fraction_moving
-        print(subdata.mean())
-        print(subdata.median())
-        print()
-
-    sns.set_theme(style="ticks", palette="pastel")
-    sns.boxplot(x=data_per_file['condition'],
-            y=data_per_file['fraction_moving'],  width=0.35, notch=True,
-            data=data, showfliers =False)
-    sns.despine(trim=True)
-    plt.xlabel("Condition")
-    plt.ylabel("Ratio of moving particles")
-    plt.annotate(("p-value : "+str(pkw)),xy=(195,310),xycoords='figure points')
-    plt.show()
-    plt.close()
-
-    print(stats.sem(data_per_file['fraction_moving'].loc[data['condition']=='WT'],nan_policy='omit'))
-    error = []
-    error.append(stats.sem(data_per_file['fraction_moving'].loc[data['condition']=='sans_KTP'],nan_policy='omit'))
-    error.append(stats.sem(data_per_file['fraction_moving'].loc[data['condition']=='avec_KTP'],nan_policy='omit'))
-    # error.append(stats.sem(data_per_file['fraction_moving'].loc[data['condition']=='HOM'],nan_policy='omit'))
-    # sns.barplot(y=data_per_file['fraction_moving'],x=data_per_file['condition'],estimator=mean,yerr=stats.sem(data_per_file['fraction_moving'],nan_policy='omit'),ci=None,\
-    #     error_kw={'elinewidth':2,'capsize':4,'capthick':2})
-    sns.barplot(y=data_per_file['fraction_moving'],x=data_per_file['condition'],estimator=mean,yerr=error,ci=None,\
-         error_kw={'elinewidth':2,'capsize':4,'capthick':2})
-    sns.despine(trim=True)
+        sample_size = len(subdata)
+        var_mean = np.nanmean(subdata)
+        var_median = np.nanmedian(subdata)
+        var_std = np.nanstd(subdata)
     
-    plt.xlabel("Condition")
-    plt.ylabel('Ratio of moving particles')
-    plt.annotate(("p-value : "+str(pkw)),xy=(195,310),xycoords='figure points')
-    plt.show()
-    plt.close()
-        
-colorpal_ktp = ['yellow','blue']
-
-def pub_boxplot_ktp(data, variable,input_folder,p):
-    sns.set_theme(style="ticks", palette="pastel")
-    
-    if variable == 'run_length_retro' or variable =='curvilign_velocity_retro':
-        sns.boxplot(x=data['condition'],
-            y=(data[variable]*-1),  width=0.35, notch=True, palette=colorpal_ktp,
-            data=data, showfliers =False)
-    else:
-        sns.boxplot(x=data['condition'],
-            y=data[variable],  width=0.35, notch=True, palette=colorpal_ktp,
-            data=data, showfliers =False)
-
-    sns.despine(trim=True)
-    plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
-    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
-    plt.savefig(Path(input_folder).joinpath("Boxplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.close()
-    
-def pub_barplot_ktp(data, variable,input_folder,p):
-
-    error = []
-    error.append(stats.sem(data[variable].loc[data['condition']=='sans_KTP'],nan_policy='omit'))
-    error.append(stats.sem(data[variable].loc[data['condition']=='avec_KTP'],nan_policy='omit'))
-
-    if variable == 'run_length_retro' or variable == 'curvilign_velocity_retro':
-        sns.barplot(y=(data[variable]*-1),x=data['condition'],estimator=mean,yerr=error,ci=None,\
-            error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal_ktp)
-    else:
-        sns.barplot(y=data[variable],x=data['condition'],estimator=mean,yerr=error,ci=None,\
-            error_kw={'elinewidth':2,'capsize':4,'capthick':2},palette=colorpal_ktp)
-    sns.despine(trim=True)
-    
-    plt.xlabel("Condition")
-    plt.ylabel(ylabels[variable])
-    plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
-    plt.savefig(Path(input_folder).joinpath("Barplot "+str(data['condition'].unique())+" "+variable+".svg"))
-    plt.close()
+    return sample_size, var_mean, var_median, var_std     
 
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/124 Results - 20220214_180447/124 Results - 20221011_145854 savgol 9/WT HOM TRI'
-    settings = {'antero_retro':True}
+    input_folder = r'/home/baptiste/Documents/test_stats_2'
+    settings = {'antero_retro':True,
+                'extension':'svg',
+                'dpi':300,
+                'order':['WT','HET','HOM'],
+                }
     statistical_analysis(settings,input_folder)

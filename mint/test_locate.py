@@ -1,20 +1,28 @@
+"""Tests `locate` parameters.
+"""
+
 #Imports
 import numpy as np
 import os
 import trackpy as tp
 from image_denoising import *
-from output_files_creation import *
+from output import *
 import matplotlib.pyplot as plt
 import imageio
 
-def test_locate(input_folder,parameters,whole_file,settings):
-    """Displays the results of trackpy.batch on the first file found in input_folder.
-        Used to test trackpy.batch parameters before analysis. 
-        input_folder is the root folder containing all files to be analyzed, wether they are further divided into subfolder or not.
-        parameters is a dictionary of calculation parameters, as defined in script.py.
-        whole_file is boolean, where True will find features on the entire file, but False will only process the first frame.
-        settings is a dictionary containing boolean values for optional data processing, as defined in script.py.
-    """
+def test_locate(input_folder,parameters,settings):
+    """Tests `locate` parameters.
+
+    Displays results of trackpy.locate.
+
+    :param input_folder: Path to input folder containing raw videos.
+    :type input_folder: Path or string
+    :param parameters: Dictionary containing calculation parameters.
+    :type parameters: dict
+    :param settings: Dictionary containing calculation settings.
+    :type settings: dict
+    """    
+
     for path, subfolder, files in os.walk(input_folder): #Scans entire folder structure for files
         for name in files:
             if name.endswith('.tif') == False:  #Check for correct file extension
@@ -29,55 +37,43 @@ def test_locate(input_folder,parameters,whole_file,settings):
             frames = imageio.volread(file_path)
 
             length = 1
-            if whole_file:
-                length = frames.shape[0]
 
-            #Initializing frames array
-            frames_init = np.zeros((length,frames.shape[1],frames.shape[2]))
-            median = np.median(frames,axis=0)
-            frames = mean_blur(median,frames)
             #Per frame denoising process
-            for i in range(length):
-                if settings['tophat']:
-                    processed_frames = tophat(parameters,frames_init,i,frames) #Tophat denoising
-                else:
-                    processed_frames = frames
-                if settings['wavelet']:
-                    processed_frames = wavelet_denoising(processed_frames,i)
-                #processed_frames = mean_blur_loop(median,processed_frames,i)
-                processed_frames = mean_avg(processed_frames,i)
+            processed_frames = frames.astype('float64')
 
-            print(np.mean(processed_frames))
-            print(np.min(processed_frames))
+            for i in range(length):
+
+                if settings['tophat']:
+                    processed_frames[i] = tophat(parameters,processed_frames[i])
+                    
+                if settings['wavelet']:
+                    processed_frames[i] = wavelet(processed_frames[i])
+            
+            plt.imshow(processed_frames[0])
+            plt.show()
 
             #Localizing particles and finding trajectories
-            # plt.axis('equal')
-
-            plt.imshow(processed_frames[0], cmap="gray")
-            plt.show()
-            plt.close()
 
             tp.quiet([True]) #Silencing TrackPy messages
             
             raw_coordinates = tp.batch(processed_frames, minmass=parameters['minmass'], diameter=parameters['diameter'], \
-                separation=parameters['separation'],preprocess=False,engine='numba',processes=1)
+                separation=parameters['separation'],preprocess=False,engine='numba',processes='auto')
             
             plt.imshow(processed_frames[i])
-
+            plt.title("Locate parameters test on "+name,fontsize=10)
+            plt.xlabel("x (pixels)",fontsize=10)
+            plt.ylabel("y (pixels)",fontsize=10)
+            plt.xticks(fontsize=10)
+            plt.yticks(fontsize=10)
             tp.annotate(raw_coordinates,frames[i],plot_style={'markersize':10},color='red')
             plt.show()
-            plt.title("Locate parameters test on "+name,fontsize=35)
-            plt.xlabel("x (pixels)",fontsize=30)
-            plt.ylabel("y (pixels)",fontsize=30)
-            plt.xticks(fontsize=30)
-            plt.yticks(fontsize=30)
             plt.close()
-            break
+
 
 parameters = {
     #trackpy.batch
-    'diameter':7,
-    'minmass':1000,
+    'diameter':9,
+    'minmass':300,
     'separation':12,
 }
 
@@ -85,8 +81,8 @@ parameters = {
 
 settings = {
     'tophat':False,
-    'wavelet':False,
+    'wavelet':True,
 }
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/SHG_tracking_data/lyso'
-    test_locate(input_folder,parameters,whole_file=True,settings=settings)
+    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/test'
+    test_locate(input_folder,parameters,settings=settings)
