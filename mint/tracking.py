@@ -35,18 +35,16 @@ def tracking(input_folder,parameters,settings,log):
 
             os.makedirs(log['output_file_path']) #Create output folder for current file
             print(log['output_file_path'])
-            print('dirs ok')
+
             #Opening video file
             frames = imageio.volread(file_path)
-            print('loading frames ok')
+
             processed_frames = frames.astype('float64')
-            print('astype ok')
-            print('starting filtering')
+
             for i in range(len(frames)):
 
                 if settings['tophat']:
                     processed_frames[i] = tophat(parameters,processed_frames[i])
-                    # print(f'tophat ok until {i}\r')q
                     
                 if settings['wavelet']:
                     processed_frames[i] = wavelet(processed_frames[i])

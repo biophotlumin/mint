@@ -112,3 +112,4 @@ print('%dh%s' % (int(duration//3600),f'{int((duration%3600)/60):02d}'))
 # FutureWarning: The frame.append method is deprecated and will be removed from pandas in a future version. Use pandas.concat instead.
 #   df = df.append(subtracks)
 # trajectory_calculations.py:134 df = df.append([{'N':N, 'SNR':SNR,'feet':feet,
+# TODO Read parameters and settings dict from a JSON file to use in command line
