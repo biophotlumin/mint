@@ -9,7 +9,6 @@ from scipy.fftpack import *
 from scipy.signal import *
 from utils import folder_structure_creation, csv_sniffer
 from trajectory_calculations import *
-# np.seterr(all='raise')
 
 def inst_velocity(x,y,parameters):
     """Calculates instantaneous velocity.
@@ -205,7 +204,8 @@ def phase_calculations(parameters,data,settings,condition,slide,name,animal):
                 savgol = savgol_filter(intensity,window_length=9,polyorder=3,mode="nearest")
 
                 for n in savgol:
-                    thetalist.append(np.arcsin(np.sqrt((n-np.min(savgol))/(np.max(savgol)-np.min(savgol)))))
+                    thetalist.append(np.arcsin(np.sqrt((n-np.min(savgol))/(np.max(savgol)-np.min(savgol))))\
+                         if len(savgol) > 1 else np.nan)
 
                 theta = np.array(thetalist)*180/np.pi
                 theta_std = np.std(theta)
@@ -264,7 +264,8 @@ def phase_calculations(parameters,data,settings,condition,slide,name,animal):
                 data_dict = {**data_dict, **temp_dict}
 
             f_phase_parameters.reset_index(inplace=True, drop=True)
-            f_phase_parameters = f_phase_parameters.append([data_dict])
+            # f_phase_parameters = f_phase_parameters.append([data_dict])
+            f_phase_parameters = pd.concat((f_phase_parameters,pd.DataFrame([data_dict])))
 
     return f_phase_parameters
 
@@ -301,14 +302,13 @@ def trajectory_calculations(phase_parameters,settings):
         theta_std_GO = []
         theta_std_STOP = []
 
-    mean_condition = pd.DataFrame({'condition':[]},dtype=str)
-    mean_animal = pd.DataFrame({'animal':[]},dtype=str)
-    mean_slide = pd.DataFrame({'slide':[]},dtype=str)
+    condition = []
+    animal = []
+    slide = []
 
     for file in set(phase_parameters.file.unique()):
+        print(f'Per trajectory calculations of trajectories in file {file}')
         for item in set(phase_parameters[(phase_parameters.file==file)].rejoined_trajectory):
-
-            print(f"Per trajectory calculations of trajectory {item} in file {file}")
             
             data = phase_parameters[(phase_parameters.file==file) & (phase_parameters.rejoined_trajectory==item)]
             data = data.reset_index(drop = True)
@@ -343,13 +343,9 @@ def trajectory_calculations(phase_parameters,settings):
             iteration.append(item)
             file_list.append(file)
 
-            testcond = pd.Series(data=[data.loc[data.rejoined_trajectory==item,'condition'].values[0]], index=['condition'])
-            testslide = pd.Series(data=[data.loc[data.rejoined_trajectory==item,'slide'].values[0]], index=['slide'])
-            testanimal = pd.Series(data=[data.loc[data.rejoined_trajectory==item,'animal'].values[0]], index=['animal'])
-
-            mean_condition = mean_condition.append(testcond,ignore_index=True)
-            mean_slide = mean_slide.append(testslide,ignore_index=True)
-            mean_animal = mean_animal.append(testanimal,ignore_index=True)
+            condition.append(data.loc[data.rejoined_trajectory==item,'condition'].unique()[0])
+            animal.append(data.loc[data.rejoined_trajectory==item,'animal'].unique()[0])
+            slide.append(data.loc[data.rejoined_trajectory==item,'slide'].unique()[0])
 
             #Intensity
             traj_intensity_GO = np.mean(data_GO.intensity)
@@ -491,10 +487,14 @@ def trajectory_calculations(phase_parameters,settings):
                 switch_normal.append(t_switch/t_duration)
                 switch_a_to_r.append(t_switch_a_to_r)
                 switch_r_to_a.append(t_switch_r_to_a)
-                switch_var_STOP.append(np.mean(t_switch_var_STOP))
-                pausing_time_antero.append(np.mean(t_pausing_time_antero))
-                pausing_time_retro.append(np.mean(t_pausing_time_retro))
-                pausing_time_switch.append(np.mean(t_pausing_time_switch))
+                switch_var_STOP.append(np.mean(t_switch_var_STOP)\
+                     if len(t_switch_var_STOP) > 0 else np.nan)
+                pausing_time_antero.append(np.mean(t_pausing_time_antero)\
+                     if len(t_pausing_time_antero) > 0 else np.nan)
+                pausing_time_retro.append(np.mean(t_pausing_time_retro)\
+                     if len(t_pausing_time_retro) > 0 else np.nan)
+                pausing_time_switch.append(np.mean(t_pausing_time_switch)\
+                     if len(t_pausing_time_switch) > 0 else np.nan)
 
             else:
                 #Curvilign velocity
@@ -525,21 +525,16 @@ def trajectory_calculations(phase_parameters,settings):
                 t_theta_std_STOP = np.mean(data_STOP.theta_std)
                 theta_std_STOP.append(t_theta_std_STOP)
 
-    cond_list = mean_condition['condition'].tolist()
-    slide_list = mean_slide['slide'].tolist()
-    animal_list = mean_animal['animal'].tolist()
-
-
-    data_dict = {'condition':cond_list,
-                'slide':slide_list,
-                'animal':animal_list,
+    data_dict = {'condition':condition,
+                'animal':animal,
+                'slide':slide,
+                'trajectory':iteration,
                 'file':file_list,
                 'n_stop':number_stop,
                 'fraction_moving':moving_particles,
                 'pausing_time':pausing_time, 
                 'pausing_frequency':pausing_frequency,
                 'diag_size':diag_size,
-                'trajectory':iteration,
                 'duration':duration,
                 'intensity_GO':intensity_GO,
                 'intensity_STOP':intensity_STOP,
@@ -627,7 +622,7 @@ def data_extraction(input_folder,parameters,settings):
             data = pd.read_csv(file_path,sep=csv_sniffer(file_path))
             
             print("Per phase calculations of "+name)
-            phase_parameters = phase_parameters.append(phase_calculations(parameters,data,settings,condition,slide,name,animal))
+            phase_parameters = pd.concat((phase_parameters,phase_calculations(parameters,data,settings,condition,slide,name,animal)))
 
     phase_parameters.to_csv(phase_parameters_output, sep = '\t')
 
@@ -663,7 +658,7 @@ if __name__ == '__main__':
     }
 
     start = time.time()
-    input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/video_benchmark Results - 20230105_101629/video_benchmark")
+    input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/video_benchmark Results - 20230105_093232 MINT/video_benchmark")
     data_extraction(input_folder,parameters,settings)
     end = time.time()
     duration = end - start

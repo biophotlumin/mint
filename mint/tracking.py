@@ -29,12 +29,11 @@ def tracking(input_folder,parameters,settings,log):
 
             #Building output folder
             file_path = os.path.join(path, name) #Get file path of current file
-            print(file_path)
+            print(f'\nProcessing {name}')
             output_subfolder = file_path.replace(str(log['root_input_folder']),'') #Separate subfolder structure from root input folder
             log['output_file_path'] = str(log['output_folder']) + output_subfolder #Merge subfolder structure with root output folder
 
             os.makedirs(log['output_file_path']) #Create output folder for current file
-            print(log['output_file_path'])
 
             #Opening video file
             frames = imageio.volread(file_path)
@@ -53,16 +52,16 @@ def tracking(input_folder,parameters,settings,log):
 
             tp.quiet([True]) #Silencing TrackPy messages
 
-            print(f'Locating {name}')
+            print(f'\tLocating')
             raw_coordinates = tp.batch(processed_frames, minmass=parameters['minmass'], diameter=parameters['diameter'], \
                 separation=parameters['separation'],preprocess=False,engine='numba',processes='auto')
 
-            print(f'Linking {name}')
+            print(f'\tLinking')
             raw_trajectory = tp.link(raw_coordinates, search_range=parameters['search_range'], adaptive_step= \
                 parameters['adaptive_step'], adaptive_stop=parameters['adaptive_stop'],memory=parameters['memory'])
 
             if settings['stub_filtering']:
-                print(f'Stub filtering {name}')
+                print(f'\tStub filtering')
                 raw_trajectory = tp.filter_stubs(raw_trajectory,parameters['stub_filtering'])
 
             #Unlabeling DataFrame index to prevent future conflict with 'frame' column
@@ -73,7 +72,7 @@ def tracking(input_folder,parameters,settings,log):
             
             #Optional trajectory processing
             if settings['MSD']: 
-                print(f'MSD filtering {name}')
+                print(f'\tMSD filtering')
                 processed_trajectory = ft.MSD_filtering(raw_trajectory,parameters['msd'])
                 if len(processed_trajectory) == 0: #Check if any trajectories were found. If not, the threshold might be too high.
                     print('No trajectories retained, MSD threshold might be too high')
@@ -82,7 +81,7 @@ def tracking(input_folder,parameters,settings,log):
                 processed_trajectory = raw_trajectory
 
             if settings['rejoining']:
-                print(f'Rejoining {name}')
+                print(f'\tRejoining')
                 processed_trajectory, n_rejoined  = ft.rejoining(processed_trajectory,parameters['threshold_t'],parameters['threshold_r'])
                 log['number_rejoined'] += n_rejoined
             else: 
@@ -103,7 +102,7 @@ def tracking(input_folder,parameters,settings,log):
 
             #Per trajectory data extraction
             if settings['individual_images'] or settings['individual_txt'] or settings['group_image']:
-                print(f'Saving plots and trajectories of {name}')
+                print(f'\tSaving plots and trajectories')
                 for item in set(processed_trajectory.particle):
                     sub_trajectory = processed_trajectory[processed_trajectory.particle==item]
                     if settings['individual_images']:
@@ -114,6 +113,8 @@ def tracking(input_folder,parameters,settings,log):
                 #Plots all trajectories onto the first frame of the video
                 if settings['group_image']:
                     image_output(log,name,frames,processed_trajectory,False)
+                        
+    print('\n')
 
     #Dumps parameters and settings into .txt files at the root of the output folder
     dict_dump(log,parameters,'parameters')

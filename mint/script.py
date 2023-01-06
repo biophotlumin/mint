@@ -57,12 +57,12 @@ settings = {
     'rejoining':True,
     'SNR_estimation':True,
     #Outputs
-    'individual_images':True,
-    'individual_txt':True,
+    'individual_images':False,
+    'individual_txt':False,
     'group_image':True,
     #Data Extraction
     'polynomial_fit':True,
-    'minimization':False,
+    'minimization':True,
     'theta':True,
     'antero_retro':True,
     #Stats
@@ -90,8 +90,8 @@ if __name__ == '__main__':
     
     #Output folder initialization
     log['output_folder'],log['identifier'],log['root_input_folder'] = folder_structure_creation(input_folder)
-    print(log['output_folder'])
-    print(Path(log['output_folder']).joinpath(input_folder.name))
+    print(f'\nAnalyzing {input_folder}\n')
+    print(f'Results stored in {Path(log["output_folder"].name)}')
 
     #Calling main functions
     tracking(input_folder,parameters,settings,log)
@@ -104,12 +104,9 @@ if __name__ == '__main__':
 end = time.time()
 
 duration = end - start
+print('Total runtime : ')
 print('%dh%s' % (int(duration//3600),f'{int((duration%3600)/60):02d}'))
 
 # TODO Declare arg types in functions
 # TODO Generate report through ReportLab
-# TODO FutureWarning trajectory_calculations.py:416: 
-# FutureWarning: The frame.append method is deprecated and will be removed from pandas in a future version. Use pandas.concat instead.
-#   df = df.append(subtracks)
-# trajectory_calculations.py:134 df = df.append([{'N':N, 'SNR':SNR,'feet':feet,
 # TODO Read parameters and settings dict from a JSON file to use in command line

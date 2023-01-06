@@ -1,8 +1,8 @@
 """Module containing trajectory processing and filtering functions.
 """
 #Imports
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+# import warnings
+# warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
 from scipy import optimize
 from scipy.fftpack import *
@@ -39,10 +39,12 @@ def rejoining(tracks,threshold_t,threshold_r):
 
         subtrack = tracks[tracks.particle==item]
         df_temp = subtrack[subtrack.frame==np.min(subtrack.frame)]
-        df_start = df_start.append(df_temp,ignore_index=True)
+        # df_start = df_start.append(df_temp,ignore_index=True)
+        df_start = pd.concat((df_start,df_temp),ignore_index=True)
 
         df_temp = subtrack[subtrack.frame==np.max(subtrack.frame)]
-        df_end = df_end.append(df_temp,ignore_index=True)
+        # df_end = df_end.append(df_temp,ignore_index=True)
+        df_end = pd.concat((df_end,df_temp),ignore_index=True)
 
         df_start = df_start.sort_values(by = 'frame', ascending=False)
         df_end = df_end.sort_values(by = 'frame', ascending=False)
@@ -133,13 +135,19 @@ def SNR_spot_estimation(frames,tracks,base_level):
             else:
                 SNR = 0
 
-            df = df.append([{'N':N, 'SNR':SNR,'feet':feet,
-                             'particle': line.particle,
-                             'frame': line.frame}])
-        else:
-            df = df.append([{'N':0, 'SNR':0,'feet':0,
+            df = pd.concat((df,pd.DataFrame([{'N':N, 'SNR':SNR,'feet':feet,
                              'particle':line.particle,
-                             'frame':line.frame}])
+                             'frame':line.frame}])))
+            # df = df.append([{'N':N, 'SNR':SNR,'feet':feet,
+            #                  'particle': line.particle,
+            #                  'frame': line.frame}])
+        else:
+            df = pd.concat((df,pd.DataFrame([{'N':0, 'SNR':0,'feet':0,
+                             'particle':line.particle,
+                             'frame':line.frame}])))
+            # df = df.append([{'N':0, 'SNR':0,'feet':0,
+            #                  'particle':line.particle,
+            #                  'frame':line.frame}])
 
     tracks = tracks.merge(df, on=['particle', 'frame'], how='left')
     return tracks
@@ -170,7 +178,7 @@ def acceleration_minimization_norm1(measure, sigma0, px, nn = 0):
     constraints = [ cp.atoms.norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
     prob = cp.Problem(objective, constraints)
     
-    prob.solve(solver='SCS',verbose=False,max_iters=100000) #alternatively, 'GUROBI' or 'MOSEK' #
+    prob.solve(solver='SCS',verbose=False,max_iters=1000000) #alternatively, 'GUROBI' or 'MOSEK' #
     solution = variable.value
     if nn == 0:
         return solution
@@ -415,7 +423,8 @@ def MSD_filtering(tracks,threshold):
             continue
         df2 = tp.motion.msd(subtracks,1,1,max_lagtime=len(subtracks))
         if max(df2.msd)>threshold:
-            df = df.append(subtracks)
+            df = pd.concat((df,subtracks))
+            # df = df.append(subtracks)
     return df
 
 def f(x,a,b,c,d):

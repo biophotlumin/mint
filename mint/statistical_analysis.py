@@ -12,8 +12,6 @@
     normality tests wether or not a sample fits a normal distribution.
 """
 
-## TODO : FIGURES
-
 #Imports
 import os
 import numpy as np
@@ -26,6 +24,9 @@ from utils import *
 from scipy import stats
 from pathlib import Path
 from statistics import mean
+
+import warnings # numpy raises a warning everytime matplotlib encounters an empty (NaN) array 
+warnings.filterwarnings('ignore', r'All-NaN axis encountered') # e.g. when plotting antero/retro vars in unidirectional trajectories
 
 vars = { #Variables of interest as keys, labels as values
         'pausing_time':'Pausing time (s)',
@@ -95,7 +96,7 @@ def run_stats(settings,act_variables,data,input_folder):
         input_folder is the path to the input folder.
     """
 
-    #Uncomment for subpopulation analysis
+    # Uncomment for subpopulation analysis
 
     # non_antero = data.loc[data['directionality']>0] #Everything but purely anterograde trajectories
     # non_retro = data.loc[data['directionality']<1] #Everything but purely retrograde trajectories
@@ -281,7 +282,7 @@ def barplot(data,variable,input_folder,p,settings):
     
     for i in data['condition'].unique():
         error.append(stats.sem(data[variable].loc[data['condition']==i],nan_policy='omit'))
-    sns.barplot(y=data[variable],x=data['condition'],estimator=mean,yerr=error,ci=None,\
+    sns.barplot(y=data[variable],x=data['condition'],estimator=mean,yerr=error,errorbar=None,\
             error_kw={'elinewidth':2,'capsize':4,'capthick':2})
     sns.despine(trim=True)
     plt.xlabel("Condition")
