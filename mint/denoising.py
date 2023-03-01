@@ -1,29 +1,24 @@
-"""Functions used to reduce noise on individual video frames.
-"""
+"""Functions used to reduce noise on individual video frames."""
 
 import cv2
 import numpy as np
 from scipy import signal
 
-def tophat(parameters,processed_frame):
+def tophat(separation,frame):
     """Applies top-hat transform.
 
     Frame-by-frame top-hat filtering with `cv2.MORPH_TOPHAT`. Removes artifacts.
 
-    :param parameters: Dictionary containing the minimum distance (in pixels) between features under the `'separation'` key.
-    :type parameters: dict
-    :param processed_frames: Empty 3D array of identical shape to the raw frames array.
-    :type processed_frames: NumPy array
-    :param i: Index of the current frame.
-    :type i: int
-    :param frames: 3D array of raw frames over time.
-    :type frames: NumPy array
-    :return: 3D array of processed frames over time.
+    :param separation: Minimum distance (in pixels) between features.
+    :type separation: dict
+    :param frame: 2D array of unfiltered data.
+    :type frame: NumPy array
+    :return: 2D array of filtered data.
     :rtype: NumPy array
     """    
 
-    kernelC = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(parameters['separation'],parameters['separation']))
-    processed_frame = cv2.morphologyEx(processed_frame,cv2.MORPH_TOPHAT,kernelC)
+    kernelC = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(separation,separation))
+    processed_frame = cv2.morphologyEx(frame,cv2.MORPH_TOPHAT,kernelC)
 
     return processed_frame
 
@@ -50,23 +45,21 @@ def lowpass():
 
     return array1,array2
 
-def wavelet(processed_frame):
+def wavelet(frame):
     """Applies wavelet denoising.
 
     Uses two low-pass filers and `scipy.signal.convolve2d` to remove background noise.
 
-    :param processed_frames: 3D array of frames over time.
-    :type processed_frames: NumPy array
-    :param i: Index of the current frame.
-    :type i: int
-    :return: 3D array of processed frames over time.
+    :param frame: 2D array of unfiltered data.
+    :type frame: NumPy array
+    :return: 2D array of filtered data.
     :rtype: NumPy array
     """    
 
     lp1 = lowpass()[0]
     lp2 = lowpass()[1]
 
-    lc1 = signal.convolve2d(processed_frame,lp1,mode='same')
+    lc1 = signal.convolve2d(frame,lp1,mode='same')
     lc2 = signal.convolve2d(lc1,lp2,mode='same')
     processed_frame = lc1 - lc2
 

@@ -1,17 +1,14 @@
 """Module containing trajectory processing and filtering functions.
 """
 #Imports
-# import warnings
-# warnings.simplefilter(action='ignore', category=FutureWarning)
+
+import math
 import numpy as np
-from scipy import optimize
-from scipy.fftpack import *
-from scipy.signal import *
+import cvxpy as cp
 import pandas as pd
 import trackpy as tp
-import math
-import cvxpy as cp
-from scipy.stats import *
+
+from scipy import optimize
 
 def rejoining(tracks,threshold_t,threshold_r):
     """Rejoins split trajectories.
@@ -39,11 +36,9 @@ def rejoining(tracks,threshold_t,threshold_r):
 
         subtrack = tracks[tracks.particle==item]
         df_temp = subtrack[subtrack.frame==np.min(subtrack.frame)]
-        # df_start = df_start.append(df_temp,ignore_index=True)
         df_start = pd.concat((df_start,df_temp),ignore_index=True)
 
         df_temp = subtrack[subtrack.frame==np.max(subtrack.frame)]
-        # df_end = df_end.append(df_temp,ignore_index=True)
         df_end = pd.concat((df_end,df_temp),ignore_index=True)
 
         df_start = df_start.sort_values(by = 'frame', ascending=False)
@@ -153,24 +148,20 @@ def SNR_spot_estimation(frames,tracks,base_level):
     return tracks
 
 def acceleration_minimization_norm1(measure, sigma0, px, nn = 0):
-    """
-    Parameters
-    ----------
-    measure : array (n, 2)
-        measured data (probably noisy) : x and y coordinates
-    sigma0 : int
-        standard deviation of localisation, in nm
-    px : float
-        pixel size in µm
-    nn : int, optional
-        amount of data points not taken into account at the extremities of the solution.
-        For some methods, the extreme values are less reliable.
+    """Experimental noise reduction algorithm. 
 
-    Returns
-    -------
-    solution : array (n-2*nn, 2)
-        filtered solution with minimization of the norm 1 of the acceleration with difference between measured data and solution inferior or equal to the theoretical noise.
-    """
+    :param measure: Measured data as x and y coordinates.
+    :type measure: array (n, 2)
+    :param sigma0: Standard deviation of localisation in nm.
+    :type sigma0: int
+    :param px: Pixel size in µm.        
+    :type px: float
+    :param nn: Number of data points not taken into account at the extremities of the solution. For some methods, the extreme values are less reliable.
+    :type nn: int, optional
+    :return: Filtered solution with minimization of the norm 1 of the acceleration with difference between measured data and solution inferior or equal to the theoretical noise.
+    :rtype: array (n-2*nn, 2)
+    """    
+
     measure = px*measure
     n = len(measure)       
     variable = cp.Variable((n, 2))
@@ -237,7 +228,7 @@ def acceleration_minimization_norm1_pointwise_adaptative_error(measure, Signal, 
     else:
         return solution[nn:n-nn]
 
-def minimization(subdata,parameters):
+def minimization(subdata,px,sigma):
     """Prepares data for minimization.
 
     :param subdata: DataFrame containing x and y coordinates.
@@ -249,8 +240,6 @@ def minimization(subdata,parameters):
     """    
 
     #Convert coordinates to µm
-    px = parameters['px']
-    sigma = parameters['sigma']
 
     array_x = subdata['x'].to_numpy()
     array_x = array_x[:, np.newaxis]
@@ -275,7 +264,7 @@ def minimization(subdata,parameters):
 
     return subdata
 
-def point_minimization(subdata,parameters):
+def point_minimization(subdata,px):
     """Prepares data for pointwise minimization.
 
     :param subdata: DataFrame containing x and y coordinates.
@@ -285,8 +274,6 @@ def point_minimization(subdata,parameters):
     :return: DataFrame containing denoised x and y coordinates.
     :rtype: DataFrame
     """    
-
-    px = parameters['px']
 
     #Convert coordinates to µm
     array_x = subdata['x'].to_numpy()
@@ -403,7 +390,7 @@ def _fit_spot_by_gaussian(data):
 
     return feet, p
 
-def MSD_filtering(tracks,threshold):
+def MSD_filtering(tracks,px,dt,threshold):
     """Filters trajectories based on their Mean Square Displacement.
 
     Returns a DataFrame containing trajectories whose calculated MSD is above a set threshold.
@@ -421,10 +408,10 @@ def MSD_filtering(tracks,threshold):
         subtracks = tracks[tracks.particle==item]
         if len(subtracks)<3:
             continue
-        df2 = tp.motion.msd(subtracks,1,1,max_lagtime=len(subtracks))
+        df2 = tp.motion.msd(subtracks,px,(1/dt),max_lagtime=len(subtracks))
         if max(df2.msd)>threshold:
             df = pd.concat((df,subtracks))
-            # df = df.append(subtracks)
+
     return df
 
 def f(x,a,b,c,d):
@@ -437,7 +424,7 @@ def f(x,a,b,c,d):
     """
     return a*x**3+b*x**2+c*x+d
 
-def polynomial_fit(data,parameters):
+def polynomial_fit(data,len_cutoff,threshold):
     """Checks wether a trajectory fits a third-degree polynom.
 
     Calculates how much a trajectory deviates from a third-degree polynom,
@@ -465,12 +452,12 @@ def polynomial_fit(data,parameters):
     y = y.iloc[nn:n-nn]
     y = y.reset_index(drop = True)
 
-    if (len(x)>=parameters['len_cutoff']):
+    if (len(x)>=len_cutoff):
         x=np.array(x)
         y=np.array(y)
         val,cov=optimize.curve_fit(f,x,y)
         deviation=np.sqrt(np.mean((y-f(x,val[0],val[1],val[2],val[3]))**2))
-        if (deviation<parameters['threshold_poly3']):
+        if (deviation<threshold):
             return True
         else:
             return False

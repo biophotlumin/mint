@@ -1,10 +1,10 @@
 import PySimpleGUI as sg
 from utils import folder_structure_creation
-from image_denoising import *
+from mint.denoising import *
 from output import *
 from tracking import *
 from data_extraction import *
-from statistical_analysis import *
+from stat_analysis import *
 from test_locate import *
 import time
 import ast
@@ -31,7 +31,7 @@ else:
     'r_conf_cut':float(),
     'px':float(),
     'dt':float(),
-    'min_theoretical_precision':int(),
+    'min_thr_prec':int(),
     'sliding_window':int(),
     'sigma':int(),
     'len_cutoff':int(),
@@ -106,7 +106,7 @@ tab_extraction = [
 
             [sg.Frame(layout=[
                 [sg.Text('Cutoff'),sg.InputText(default_text=default_dict['r_conf_cut'],key='r_conf_cut', size=(5,1))],  
-                [sg.Text('Minimum theoretical precision (in nm)'),sg.InputText(default_text=default_dict['min_theoretical_precision'],key='min_theoretical_precision', size=(5,1))],
+                [sg.Text('Minimum theoretical precision (in nm)'),sg.InputText(default_text=default_dict['min_thr_prec'],key='min_thr_prec', size=(5,1))],
                 [sg.Text('Sliding window'),sg.InputText(default_text=default_dict['sliding_window'],key='sliding_window', size=(5,1))]],
                     title='Confinement ratio',title_color='white',relief = sg.RELIEF_SUNKEN)],
 
@@ -173,7 +173,7 @@ while True:
     'r_conf_cut':float(values['r_conf_cut']),
     'px':float(values['px']),
     'dt':float(values['dt']),
-    'min_theoretical_precision':int(values['min_theoretical_precision']),
+    'min_thr_prec':int(values['min_thr_prec']),
     'sliding_window':int(values['sliding_window']),
     'sigma':int(values['sigma']),
     'len_cutoff':int(values['len_cutoff']),

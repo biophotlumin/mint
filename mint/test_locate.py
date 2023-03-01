@@ -2,18 +2,20 @@
 """
 
 #Imports
-import numpy as np
 import os
-import trackpy as tp
-from image_denoising import *
-from output import *
-import matplotlib.pyplot as plt
+import nd2
 import imageio
+import warnings
+import trackpy as tp
+import matplotlib.pyplot as plt
+
+from output import *
+from denoising import *
+
+plt.switch_backend('TkAgg')
 
 def test_locate(input_folder,parameters,settings):
-    """Tests `locate` parameters.
-
-    Displays results of trackpy.locate.
+    """Test filters and locate parameters.
 
     :param input_folder: Path to input folder containing raw videos.
     :type input_folder: Path or string
@@ -23,66 +25,85 @@ def test_locate(input_folder,parameters,settings):
     :type settings: dict
     """    
 
-    for path, subfolder, files in os.walk(input_folder): #Scans entire folder structure for files
-        for name in files:
-            if name.endswith('.tif') == False:  #Check for correct file extension
-                continue #Skips to next file if not .tif           
+    path_list = []
+    name_list = []
 
-            #Building file path
-            file_path = os.path.join(path, name)
-            print(path)
-            print(file_path)
+    for path, subfolder, files in os.walk(input_folder): # Scan entire folder structure for files
+            for name in files:
+                if name.endswith(f'.{parameters["extension_in"]}') == False:  # Check for correct file extension
+                    continue # Skip to next file if not correct extension        
 
-            #Opening video file
-            frames = imageio.volread(file_path)
+                file_path = os.path.join(path, name) # Get file path of current file
+                path_list.append(file_path) # Append to file path list
+                name_list.append(name)
 
-            length = 1
+    for (path, name, j) in zip(path_list,name_list,[j for j in range(len(path_list))]): # Looping over file path list
 
-            #Per frame denoising process
-            processed_frames = frames.astype('float64')
+        print(f'\nProcessing {name}')
 
-            for i in range(length):
+        #Opening video file         
+                                                    # match parameters['extension_in']:
+        if parameters['extension_in'] == 'tif':     #     case 'tif':
+            frames = imageio.volread(path)     #         frames = imageio.volread(file_path)
+        elif parameters['extension_in'] == 'nd2':   #     case 'nd2':
+            frames = nd2.imread(path)          #         frames = nd2.imread(file_path)
+        else:
+            warnings.warn(f'Extension {parameters["extension_in"]} is not supported')
 
-                if settings['tophat']:
-                    processed_frames[i] = tophat(parameters,processed_frames[i])
-                    
-                if settings['wavelet']:
-                    processed_frames[i] = wavelet(processed_frames[i])
-            
-            plt.imshow(processed_frames[0])
-            plt.show()
+        processed_frames = frames[0]
 
-            #Localizing particles and finding trajectories
+        processed_frames = frames.astype('float64') # Prevent conflict in case of wavelet filtering
 
-            tp.quiet([True]) #Silencing TrackPy messages
-            
-            raw_coordinates = tp.batch(processed_frames, minmass=parameters['minmass'], diameter=parameters['diameter'], \
-                separation=parameters['separation'],preprocess=False,engine='numba',processes='auto')
-            
-            plt.imshow(processed_frames[i])
-            plt.title("Locate parameters test on "+name,fontsize=10)
-            plt.xlabel("x (pixels)",fontsize=10)
-            plt.ylabel("y (pixels)",fontsize=10)
-            plt.xticks(fontsize=10)
-            plt.yticks(fontsize=10)
-            tp.annotate(raw_coordinates,frames[i],plot_style={'markersize':10},color='red')
-            plt.show()
-            plt.close()
+        for i in range(len(frames)):
+            if settings['tophat']:
+                processed_frames[i] = tophat(parameters['separation'],processed_frames[i])
+                
+            if settings['wavelet']:
+                processed_frames[i] = wavelet(processed_frames[i])
 
+        plt.imshow(processed_frames[0])
+        plt.title("Filter test on "+name,fontsize=10)
+        plt.xlabel("x (pixels)",fontsize=10)
+        plt.ylabel("y (pixels)",fontsize=10)
+        plt.xticks(fontsize=10)
+        plt.yticks(fontsize=10)
+        plt.show()
+        plt.close()
+        
+        # Localizing particles and finding trajectories
 
-parameters = {
-    #trackpy.batch
-    'diameter':9,
-    'minmass':300,
-    'separation':12,
-}
+        tp.quiet([True]) # Silencing TrackPy messages
 
-#Optional image processing
+        print(f'\tLocating')
+        raw_coordinates = tp.batch(processed_frames, minmass=parameters['minmass'], diameter=parameters['diameter'], \
+            separation=parameters['separation'],preprocess=False,engine='numba',processes='auto')
+        
+        plt.imshow(processed_frames[0])
+        plt.title("Locate parameters test on "+name,fontsize=10)
+        plt.xlabel("x (pixels)",fontsize=10)
+        plt.ylabel("y (pixels)",fontsize=10)
+        plt.xticks(fontsize=10)
+        plt.yticks(fontsize=10)
+        tp.annotate(raw_coordinates,processed_frames[0],plot_style={'markersize':10},color='red')
+        plt.show()
+        plt.close()
 
-settings = {
-    'tophat':False,
-    'wavelet':True,
-}
 if __name__ == '__main__':
-    input_folder = r'/media/baptiste/SHG_tracking_data/Zebrafish data/test'
+
+    parameters = {
+        #trackpy.batch
+        'diameter':9,
+        'minmass':300,
+        'separation':12,
+        'extension_in':'tif',
+    }
+
+    #Optional image processing
+
+    settings = {
+        'tophat':True,
+        'wavelet':False,
+    }
+
+    input_folder = r''
     test_locate(input_folder,parameters,settings=settings)

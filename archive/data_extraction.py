@@ -5,18 +5,16 @@ import os
 import numpy as np
 import pandas as pd
 
-from utils import *
-from traj_calc import *
 from pathlib import Path
 from output import dict_dump
+from traj_calc import *
 from scipy.signal import savgol_filter
+from utils import folder_structure_creation, csv_sniffer
 
 log_analysis = {
     'r_poly':0,
     'r_speed':0,
 }
-
-list_r_conf = []
 
 def inst_velocity(x,y,dt):
     """Calculates instantaneous velocity.
@@ -33,8 +31,8 @@ def inst_velocity(x,y,dt):
 
     size = len(x)
     v_inst = np.zeros(size)
-    v_inst[0] = (np.sqrt((x[1]-x[0])**2+(y[1]-y[0])**2))/dt # Instantaneous speed of the first point calculated from the first segment
-    v_inst[size-1] = (np.sqrt((x[size-1]-x[size-2])**2+(y[size-1]-y[size-2])**2))/dt # Instantaneous speed of the last point calculated from the last segment
+    v_inst[0] = (np.sqrt((x[1]-x[0])**2+(y[1]-y[0])**2))/dt #Instantaneous speed of the first point calculated from the first segment
+    v_inst[size-1] = (np.sqrt((x[size-1]-x[size-2])**2+(y[size-1]-y[size-2])**2))/dt #Instantaneous speed of the last point calculated from the last segment
 
     for u in range(size-2):
         u = u+1
@@ -59,7 +57,7 @@ def confinement(x,y,sw):
     size=len(x)
 
     if (size>=2*sw+1):
-        for i in range(sw): # Extrapolate the confinement ratio at the beginning of the trajectory
+        for i in range(sw): #Extrapolate the confinement ratio at the beginning of the trajectory
             d_net = np.sqrt((x[sw*2]-x[0])**2+(y[sw*2]-y[0])**2)
             d_total = 0
             for u in range(2*sw):
@@ -67,7 +65,7 @@ def confinement(x,y,sw):
             r_conf.append((d_net/d_total))
 
         for i in range (sw,size-sw):
-            if (i == size-sw-1): # Extrapolate a number of points equal to the sliding window at the end
+            if (i == size-sw-1): #Extrapolate a number of points equal to the sliding window at the end
                 d_total = 0
                 d_net = np.sqrt((x[i+sw]-x[i-sw])**2+(y[i+sw]-y[i-sw])**2)
                 for j in range (2*sw):
@@ -117,16 +115,16 @@ def phase_calculations(parameters,data,settings,condition,slide,name,animal):
         subdata = data[data.particle==trajectory]
         subdata = subdata.reset_index(drop = True)
 
-        if settings['polynomial_fit']: # Fit trajectories to third-degree polynom, and discard trajectories that deviate too much
+        if settings['polynomial_fit']: #Fit trajectories to third-degree polynom, and discard trajectories that deviate too much
             if polynomial_fit(subdata,parameters['len_cutoff'],parameters['threshold_poly3']) == True:
                 pass
             else:
                 log_analysis['r_poly'] += 1
                 continue
 
-        if settings['minimization']: # Experimental trajectory denoising
-            subdata = minimization(subdata,parameters['px'],parameters['sigma']) # Defined noise level for every trajectories
-            #subdata = point_minimization(subdata,parameters['px']) # Point-by-point calculation of noise level based on signal intensity
+        if settings['minimization']: #Experimental trajectory denoising
+            subdata = minimization(subdata,parameters['px'],parameters['sigma']) #Defined noise level for every trajectories
+            #subdata = point_minimization(subdata,parameters['px']) #Point-by-point calculation of noise level based on signal intensity
 
         x = subdata.x
         x = x.dropna()
@@ -139,29 +137,26 @@ def phase_calculations(parameters,data,settings,condition,slide,name,animal):
 
         size = len(x)
         
-        r_conf = confinement(x,y,sw) # Separate trajectory into phases
+        r_conf = confinement(x,y,sw) #Separate trajectory into phases
 
-        if settings['conf_list']:
-            list_r_conf.append(r_conf)
-
-        # Switch from pixels to µm   
+        #Switch from pixels to µm   
         x = x*parameters['px']
         x = x.dropna()
         y = y*parameters['px']
         y = y.dropna()
 
-        v_inst = inst_velocity(x,y,dt) # Get instantaneous velocity for each point
+        v_inst = inst_velocity(x,y,dt) #Get instantaneous velocity for each point
 
         phase = np.zeros(size)
 
-        # Categorize each phase as either a GO or STOP phase
+        #Categorize each phase as either a GO or STOP phase
         if (size>=2*sw+1):
             for i in range(len(r_conf)):
                 if (r_conf[i]>parameters['r_conf_cut']):
-                        phase[i] = 2 # GO phase
+                        phase[i] = 2 #GO phase
 
         else:
-            for i in range(sw,(size-sw)): # STOP phase refinment
+            for i in range(sw,(size-sw)): #STOP phase refinment
                 vel_list = []
                 for j in range((i+(-1*(sw//2))),(i+(sw//2))):
                     vel = (np.sqrt((x[j+1]-x[j])**2+(y[j+1]-y[j])**2))/dt
@@ -191,7 +186,7 @@ def phase_calculations(parameters,data,settings,condition,slide,name,animal):
         min_y = y[cut[0]-1]
         max_y = y[(cut[len(cut)-1])-1]
 
-        for phase_number in range(len(cut)-1): # Per phase processing. '-1' : First and last phases are deleted
+        for phase_number in range(len(cut)-1): #Per phase processing. '-1' : First and last phases are deleted
             start = cut[phase_number]
             stop = cut[phase_number+1]
             sub_phase = subdata.loc[start:stop-1]
@@ -208,15 +203,15 @@ def phase_calculations(parameters,data,settings,condition,slide,name,animal):
                 variance = 0
 
             if settings['theta']:
-                # Calculate theta angle of each particle based on variation of intensity
-                # Specific to nanoKTP or similarly behaving nanoparticles
+                #Calculates theta angle of each particle based on variation of intensity
+                #Specific to nanoKTP or similarly behaving nanoparticles
 
                 thetalist = []
                 savgol = savgol_filter(intensity,window_length=9,polyorder=3,mode="nearest")
 
                 for n in savgol:
                     thetalist.append(np.arcsin(np.sqrt((n-np.min(savgol))/(np.max(savgol)-np.min(savgol))))\
-                         if np.max(savgol) != np.min(savgol) else np.nan) # Prevent division by zero
+                         if np.max(savgol) != np.min(savgol) else np.nan) #Prevents division by zero
 
                 theta = np.array(thetalist)*180/np.pi
                 theta_std = np.std(theta)
@@ -225,13 +220,13 @@ def phase_calculations(parameters,data,settings,condition,slide,name,animal):
             vectorial_velocity = np.abs((np.sqrt((x[stop-1]-x[start])**2+(y[stop-1]-y[start])**2))/(dt*phase_length))
             
             if settings['antero_retro']:
-                # Check wether trajectory belongs to the right or left eye
+                #Checks wether trajectory belongs to the right or left eye
                 if slide == "oeil_droit":
                     sign = 1
                 else:
                     sign = -1
 
-                # Change the sign of the velocity accordingly
+                #Change the sign of the velocity accordingly
                 if ((x[stop-1]-x[start])>0):
                     curvilign_velocity = -sign * curvilign_velocity
                     vectorial_velocity = -sign * vectorial_velocity
@@ -296,7 +291,7 @@ def trajectory_calculations(phase_parameters,settings):
     phase_parameters.sort_values(by=['file'],inplace=True)
     phase_parameters.sort_values(by=['rejoined_trajectory'],inplace=True)
 
-    # Initialize lists
+    #Initializes lists
 
     intensity_GO,intensity_STOP,variance_GO,variance_STOP,curvilign_velocity,processivity,run_length,pausing_frequency,pausing_time,\
         diag_size,fraction_paused,moving_particles,number_stop,duration,curv_length,pausing_time = ([] for _ in range(16))
@@ -323,26 +318,26 @@ def trajectory_calculations(phase_parameters,settings):
             data = phase_parameters[(phase_parameters.file==file) & (phase_parameters.rejoined_trajectory==item)]
             data = data.reset_index(drop = True)
 
-            # STOP phases
+            #STOP phases
             data_STOP=data.loc[data['phase']==0,:]
             data_STOP = data_STOP.reset_index(drop = True)
 
-            # GO phases
+            #GO phases
             data_GO=data.loc[data['phase']==2,:]
             data_GO = data_GO.reset_index(drop = True)
 
-            if len(data_GO)==0: # Check if trajectory contains at least one GO phase
+            if len(data_GO)==0: #Check if trajectory contains at least one GO phase
                 continue
 
             if settings['antero_retro']:
-                # Antero
+                #Antero
                 data_GO_antero=data_GO.loc[data_GO['curvilign_velocity']>0,:]
                 data_GO_antero = data_GO_antero.reset_index(drop = True)
-                # Retro
+                #Retro
                 data_GO_retro=data_GO.loc[data_GO['curvilign_velocity']<0,:]
                 data_GO_retro = data_GO_retro.reset_index(drop = True)
 
-                # Discard spurrious trajectories
+                #Discard spurrious trajectories
                 if np.mean(np.abs(data_GO_antero.curvilign_velocity)) >= 4 or np.mean(np.abs(data_GO_retro.curvilign_velocity)) >= 4 :
                     log_analysis['r_speed'] += 1
                     continue
@@ -359,19 +354,19 @@ def trajectory_calculations(phase_parameters,settings):
             animal.append(data.loc[data.rejoined_trajectory==item,'animal'].unique()[0])
             slide.append(data.loc[data.rejoined_trajectory==item,'slide'].unique()[0])
 
-            # Intensity
+            #Intensity
             traj_intensity_GO = np.mean(data_GO.intensity)
             intensity_GO.append(traj_intensity_GO)
             traj_intensity_STOP = np.mean(data_STOP.intensity)
             intensity_STOP.append(traj_intensity_STOP)
 
-            # Variance
+            #Variance
             traj_variance_GO = np.mean(data_GO.variance)
             variance_GO.append(traj_variance_GO)
             traj_variance_STOP = np.mean(data_STOP.variance)
             variance_STOP.append(traj_variance_STOP)
 
-            # Diagonal size
+            #Diagonal size
             min_x = np.min(data.min_x)
             max_x = np.max(data.max_x)
 
@@ -384,11 +379,11 @@ def trajectory_calculations(phase_parameters,settings):
             traj_diag_size =np.sqrt(delta_x**2+delta_y**2)
             diag_size.append(traj_diag_size)
 
-            # Curvilign size
+            #Curvilign size
             curv_size = np.sum(data.run_length)
             curv_length.append(np.abs(curv_size))
 
-            # Pausing frequency
+            #Pausing frequency
             trajectory_time = np.sum(data.phase_duration)
             n_stop = len(data[data.phase==0])
             number_stop.append(n_stop)
@@ -400,11 +395,11 @@ def trajectory_calculations(phase_parameters,settings):
 
             pausing_frequency.append(traj_pausing_frequency)
 
-            # Trajectory duration
+            #Trajectory duration
             t_duration = (np.sum(data.phase_duration)*0.05)
             duration.append(t_duration)
             
-            # Pausing time
+            #Pausing time
             if len(data_STOP)==0:
                 traj_pausing_time=0
             else:
@@ -412,31 +407,31 @@ def trajectory_calculations(phase_parameters,settings):
 
             pausing_time.append(traj_pausing_time)
 
-            # Ratio of moving particles
+            #Ratio of moving particles
             n_particles = data.n_particles.tolist()
             moving_particles.append((phase_parameters[(phase_parameters.file==file)].rejoined_trajectory.nunique()/np.unique(n_particles))[0])
 
             if settings['antero_retro']:
 
-                # Curvilign velocity
+                #Curvilign velocity
                 traj_curvilign_velocity_antero = np.mean(data_GO_antero.curvilign_velocity)
                 curvilign_velocity_antero.append(traj_curvilign_velocity_antero)
                 traj_curvilign_velocity_retro = np.mean(data_GO_retro.curvilign_velocity)
                 curvilign_velocity_retro.append(traj_curvilign_velocity_retro)
 
-                # Run length
+                #Run length
                 traj_run_length_antero = np.mean(data_GO_antero.run_length)
                 run_length_antero.append(traj_run_length_antero)
                 traj_run_length_retro = np.mean(data_GO_retro.run_length)
                 run_length_retro.append(traj_run_length_retro)
 
-                # Processivity
+                #Processivity
                 traj_processivity_antero = np.mean(data_GO_antero.phase_duration)
                 processivity_antero.append(traj_processivity_antero)
                 traj_processivity_retro = np.mean(data_GO_retro.phase_duration)
                 processivity_retro.append(traj_processivity_retro)
 
-                # Fraction of time paused
+                #Fraction of time paused
                 if len(data_STOP)==0 or len(data_GO_antero)==0 or len(data_GO_retro)==0:
                     traj_fraction_paused=0
                 else:
@@ -444,7 +439,7 @@ def trajectory_calculations(phase_parameters,settings):
 
                 fraction_paused.append(traj_fraction_paused)
 
-                # Directionality
+                #Directionality
                 if (len(data_GO_antero)==0):
                     distance_antero=0
                 else:
@@ -459,21 +454,21 @@ def trajectory_calculations(phase_parameters,settings):
                 if distance_total==0:
                     continue
 
-                # Phase directionality
+                #Phase directionality
                 t_p_directionality_GO = len(data_GO_retro)/len(data_GO) 
                 p_directionality_GO.append(t_p_directionality_GO)
 
-                # directionality.append(np.abs(distance_antero)/np.abs(distance_total)) #Fraction of anterograde transport
+                #directionality.append(np.abs(distance_antero)/np.abs(distance_total)) #Fraction of anterograde transport
                 directionality.append(np.abs(distance_retro)/np.abs(distance_total)) #Fraction of retrograde transport
 
-                # Directionality reversal
-                t_switch = 0 # Overall number of reversals
-                t_switch_a_to_r = 0 # Anterograde to retrograde reversals
-                t_switch_r_to_a = 0 # Retrograde to anterograde reversals
-                t_switch_var_STOP = [] # Variance of signal intensity in STOP phases
-                t_pausing_time_antero = [] # Pausing time between anterograde phases
-                t_pausing_time_retro = [] # Pausing time between retrograde phases
-                t_pausing_time_switch = [] # Pausing time between phases of opposite direction
+                #Directionality reversal
+                t_switch = 0 #Overall number of reversals
+                t_switch_a_to_r = 0 #Anterograde to retrograde reversals
+                t_switch_r_to_a = 0 #Retrograde to anterograde reversals
+                t_switch_var_STOP = [] #Variance of signal intensity in STOP phases
+                t_pausing_time_antero = [] #Pausing time between anterograde phases
+                t_pausing_time_retro = [] #Pausing time between retrograde phases
+                t_pausing_time_switch = [] #Pausing time between phases of opposite direction
 
                 for p in set(data.trajectory):
                     p_data = data.loc[data.trajectory==p]
@@ -509,19 +504,19 @@ def trajectory_calculations(phase_parameters,settings):
                      if len(t_pausing_time_switch) > 0 else np.nan)
 
             else:
-                # Curvilign velocity
+                #Curvilign velocity
                 traj_curvilign_velocity = np.mean(data_GO.curvilign_velocity)
                 curvilign_velocity.append(traj_curvilign_velocity)
 
-                # Run length
+                #Run length
                 traj_run_length = np.mean(data_GO.run_length)
                 run_length.append(traj_run_length)
 
-                # Processivity
+                #Processivity
                 traj_processivity = np.mean(data_GO.phase_duration)
                 processivity.append(traj_processivity)
 
-                # Fraction of time paused
+                #Fraction of time paused
                 if len(data_STOP)==0 or len(data_GO)==0 :
                     traj_fraction_paused=0
                 else:
@@ -531,7 +526,7 @@ def trajectory_calculations(phase_parameters,settings):
 
             if settings['theta']:
 
-                # Theta standard deviation
+                #Theta standard deviation
                 t_theta_std_GO = np.mean(data_GO.theta_std)
                 theta_std_GO.append(t_theta_std_GO)
                 t_theta_std_STOP = np.mean(data_STOP.theta_std)
@@ -604,41 +599,35 @@ def data_extraction(input_folder,parameters,settings):
     :type settings: dict
     """        
 
-    output_folder, identifier = folder_structure_creation(input_folder)[0:2]
+    output_folder = folder_structure_creation(input_folder)[0]
 
-    if len(input_folder.parents) < 3 : # Guard against os.walk running on an empty folder, if the input folder is placed at the root of a drive
+    if len(input_folder.parents) < 3 : #Guard against os.walk running on an empty folder, if the input folder is placed at the root of a drive
         input_folder = input_folder.parent
 
-    if output_folder.exists() == False:
-        os.makedirs(output_folder)
+    os.makedirs(output_folder)
 
     phase_parameters = pd.DataFrame()
-    path_list = []
 
-    # Define output file names
-    phase_parameters_output = output_folder.joinpath(f"{identifier[11:26]}_Per phase parameters.csv")
-    traj_parameters_output = output_folder.joinpath(f"{identifier[11:26]}_Trajectory average parameters.csv") 
-
-    for path, subfolder, files in os.walk(input_folder): # Scan entire folder structure for files
+    for path, subfolder, files in os.walk(input_folder): #Scan entire folder structure for files
         for name in files:
-            if name.endswith('_rejoined.csv') == False:  # Check for correct file
+            if name.endswith('_rejoined.csv') == False:  #Check for correct file
                 continue
 
-            # Build output file path
+            #Build output file path
             file_path = os.path.join(path, name)
-            path_list.append(file_path)
+            file_folder_path = os.path.split(path)[0]
+            slide_path,slide = os.path.split(file_folder_path)
+            animal_path,animal = os.path.split(slide_path)
+            condition = os.path.split(animal_path)[1]
 
-    for (path, j) in zip(path_list,[j for j in range(len(path_list))]):
+            #Define output file names
+            phase_parameters_output = output_folder.joinpath("Per phase parameters.csv")
+            traj_parameters_output = output_folder.joinpath("Trajectory average parameters.csv") 
 
-        file_folder_path = os.path.split(Path(path).parent)[0]
-        slide_path,slide = os.path.split(file_folder_path)
-        animal_path,animal = os.path.split(slide_path)
-        condition = os.path.split(animal_path)[1]
-
-        data = pd.read_csv(path,sep=csv_sniffer(path))
-        
-        print_pb("Per phase calculations of "+str(Path(path).name), j, len(path_list))
-        phase_parameters = pd.concat((phase_parameters,phase_calculations(parameters,data,settings,condition,slide,str(Path(path).name),animal)))
+            data = pd.read_csv(file_path,sep=csv_sniffer(file_path))
+            
+            print("Per phase calculations of "+name)
+            phase_parameters = pd.concat((phase_parameters,phase_calculations(parameters,data,settings,condition,slide,name,animal)))
 
     if phase_parameters.empty:
         raise RuntimeError('No trajectories retained during analysis')
@@ -647,19 +636,12 @@ def data_extraction(input_folder,parameters,settings):
 
     trajectory_parameters = trajectory_calculations(phase_parameters,settings)
 
-    # Write results to .csv files
+    #Writes results to .csv files
     trajectory_parameters.to_csv(traj_parameters_output ,sep='\t')
     phase_parameters.drop(['min_x','max_x','min_y','max_y'], axis='columns', inplace=True)
     phase_parameters.to_csv(phase_parameters_output, sep = '\t')
 
-    log_analysis['n_t_file'] = trajectory_parameters.file.nunique()
-
-    if settings['conf_list']:
-        df_r_conf = pd.DataFrame({'r_conf':list_r_conf})
-        df_r_conf.to_csv(Path(output_folder).joinpath(f'{identifier[11:26]}_Confinement ratio.csv'))
-
     dict_dump(Path(output_folder).parent,log_analysis,'log')
-    print('\n')
 
 
 if __name__ == '__main__':
@@ -667,18 +649,18 @@ if __name__ == '__main__':
     import time
 
     parameters = {
-    # Data Extraction
+    #Data Extraction
     'r_conf_cut' : 0.64,
-    'px' : 0.173, # in µm
-    'dt' : 0.05, # in s
+    'px' : 0.173, #in µm
+    'dt' : 0.05, #in s
     'min_thr_prec' : 50, # in nm
     'sliding_window':3,
     'sigma':129,
-    'len_cutoff':30, # Number of points
-    'threshold_poly3':1.4, # Deviation from third-degree polynom
+    'len_cutoff':30, #Number of points
+    'threshold_poly3':1.4, #Deviation from third-degree polynom
     }   
     settings = {
-    # Data Extraction
+    #Data Extraction
     'polynomial_fit':True,
     'minimization':True,
     'antero_retro':True,
@@ -686,7 +668,7 @@ if __name__ == '__main__':
     }
 
     start = time.time()
-    input_folder = Path(r"")
+    input_folder = Path(r"/media/baptiste/Windows/Users/LUMIN10/Documents/video_benchmark_int Results - 20230213_182939/video_benchmark_int")
     data_extraction(input_folder,parameters,settings)
     end = time.time()
     duration = end - start

@@ -26,23 +26,27 @@ parameters = {
     'memory':5,
     'adaptive_stop':5,
     'adaptive_step':0.9,
-    'stub_filtering':3,
+    'stub_filtering':3, # Minimum length of trajectories, in points
     #trackpy.motion.msd
-    'msd':300,
+    'msd':300, # Threshold for MSD filtering
     #SNR estimation
-    'base_level':0,
+    'base_level':0, #Base level for SNR estimation
     #Rejoining
-    'threshold_t':10,
-    'threshold_r':40,
+    'threshold_t':10, # Temporal threshold for trajectory rejoining, in frames
+    'threshold_r':40, # Spatial threshold for trajectory rejoining, in pixels
     #Data Extraction
-    'r_conf_cut' : 0.64,
-    'px' : 0.173, #in µm
-    'dt' : 0.05, #in s
-    'min_theoretical_precision' : 50, # in nm
-    'sliding_window':3,
-    'sigma':129,
-    'len_cutoff':30, #Number of points
-    'threshold_poly3':1.4, #Deviation from third-degree polynom
+    'r_conf_cut' : 0.64, # Confinement ratio cutoff between GO and STOP phases
+    'px' : 0.173, # Pixel size, in µm
+    'dt' : 0.05, # Time interaval between frames, in s
+    'min_theoretical_precision' : 50, # Minimum theoretical precision, in nm
+    'sliding_window':3, # Sliding windows for confinement ratio calculation
+    'sigma':129, # Estimated precision of localization
+    'len_cutoff':30, # Number of points
+    'threshold_poly3':1.4, # Deviation from third-degree polynom
+    #Stats
+    'order':['WT','HET','HOM'], # Order of conditions in tables and graph
+    'extension':'svg', # File extension of saved graphs
+    'dpi':300, # DPI of saved graphs if they're not vectorial
 }
 
 #Optional image and trajectory processing
@@ -66,29 +70,24 @@ settings = {
     'theta':True,
     'antero_retro':True,
     #Stats
-    'order':['WT','HET','HOM'],
-    'extension':'svg',
-    'dpi':300,
-}
-
-log = {
-    #Rejoining
-    'number_rejoined':0,
+    'ordering':True,
+    'clean_up':False,
 }
 
 ##
 ##
-
 
 #Define root input folder
 
 input_folder = Path(r"/media/baptiste/SHG_tracking_data/Zebrafish data/video_benchmark")
 
-start = time.time()
-
 if __name__ == '__main__':
+
+    start = time.time()
     
     #Output folder initialization
+    log = {}
+    log['input_folder'] = input_folder
     log['output_folder'],log['identifier'],log['root_input_folder'] = folder_structure_creation(input_folder)
     print(f'\nAnalyzing {input_folder}\n')
     print(f'Results stored in {Path(log["output_folder"].name)}')
@@ -98,15 +97,21 @@ if __name__ == '__main__':
 
     data_extraction(Path(log['output_folder']).joinpath(input_folder.name),parameters,settings)
 
-    # statistical_analysis(settings,log['output_folder'])
+    statistical_analysis(settings,parameters,log['output_folder'])
 
+    end = time.time()
 
-end = time.time()
+    duration = end - start
+    f_duration = '%dh%s' % (int(duration//3600),f'{int((duration%3600)/60):02d}')
+    log['duration'] = f_duration
+    print('Total runtime : ' )
+    print(f_duration)
 
-duration = end - start
-print('Total runtime : ')
-print('%dh%s' % (int(duration//3600),f'{int((duration%3600)/60):02d}'))
+    #Dumps parameters and settings into .txt files at the root of the output folder
+    dict_dump(log['output_folder'],parameters,'parameters')
+    dict_dump(log['output_folder'],settings,'settings')
+    dict_dump(log['output_folder'],log,'log')
+
+    generate_report(log['output_folder'])
 
 # TODO Declare arg types in functions
-# TODO Generate report through ReportLab
-# TODO Read parameters and settings dict from a JSON file to use in command line

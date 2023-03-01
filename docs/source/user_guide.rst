@@ -86,7 +86,7 @@ This part of the script calculates transport parameters from extracted trajector
 * **r_conf_cut** : Cutoff level for confinement ratio calculation.
 * **px** : Size of a pixel in µm.
 * **dt** : Sampling rate, in seconds, as in the amount of time between two frames.
-* **min_theoretical_precision** : Minimum theoretical precision, in nm.
+* **min_thr_prec** : Minimum theoretical precision, in nm.
 * **sliding_window** : Size, in frames, of the sliding window along which the confinement ration is calculated.
 * **polynomial_fit** (setting, optional) : Filters trajectories based on how well they fit to a 3rd degree polynom.
 

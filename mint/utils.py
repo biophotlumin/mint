@@ -58,3 +58,19 @@ def csv_sniffer(file_path):
     with open(file_path, newline='') as csvfile:
         dialect = csv.Sniffer().sniff(csvfile.read(1))
     return dialect.delimiter
+
+def print_pb(text,i,max):
+    """Print `text` into console on top of a progress bar.
+
+    :param text: Text to be printed.
+    :type text: str
+    :param i: Progress bar index.
+    :type i: int
+    :param max: Maximum index of the progress bar.
+    :type max: int
+    """    
+    
+    m_max = max #(max-1) if max > 1 else 1
+    print("\033[K",end="")
+    print(text)
+    print(f'| {("▊"*int(i/m_max*60))}{"_"*int((1-(i/m_max))*60)} | {i}/{max} | {round((i/m_max)*100,2)}%',end='\r',flush=True)
