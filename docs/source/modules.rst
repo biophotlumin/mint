@@ -1,16 +1,14 @@
-Modules
-======================
+mint
+====
 
 .. toctree::
    :maxdepth: 4
 
-   Data extraction <data_extraction.rst>
-   GUI <gui.rst>
-   Image denoising <image_denoising.rst>
-   Output files creation<output_files_creation.rst>
-   Script <script.rst>
-   Statistical analysis <statistical_analysis.rst>
-   Test locate <test_locate.rst>
-   Tracking <tracking.rst>
-   Trajectory calculations <trajectory_calculations.rst>
-   Utils <utils.rst>
+   Data extraction <data_extraction>
+   Image denoising <denoising>
+   Output <output>
+   Statistical analysis <stat_analysis>
+   Test locating parameters <test_locate>
+   Tracking <tracking>
+   Trajectory calculations <traj_calc>
+   Utils <utils>

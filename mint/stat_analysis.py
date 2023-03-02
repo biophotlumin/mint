@@ -173,7 +173,6 @@ def run_stats(ordering,parameters,act_variables,data,input_folder):
     text_file.writelines(results)
     text_file.close()
     
-
 def run_variable(var,normal,test,data,dunn_b,input_folder,parameters):
     """Call appropriate statistical test and plotting function for a variable.
 
@@ -245,7 +244,7 @@ def ranksums(data,variable):
     index = data.condition.unique()
     x = data.loc[data.condition==index[0], variable]
     y = data.loc[data.condition==index[1], variable]
-    p = stats.mannwhitneyu(x,y,use_continuity=True,alternative='two-sided')[1]
+    p = stats.mannwhitneyu(x,y,use_continuity=True,alternative='two-sided',nan_policy='omit')[1]
 
     return p
 

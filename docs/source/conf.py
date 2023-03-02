@@ -20,11 +20,11 @@ sys.path.insert(0, os.path.abspath('../../mint'))
 # -- Project information -----------------------------------------------------
 
 project = 'MINT'
-copyright = '2022, LuMIn'
+copyright = '2023, LuMIn'
 author = 'LuMIn'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.6'
+release = '0.2.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -32,7 +32,7 @@ release = '0.1.6'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc','sphinx.ext.napoleon'
+extensions = ['sphinx.ext.autodoc','sphinx.ext.napoleon','sphinx.ext.autosummary'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -49,14 +49,9 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-# html_theme = 'sphinx_rtd_theme'
-# html_theme = 'alabaster'
-import sphinx_readable_theme
-html_theme = 'readable'
-html_theme_path = [sphinx_readable_theme.get_html_theme_path()]
-# import sphinx_typlog_theme
-# html_theme_path = [sphinx_typlog_theme.get_path()]
-# html_theme = 'sphinx-typlog-theme'
+
+html_theme = "pydata_sphinx_theme"
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

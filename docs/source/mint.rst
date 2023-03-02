@@ -1,7 +1,7 @@
-gui module
-==========
+mint module
+===========
 
-.. automodule:: gui
+.. automodule:: mint
    :members:
    :undoc-members:
    :show-inheritance:

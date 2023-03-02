@@ -7,16 +7,20 @@
 **General information**
 ===============================
 
-Input data must be in the form of .tif files, and should be placed in a dedicated folder. Proper folder structure is detailed in `Statistical analysis`_.
+Input data must be in the form of .tif or Nikon .nd2 files, and should be placed in a dedicated folder. Proper folder structure is detailed in `Statistical analysis`_.
 
-Default parameters are provided for both CLI and GUI, but as they are very specific to our experimental setup please expect a lot of trial and errors 
+Default parameters are provided in ``mint.py``, but as they are very specific to our experimental setup please expect some trial and error
 before obtaining satisfactory results. 
 
-You can use the "Test locate" function to try feature findind parameters.
+You can use the ``test_locate.py`` module to try feature findind parameters.
 
 
 **Parameters and settings**
 ===============================
+
+
+* **extension_in** : File format of the videos. Currently, only .tif and .nd2 are supported.
+
 
 **Preprocessing**
 ---------------------
@@ -50,28 +54,28 @@ Please refer to their own documentation for more details on each parameter.
   **Linking** : 
 
 
-  * **search_range** : Maximum distance features can move between frames.
+  * **search_range** : Maximum distance a feature can move between frames.
   * **memory** (optional) : Maximum number of frames a feature can disappear for and still be considered the same spot.
-  * **adaptive_stop** (optional) : Bottom line search_range that trackpy will gradually moves towards if the original parameter results in an unsolvable calculation.
-  * **adaptive_step** (optional) : Factor by which search_range will decrease until it reached adaptive_stop.
+  * **adaptive_stop** (optional) : Bottom line ``search_range`` that trackpy will gradually move towards if the original parameter results in an unsolvable calculation.
+  * **adaptive_step** (optional) : Factor by which ``search_range`` will decrease until it reaches ``adaptive_stop``.
   * **stub_filtering** (setting, optional) : Filters trajectories based on length.
 
-    * **stub_filtering** (parameter) : Minimum of points a trajectory must have to pass filtering.
+    * **stub_filtering** (parameter) : Minimum number of points required for a trajectory to be retained.
 
 * 
   **Additionally** : 
 
 
-  * **MSD** (optional) : Computes the Mean Square Displacement (MSD) for each trajectory, and filters them accordingly.
+  * **MSD** (setting, optional) : Computes the Mean Square Displacement (MSD) for each trajectory, and filters them accordingly.
 
-    * **threshold** : MSD value below which a trajectory is discarded.
+    * **msd** (parameter) : MSD value below which a trajectory is discarded.
 
   * **rejoining** (optional) : Rejoins trajectories that weren't linked by trackpy in the first place. This function is kept deliberately stringent (i.e. each trajectory cannot be rejoined more than once) to avoid aberrant trajectories and false positives.
 
     * **threshold_t** : Maximum number of frames between the first and last points of two trajectories for them to be considered for rejoining.
     * **threshold_r** : Maximum distance (in pixels) between the first and last points of two trajectories for them to be considered for rejoining.
 
-  * **SNR_estimation** : Calcualtes the signal-to-noise ratio.
+  * **SNR_estimation** (optional): Calcualtes the signal-to-noise ratio.
 
     * **base_level** : Base noise level.
 
@@ -83,21 +87,23 @@ Please refer to their own documentation for more details on each parameter.
 This part of the script calculates transport parameters from extracted trajectories.
 
 
-* **r_conf_cut** : Cutoff level for confinement ratio calculation.
-* **px** : Size of a pixel in µm.
-* **dt** : Sampling rate, in seconds, as in the amount of time between two frames.
+* **r_conf_cut** : Cutoff level for confinement ratio above which a point is considered in a GO phase.
+* **px** : Pixel size in µm.
+* **dt** : Sampling period, in seconds, as in the amount of time between two frames.
 * **min_thr_prec** : Minimum theoretical precision, in nm.
-* **sliding_window** : Size, in frames, of the sliding window along which the confinement ration is calculated.
-* **polynomial_fit** (setting, optional) : Filters trajectories based on how well they fit to a 3rd degree polynom.
+* **sliding_window** : Size, in frames, of the sliding window along which the confinement ratio is calculated.
+* **polynomial_fit** (optional) : Filters trajectories based on how well they fit to a 3rd degree polynom.
 
   * **threshold_poly3** : Tolerated deviation from the 3rd degree polynom.
   * **len_cutoff** : Size, in points, below which trajectories are eliminated.
 
-* **minimization** (setting, optional) : Experimental function of convex minimization of acceleration used to smooth trajectories with a lot of spatial noise.
+* **minimization** (optional) : Experimental function of convex minimization of acceleration used to smooth trajectories with a lot of spatial noise.
 
-  * **sigma** : Estimated noise, in nm.
+  * **sigma** : Estimated noise, as the standard deviation of the precision of localization, in nm.
 
-* **antero_retro** : Separates transport parameters into anterograde and retrograde categories. Note : this highly dependent on our original experimental setup and will most likely not work elsewhere. 
+* **antero_retro** (optional) : Separates transport parameters into anterograde and retrograde categories. Note : this is highly dependent on our original experimental setup and will most likely not work elsewhere. 
+
+* **conf_list** (optional) : Saves the confinement ratio of each point into a .csv file that contain a list of points for each trajectory. Can be used to determinate ``r_conf_cut``.
 
 |
 
@@ -105,9 +111,15 @@ This part of the script calculates transport parameters from extracted trajector
 --------------
 
 
-* **individual_images** : Plots each individual trajectory on the first frame of the corresponding film, and saves it as a .jpg file.
-* **individual_txt** : Saves the point coordinates of each individual trajectory into a .txt file.
-* **group_image** : Plots all trajectories found on a film on its first frame, and saves it as a .jpg file.
+* **individual_images** (optional) : Plots each individual trajectory on the first frame of the corresponding film, and saves it.
+* **individual_txt** (optional) : Saves the point coordinates of each individual trajectory into a .txt file.
+* **group_image** (optional) : Plots all trajectories found on a film on its first frame, and saves it.
+* **ordering** (optional) : Specify the order of experimental conditions in graphs.
+
+  * **order** : List of experimental conditions.
+* **extension_out** : File format under which graphs will be saved. Can be anything ``matplotlib`` supports.
+* **dpi** (optional if ``extension_out`` is vectorial) : DPI of the saved graphs for non-vectorial file formats.
+* **clean_up** (optional) : Wether or not to delete individual graph files once they've been included in the experiment report.
 
 |
 
@@ -133,16 +145,25 @@ Optionally, the script will also generate :
 The data extraction phase will also generate two .csv files : 
 
 
-* Per phase parameters.csv : Transport parameters calculated for each phase of each trajectory.
-* Trajectory average parameters.csv : Transport parameters averaged from phases of each trajectory.
+* ``Per phase parameters.csv`` : Transport parameters calculated for each phase of each trajectory.
+* ``Trajectory average parameters.csv`` : Transport parameters averaged from phases of each trajectory.
 
 The statistical analysis phase will generate several files : 
 
 
-* Barplots for each transport parameters, as .jpg files.
-* Boxplots for each transport parameters, as .jpg files.
-* Dunn's test tables for each transport parameters, as .jpg files.
-* A single .txt file with the p-values for each transport parameters.
+* **Barplots** for each transport parameters.
+* **Boxplots** for each transport parameters.
+* A single .txt file with the p-values for each transport parameters as well as some other statistics.
+
+Additionally, several dictionaries are dumped as .txt files : 
+
+
+* ``log.txt`` contains some information about the run.
+* ``parameters.txt`` lists the parameters that were used.
+* ``settings.txt`` lists the settings that were used.
+* ``var.txt`` lists the variables statistically tested.
+
+In the case of a full run, the script will also generate a complete experiment report into a .pdf file.
 
 |
 
@@ -152,13 +173,13 @@ The statistical analysis phase will generate several files :
 The following transport parameters are extracted and analyzed from each trajectory.
 
 
-* **Pausing time** : Time, in seconds, that the feature spent in STOP phases.
-* **Pausing frequency** : Frequency at which the feature paused, in number of events per minute.
-* **Curvilign velocity** : Also known as segmental velocity, the speed of the feature in µm/s.
-* **Processivity** : Time, in seconds, that the feature spent in GO phases.
+* **Pausing time** : Time, in seconds, that the particle spent in STOP phases.
+* **Pausing frequency** : Frequency at which the particle paused, in number of events per minute.
+* **Curvilign velocity** : Also known as segmental velocity, the speed of the particle in µm/s.
+* **Processivity** : Time, in seconds, that the particle spent in GO phases.
 * **Run length** : Length, in µm, travelled during GO phases.
 * **Diagonal size** : Overall length of the trajectory.
-* **Fraction of time paused** : Fraction of the time that the feature spent paused.
+* **Fraction of time paused** : Fraction of the time that the particle spent paused.
 * 
   **Fraction of moving particles** : Ratio of moving particles to non-moving particles. 
 
@@ -172,43 +193,36 @@ If the antero_retro setting is enabled :
 
 
 * Some of the parameters will be duplicated for anterograde and retrograde transport.
-* **Directionality** : ratio of anterograde to retrograde transport. 1 means a purely anterograde transport, 0 a purely retrograde transport.
+* **Directionality** : ratio of retrograde to anterograde transport. 1 means a purely retrograde transport, 0 a purely anterograde transport.
 
 Additionally : 
 
 
-* Intensity : Average integrated brightness of the feature over the course of the trajectory. Separated between GO and STOP phases.
-* Variance : Standard deviation of the intensity. Similarly separated between GO and STOP phases.
-* Number of stops : Total number of pauses within a trajectory.
+* **Intensity** : Average integrated brightness of the feature over the course of the trajectory. Separated between GO and STOP phases.
+* **Variance** : Standard deviation of the intensity. Similarly separated between GO and STOP phases.
+* **Number of stops** : Total number of pauses within a trajectory.
 * Phase-specific parameters :
 
-  * Phase code : 2 signifies a GO phase, 0 a STOP phase.
-  * Phase length : Length, in points, of the phase.
-  * Vectorial velocity : Speed calculated from the Euclidean distance between the first and last point of the phase.
-  * Phase duration : Duration of the phase, in seconds.
+  * **Phase code** : 2 signifies a GO phase, 0 a STOP phase.
+  * **Phase length** : Length, in points, of the phase.
+  * **Vectorial velocity** : Speed calculated from the Euclidean distance between the first and last point of the phase.
+  * **Phase duration** : Duration of the phase, in seconds.
 
 |
 
 **Statistical analysis**
 ----------------------------
-This part of the script statistically compares transport parameters for each conditions.
+This part of the script statistically compares transport parameters between each experimental condition.
 
 The script first checks for normality of distribution for each parameter. It then applies appropriate statistical tests : 
 
-* First, a Kruskal-Wallis test is applied to check for statistically significant differences between each conditions.
-* Then, a post-hoc Dunn's test is applied to check for pair-wise differences.
+* If there are two experimental conditions and the distribution is normal, a Student's t-test is applied. If it is not normal, a ranksums test is applied.
+* If there are more than two experimental conditions, a Kruskal-Wallis test is applied. Then, a post-hoc Dunn's test is applied to check for pair-wise differences.
 
 Barplots and boxplots are generated for each parameter as well.
 
-Results from the Krusal-Wallis as well as normality tests are stored in a single .txt file.
+Results from the statistical tests are stored in a single .txt file.
 
-Plots are saved as .jpg files. Dunn's test results are also stored as tables in .jpg files.
+* Conditions to be compared are, for now, simply determined by folder structure, such as :
 
-A few caveats : 
-
-* Kruskal-Wallis is used even in cases where there are only two conditions. This is because ``scipy.stats``'s Mann-Whitney U test lacks a ``nan_policy``, which interferes with calculations on parameters where some trajectories might lack data (e.g. retrograde transport parameters in a purely anterograde trajectory).
-* t-tests and other appropriate parametric tests have yet to be implemented.
-* Conditions to be compared are, for now, simply determined by folder structure. 
-  
-  * For unidirectional transport, folder structure is as such : ``input_folder/experiment/condition/files.tif``
-  * For anterograde and retrograde transport, folder structure is a such : ``input_folder/experiment/condition/animal/eye/files.tif``
+ ``input_folder/experiment/condition/replicate/sample/files.tif``

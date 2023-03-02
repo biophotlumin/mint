@@ -1,28 +1,36 @@
 **MINT**
 ========
 
-**M**odified **I**ntraneuronal **N**anoparticle **T**racking (**MINT**) is a Python script used to extract intraneuronal transport parameters from microscopy data.
+**M**odified **I**ntraneuronal **N**anoparticle **T**racking (**MINT**) is a Python script used to extract intraneuronal transport parameters from the trajectories of optically active nanoparticles.
 
-It relies on [**trackpy**](https://github.com/soft-matter/trackpy) to generate trajectories from video files, from which transport parameters are then extracted and statistically tested.
+It relies on [**trackpy**](https://github.com/soft-matter/trackpy) to extract trajectories from video files, from which transport parameters are then calculated and statistically tested.
 
-Its purpose is to automate workflow to the point where an input of raw video files results in an output of p-values and graphs.
+Its purpose is to automate analysis to the point where an input of raw video files results in an output of graphs and p-values.
+
+It can reasonably be applied to videos of fluorophore-labelled organelles, or any object that can be tracked with trackpy.
 
 Please refer to the [**documentation**](https://lumin-mint.readthedocs.io/en/latest/) for further information.
-
-
 
 Quickstart
 ---
 
-Download the lastest release and extract its contents to a dedicated folder.
+Download the lastest release and extract its contents to a dedicated folder, then install the dependencies found in `requirements.txt`.
 
-### **CLI**
+You can then run MINT with :
 
-Edit calculation parameters and settings as needed in `script.py`.
+``python mint.py -f <input_folder> -p <path/to/file> -l -e -s``
 
-Run `script.py` through command line or any IDE.
+``-f, --folder``
+    Path to raw data folder.
 
+``-p, --params``
+    Path to config file (YAML or JSON).
 
-### **GUI** (work in progress)
+``-l, --locate``
+    Run tracking.
 
-Run `gui.py`.
+``-e, --extract``
+    Extract transport parameters from trajectories.
+
+``-s, --stats``
+    Run statistical analysis.

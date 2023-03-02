@@ -1,7 +1,7 @@
-script module
+output module
 =============
 
-.. automodule:: script
+.. automodule:: output
    :members:
    :undoc-members:
    :show-inheritance:
