@@ -12,7 +12,6 @@
 #
 import os
 import sys
-import pydata_sphinx_theme
 #sys.path.insert(0, os.path.abspath('.'))
 #sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('../../mint'))
@@ -33,7 +32,7 @@ release = '0.2.0'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc','sphinx.ext.napoleon','sphinx.ext.autosummary','pydata_sphinx_theme'
+extensions = ['sphinx.ext.autodoc','sphinx.ext.napoleon','sphinx.ext.autosummary',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
