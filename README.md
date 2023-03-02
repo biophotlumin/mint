@@ -22,20 +22,20 @@ You can then run MINT with :
 
 ``-f, --folder``
 
-    Path to raw data folder.
+Path to raw data folder.
 
 ``-p, --params``
 
-    Path to config file (YAML or JSON).
+Path to config file (YAML or JSON).
 
 ``-l, --locate``
 
-    Run tracking.
+Run tracking.
 
 ``-e, --extract``
 
-    Extract transport parameters from trajectories.
+Extract transport parameters from trajectories.
 
 ``-s, --stats``
 
-    Run statistical analysis.
+Run statistical analysis.
