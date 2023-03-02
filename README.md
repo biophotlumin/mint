@@ -20,22 +20,12 @@ You can then run MINT with :
 
 ``python mint.py -f <input_folder> -p <path/to/file> -l -e -s``
 
-``-f, --folder``
+``-f, --folder`` : Path to raw data folder.
 
-Path to raw data folder.
+``-p, --params`` : Path to config file (YAML or JSON).
 
-``-p, --params``
+``-l, --locate`` : Run tracking.
 
-Path to config file (YAML or JSON).
+``-e, --extract`` : Extract transport parameters from trajectories.
 
-``-l, --locate``
-
-Run tracking.
-
-``-e, --extract``
-
-Extract transport parameters from trajectories.
-
-``-s, --stats``
-
-Run statistical analysis.
+``-s, --stats`` : Run statistical analysis.
