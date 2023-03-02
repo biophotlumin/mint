@@ -3,7 +3,7 @@
 
 **M**\odified **I**\ntraneuronal **N**\anoparticle **T**\racking (**MINT**) is a Python script used to extract intraneuronal transport parameters from the trajectories of optically active nanoparticles.
 
-It relies on `\trackpy <https://github.com/soft-matter/trackpy>`_ to extract trajectories from video files, from which transport parameters are then calculated and statistically tested.
+It relies on `\trackpy <https://github.com/soft-matter/trackpy>`_ to extract trajectories from videos, from which transport parameters are then calculated and statistically tested.
 
 Its purpose is to automate analysis to the point where an input of raw video files results in an output of graphs and p-values.
 
