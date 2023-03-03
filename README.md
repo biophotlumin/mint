@@ -1,6 +1,8 @@
 **MINT**
 ========
 
+[<img src="https://zenodo.org/badge/DOI/10.5281/zenodo.5713847.svg">](<(https://doi.org/10.5281/zenodo.5713847)>)
+
 **M**odified **I**ntraneuronal **N**anoparticle **T**racking (**MINT**) is a Python script used to extract intraneuronal transport parameters from the trajectories of optically active nanoparticles.
 
 It relies on [**trackpy**](https://github.com/soft-matter/trackpy) to extract trajectories from videos, from which transport parameters are then calculated and statistically tested.
