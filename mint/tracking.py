@@ -4,11 +4,13 @@
 #Imports
 import os
 import nd2
+import time
 import imageio
 import warnings
 import trackpy as tp
 import traj_calc as ft
 
+from joblib import Parallel, delayed
 from utils import print_pb
 from denoising import *
 from output import *
@@ -17,6 +19,9 @@ log_tracking = {
         'n_rejoined':0,
         'n_traj':0,
         'n_files':0,
+        't_filt':[],
+        't_msd':[],
+        't_rej':[],
     }
 
 def tracking(input_folder,parameters,settings,log):
@@ -62,15 +67,26 @@ def tracking(input_folder,parameters,settings,log):
         else:
             warnings.warn(f'Extension {parameters["extension_in"]} is not supported')
 
+        filt_start = time.time()
         processed_frames = frames.astype('float64') # Prevent conflict in case of wavelet filtering
 
-        for i in range(len(frames)):
-            if settings['tophat']:
-                processed_frames[i] = tophat(parameters['separation'],processed_frames[i])
+        # Experimental
+
+        processed_frames_gen = Parallel(n_jobs=12,return_generator=True)(delayed(tophat)(parameters['separation'],frame) for frame in processed_frames)
+
+        # for i in range(len(frames)):
+        #     if settings['tophat']:
+        #         processed_frames[i] = tophat(parameters['separation'],processed_frames[i])
                 
-            if settings['wavelet']:
-                processed_frames[i] = wavelet(processed_frames[i])
-        
+        #     if settings['wavelet']:
+        #         processed_frames[i] = wavelet(processed_frames[i])
+
+        for i, frame in zip(range(len(processed_frames)), processed_frames_gen):
+            processed_frames[i] = frame
+
+        filt_time = time.time() - filt_start
+        log_tracking['t_filt'].append(filt_time)
+
         # Localizing particles and finding trajectories
 
         tp.quiet([True]) # Silencing TrackPy messages
@@ -91,8 +107,11 @@ def tracking(input_folder,parameters,settings,log):
         raw_trajectory.index.name = None
 
         # Dumping raw trajectories into csv file
+        msd_start = time.time()
+        raw_trajectory = ft.MSD_calculation_parallel(raw_trajectory,parameters['px'],parameters['dt'])
         trajectory_output(out_path,name,"",raw_trajectory)
-        
+        msd_time = time.time() - msd_start
+        log_tracking['t_msd'].append(msd_time)
         # Optional trajectory processing
         if settings['MSD']: 
             print_pb(f'\tMSD filtering',j,len(path_list))
@@ -105,7 +124,10 @@ def tracking(input_folder,parameters,settings,log):
 
         if settings['rejoining']:
             print_pb(f'\tRejoining',j,len(path_list))
+            rej_start = time.time()
             processed_trajectory, n_rejoined  = ft.rejoining(processed_trajectory,parameters['threshold_t'],parameters['threshold_r'])
+            rej_time = time.time() - rej_start
+            log_tracking['t_rej'].append(rej_time)
             log_tracking['n_rejoined'] += n_rejoined
         else: 
             processed_trajectory['rejoined_particle'] = processed_trajectory['particle']
@@ -116,9 +138,19 @@ def tracking(input_folder,parameters,settings,log):
         # Estimating ratio of moving particles
         first_frame = raw_coordinates[raw_coordinates.frame==0]
         n_particles = len(first_frame)
-        n_particles = [n_particles]*len(raw_coordinates)    
+        n_particles = [n_particles]*len(raw_trajectory)    
         n_particles = pd.DataFrame(n_particles,columns=['n_particles'])
+        processed_trajectory = processed_trajectory.reset_index(drop=True)
         processed_trajectory = pd.concat([processed_trajectory, n_particles],axis=1,join='inner')
+
+        # # Number of static particles
+        # static = ft.lowpass_MSD_filtering(raw_trajectory,parameters['px'],parameters['dt'],0.1)
+        # static = tp.filter_stubs(static,50)
+        # n_static = static.particle.nunique()
+        # n_static = [n_static]*len(raw_trajectory)    
+        # n_static = pd.DataFrame(n_static,columns=['n_static'])
+        # processed_trajectory = processed_trajectory.reset_index(drop=True)
+        # processed_trajectory = pd.concat([processed_trajectory, n_static],axis=1,join='inner')
         
         # Dumping rejoined trajectories into csv file
         trajectory_output(out_path,name,"_rejoined",processed_trajectory)
@@ -138,7 +170,13 @@ def tracking(input_folder,parameters,settings,log):
                 image_output(out_path,name,frames,processed_trajectory,False)
 
         log_tracking['n_traj'] += processed_trajectory.rejoined_particle.nunique()
-        
+    
+    log_tracking['msd_mean'] = np.mean(log_tracking['t_msd'])
+    log_tracking['msd_std'] = np.std(log_tracking['t_msd'])
+    log_tracking['filt_mean'] = np.mean(log_tracking['t_filt'])
+    log_tracking['filt_std'] = np.std(log_tracking['t_filt'])
+    log_tracking['rej_mean'] = np.mean(log_tracking['t_rej'])
+    log_tracking['rej_std'] = np.std(log_tracking['t_rej'])
     dict_dump(log['output_folder'],log_tracking,'log')                 
     print_pb('\n',j+1,len(path_list))
     print('\n')

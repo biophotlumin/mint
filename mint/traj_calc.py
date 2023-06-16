@@ -9,6 +9,79 @@ import pandas as pd
 import trackpy as tp
 
 from scipy import optimize
+from joblib import Parallel, delayed
+
+def rej_start_end(tracks, item):
+
+    subtrack = tracks[tracks.particle==item]
+    df_temp = subtrack[subtrack.frame==np.min(subtrack.frame)]
+    df_start = pd.concat((df_start,df_temp),ignore_index=True)
+
+    df_temp = subtrack[subtrack.frame==np.max(subtrack.frame)]
+    df_end = pd.concat((df_end,df_temp),ignore_index=True)
+
+    df_start = df_start.sort_values(by = 'frame', ascending=False)
+    df_end = df_end.sort_values(by = 'frame', ascending=False)
+
+    return df_start, df_end
+
+def rej_thresh(linef, lined, threshold_t, threshold_r, temp_tracks, n_rejoined):
+
+    timed = lined.frame
+    timef = linef.frame
+    particle1 = linef.particle
+    particle2 = lined.particle
+
+    #Rejoins trajectories if they are within spatial and temporal range
+    if (timed > timef) and (timed - timef < threshold_t):
+        xd,yd = lined.x,lined.y
+        xf,yf = linef.x,linef.y
+        r = np.sqrt((xf-xd)**2 + (yf-yd)**2) 
+        if r < threshold_r and particle1 != particle2:
+            
+            df_start.loc[df_start['particle']==particle2,'particle']=particle1
+            df_end.loc[df_end['particle']==particle2,'particle']=particle1
+            temp_tracks.loc[temp_tracks['particle']==particle2,'particle']=particle1
+            df_start = df_start.loc[(df_start['frame']!=timed)&(df_start['particle']!=particle1)]
+            df_end = df_end.loc[(df_end['frame']!=timef)&(df_end['particle']!=particle1)]
+            n_rejoined += 1
+
+    return temp_tracks, n_rejoined
+        
+def rejoining_parallel(tracks,threshold_t,threshold_r):  
+
+    df_start = pd.DataFrame()
+    df_end = pd.DataFrame()
+    n_rejoined = 0
+    temp_tracks = tracks.copy()
+    #Get first and last point of each trajectory
+    for item in set(tracks.particle):
+
+        subtrack = tracks[tracks.particle==item]
+        df_temp = subtrack[subtrack.frame==np.min(subtrack.frame)]
+        df_start = pd.concat((df_start,df_temp),ignore_index=True)
+
+        df_temp = subtrack[subtrack.frame==np.max(subtrack.frame)]
+        df_end = pd.concat((df_end,df_temp),ignore_index=True)
+
+        df_start = df_start.sort_values(by = 'frame', ascending=False)
+        df_end = df_end.sort_values(by = 'frame', ascending=False)
+
+    temp_tracks = tracks.copy()
+
+    gen = Parallel(n_jobs=12,return_generator=True)(delayed(rej_thresh)(linef, lined, threshold_t, threshold_r, temp_tracks, n_rejoined) for linef in df_end.itertuples() for lined in df_start.itertuples())
+
+    for line, n_rej in gen:
+        n_rejoined += n_rej
+        temp_tracks = pd.concat((temp_tracks,line),axis=0)
+
+    temp_tracks.rename(columns = {'particle':'rejoined_particle'}, inplace = True)
+    temp_tracks = temp_tracks.reset_index(drop=True)     
+    tracks = pd.concat([tracks,temp_tracks[['rejoined_particle']]],axis=1,join='inner')
+
+    return tracks, n_rejoined
+
+
 
 def rejoining(tracks,threshold_t,threshold_r):
     """Rejoins split trajectories.
@@ -169,7 +242,7 @@ def acceleration_minimization_norm1(measure, sigma0, px, nn = 0):
     constraints = [ cp.atoms.norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
     prob = cp.Problem(objective, constraints)
     
-    prob.solve(solver='SCS',verbose=False,max_iters=1000000) #alternatively, 'GUROBI' or 'MOSEK' #
+    prob.solve(solver='SCS',verbose=False,max_iters=1000000,acceleration_lookback=10,mkl=False) #alternatively, 'GUROBI' or 'MOSEK' #
     solution = variable.value
     if nn == 0:
         return solution
@@ -408,6 +481,55 @@ def MSD_filtering(tracks,px,dt,threshold):
         subtracks = tracks[tracks.particle==item]
         if len(subtracks)<3:
             continue
+        if subtracks.max_msd.unique()[0]>threshold:
+            df = pd.concat((df,subtracks))
+
+    return df
+
+def MSD_calculation(tracks,px,dt):
+    """Filters trajectories based on their Mean Square Displacement.
+
+    Returns a DataFrame containing trajectories whose calculated MSD is above a set threshold.
+
+    :param tracks: DataFrame containing unfiltered trajectories.
+    :type tracks: DataFrame
+    :param threshold: MSD threshold.
+    :type threshold: int
+    :return: DataFrame of filtered trajectories.
+    :rtype: DataFrame
+    """    
+
+    df = pd.DataFrame()
+    for item in set(tracks.particle):
+        subtracks = tracks[tracks.particle==item].copy()
+        if len(subtracks) > 1:
+            df2 = tp.motion.msd(subtracks,px,(1/dt),max_lagtime=len(subtracks))
+            max_msd = [df2.msd.max()]*len(subtracks)    
+            max_msd = pd.DataFrame(max_msd,columns=['max_msd'])
+            # df = df.reset_index(drop=True)
+            subtracks['max_msd'] = max_msd.values
+            df = pd.concat((df,subtracks))
+
+    return df
+
+def MSD_filtering_legacy(tracks,px,dt,threshold):
+    """Filters trajectories based on their Mean Square Displacement.
+
+    Returns a DataFrame containing trajectories whose calculated MSD is above a set threshold.
+
+    :param tracks: DataFrame containing unfiltered trajectories.
+    :type tracks: DataFrame
+    :param threshold: MSD threshold.
+    :type threshold: int
+    :return: DataFrame of filtered trajectories.
+    :rtype: DataFrame
+    """    
+
+    df = pd.DataFrame()
+    for item in set(tracks.particle):
+        subtracks = tracks[tracks.particle==item]
+        if len(subtracks)<3:
+            continue
         df2 = tp.motion.msd(subtracks,px,(1/dt),max_lagtime=len(subtracks))
         if max(df2.msd)>threshold:
             df = pd.concat((df,subtracks))
@@ -487,3 +609,41 @@ def rotate_single_track(data):
         'x_rotated': coords[:, 0],
         'y_rotated': coords[:, 1],
     })
+
+
+## Experimental
+
+def MSD_calculation_parallel(tracks,px,dt):
+
+    df = pd.DataFrame()
+    MSD_gen = Parallel(n_jobs=12,return_generator=True)(delayed(MSD_calculation_job)(tracks, item, px, dt) for item in set(tracks.particle))
+    for subtracks in MSD_gen:
+        if len(subtracks) > 1:
+            df = pd.concat((df,subtracks))
+        else:
+            continue
+        
+    return df
+
+def MSD_calculation_job(tracks, item, px, dt):
+
+    subtracks = tracks[tracks.particle==item].copy()
+    df2 = tp.motion.msd(subtracks,px,(1/dt),max_lagtime=len(subtracks))
+    max_msd = [df2.msd.max()]*len(subtracks)
+    subtracks['max_msd'] = max_msd
+
+    return subtracks
+
+
+def lowpass_MSD_filtering(tracks,px,dt,threshold):
+
+    df = pd.DataFrame()
+    for item in set(tracks.particle):
+        subtracks = tracks[tracks.particle==item]
+        if len(subtracks)<3:
+            continue
+        df2 = tp.motion.msd(subtracks,px,(1/dt),max_lagtime=len(subtracks))
+        if max(df2.msd)<threshold:
+            df = pd.concat((df,subtracks))
+
+    return df

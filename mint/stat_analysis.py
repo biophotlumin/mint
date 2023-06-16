@@ -81,9 +81,9 @@ def statistical_analysis(settings,parameters,input_folder):
                 if k in data.columns:
                     act_variables[k] = v
 
-            run_stats(settings['ordering'],parameters,act_variables,data,input_folder)
+            run_stats(settings,parameters,act_variables,data,input_folder)
 
-def run_stats(ordering,parameters,act_variables,data,input_folder):
+def run_stats(settings,parameters,act_variables,data,input_folder):
     """Statistical tests and plotting functions for each variable of interest.
 
     :param ordering: Optional order of experimental conditions in graphs.
@@ -110,7 +110,7 @@ def run_stats(ordering,parameters,act_variables,data,input_folder):
     # right = data.loc[data['slide']=='oeil_droit'] #Right eye only
     # data = ?
 
-    if ordering:
+    if settings['ordering']:
         order = parameters['order'] # Optionally order by condition
         if len(order) != data.condition.nunique():
             raise RuntimeError('Length of order list does not match number of conditions')
@@ -139,9 +139,10 @@ def run_stats(ordering,parameters,act_variables,data,input_folder):
     dict_dump(input_folder,log_stats,'log')
     dict_dump(input_folder,vars,'vars')
 
-    # Invert retrograde variables to display them with positive values
-    data.run_length_retro = data.run_length_retro*-1
-    data.curv_velocity_retro = data.curv_velocity_retro*-1
+    if settings['antero_retro']:
+        # Invert retrograde variables to display them with positive values
+        data.run_length_retro = data.run_length_retro*-1
+        data.curv_velocity_retro = data.curv_velocity_retro*-1
 
     results = []
 
@@ -205,7 +206,7 @@ def run_variable(var,normal,test,data,dunn_b,input_folder,parameters):
         p_value = eval(test)(data,var)
         var_res.append(f'p-value of {statistical_tests[test]}test for {var} is {str(round(p_value,6))}\n')
     else:
-        p_value = 0
+        p_value = 1
 
     if dunn_b:
         var_res.append('\n'+dunn(data,var)+'\n\n')

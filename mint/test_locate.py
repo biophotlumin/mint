@@ -61,16 +61,16 @@ def test_locate(input_folder,parameters,settings):
             if settings['wavelet']:
                 processed_frames[i] = wavelet(processed_frames[i])
 
-        plt.imshow(processed_frames[0])
-        plt.title("Filter test on "+name,fontsize=10)
-        plt.xlabel("x (pixels)",fontsize=10)
-        plt.ylabel("y (pixels)",fontsize=10)
-        plt.xticks(fontsize=10)
-        plt.yticks(fontsize=10)
-        plt.show()
-        plt.close()
+        # plt.imshow(processed_frames[0])
+        # plt.title("Filter test on "+name,fontsize=10)
+        # plt.xlabel("x (pixels)",fontsize=10)
+        # plt.ylabel("y (pixels)",fontsize=10)
+        # plt.xticks(fontsize=10)
+        # plt.yticks(fontsize=10)
+        # plt.show()
+        # plt.close()
         
-        # Localizing particles and finding trajectories
+        # Locating particles and finding trajectories
 
         tp.quiet([True]) # Silencing TrackPy messages
 
@@ -93,8 +93,8 @@ if __name__ == '__main__':
     parameters = {
         #trackpy.batch
         'diameter':9,
-        'minmass':300,
-        'separation':12,
+        'minmass':150,
+        'separation':10,
         'extension_in':'tif',
     }
 
@@ -102,8 +102,8 @@ if __name__ == '__main__':
 
     settings = {
         'tophat':True,
-        'wavelet':False,
+        'wavelet':True,
     }
 
-    input_folder = r''
+    input_folder = r'/media/baptiste/Windows/Users/LUMIN10/Documents/TDmin'
     test_locate(input_folder,parameters,settings=settings)

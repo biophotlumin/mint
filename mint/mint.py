@@ -31,14 +31,14 @@ parameters = {
     'memory':5,
     'adaptive_stop':5,
     'adaptive_step':0.9,
-    'stub_filtering':3, # Minimum length of trajectories, in points
+    'stub_filtering':3, # Minimum le ngth of trajectories, in points
     #trackpy.motion.msd
     'msd':9, # Threshold for MSD filtering
     #SNR estimation
     'base_level':0, #Base level for SNR estimation
     #Rejoining
     'threshold_t':10, # Temporal threshold for trajectory rejoining, in frames
-    'threshold_r':40, # Spatial threshold for trajectory rejoining, in pixels
+    'threshold_r':60, # Spatial threshold for trajectory rejoining, in pixels
     #Data Extraction
     'r_conf_cut' : 0.64, # Confinement ratio cutoff between GO and STOP phases
     'px' : 0.173, # Pixel size, in µm
@@ -76,7 +76,7 @@ settings = {
     'antero_retro':True,
     'conf_list':True,
     #Stats
-    'ordering':False,
+    'ordering':True,
     'clean_up':False,
 }
 
@@ -85,13 +85,13 @@ settings = {
 
 #Define root input folder
 
-input_folder = r'/media/baptiste/Windows/Users/LUMIN10/Documents/video_benchmark_min'
+input_folder = r'/media/baptiste/Windows/Users/LUMIN10/Documents/Données/video_benchmark_min'
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(prog='M.I.N.T',description='Intraneuronal nanoparticle tracking')
     parser.add_argument('-f','--folder',default=input_folder if input_folder else os.getcwd(),help='Path to data folder')
-    parser.add_argument('-p', '--params',default='',help='Path to config file')
+    parser.add_argument('-p','--params',default='',help='Path to config file')
     parser.add_argument('-l','--locate',default='',help='Locate and link particles',action='store_true')
     parser.add_argument('-e','--extract',default='',help='Extract transport parameters',action='store_true')
     parser.add_argument('-s','--stats',default='',help='Statistical analysis',action='store_true')
