@@ -18,7 +18,7 @@ log_analysis = {
 
 list_r_conf = []
 
-os.environ['OMP_NUM_THREADS'] = "12"
+os.environ['OMP_NUM_THREADS'] = str(os.cpu_count())
 
 def inst_velocity(x,y,dt):
     """Calculates instantaneous velocity.
@@ -601,13 +601,6 @@ def phase_calculations_parallel(parameters,data,settings,condition,slide,name,an
 
     phase_calc_gen = Parallel(n_jobs=12,return_generator=True)(delayed(per_traj_calc)(data, trajectory, settings, parameters, condition, slide, animal, name)\
                                                                 for trajectory in set(data.particle))
-    # for trajectory in set(data.particle):
-    
-    #     data_dict = per_traj_calc(data, trajectory, settings, parameters, condition, slide, animal, name)
-    #     f_phase_parameters.reset_index(inplace=True, drop=True)
-    #     f_phase_parameters = pd.concat((f_phase_parameters,data_dict))
-    #     f_phase_parameters.dropna(axis=0,how='all',inplace=True)
-
     for traj in phase_calc_gen:
         f_phase_parameters.reset_index(inplace=True, drop=True)
         f_phase_parameters = pd.concat((f_phase_parameters,traj))

@@ -74,3 +74,24 @@ def print_pb(text,i,max):
     print("\033[K",end="")
     print(text)
     print(f'| {("▊"*int(i/m_max*60))}{"_"*int((1-(i/m_max))*60)} | {i}/{max} | {round((i/m_max)*100,2)}%',end='\r',flush=True)
+
+def get_file_list(input_folder, extension):
+
+    path_list = []
+    name_list = []
+
+    if input_folder.endswith(f'.{extension}'):
+        path_list.append(Path(input_folder))
+        name_list.append(Path(input_folder).name)
+
+    else:
+        for path, subfolder, files in os.walk(input_folder): # Scan entire folder structure for files
+                for name in files:
+                    if name.endswith(f'.{extension}') == False:  # Check for correct file extension
+                        continue # Skip to next file if not correct extension        
+
+                    file_path = os.path.join(path, name) # Get file path of current file
+                    path_list.append(file_path) # Append to file path list
+                    name_list.append(name)
+    
+    return path_list, name_list
