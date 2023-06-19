@@ -143,7 +143,8 @@ def rejoining(tracks,threshold_t,threshold_r):
                     n_rejoined += 1
                     break
 
-    temp_tracks.rename(columns = {'particle':'rejoined_particle'}, inplace = True)     
+    temp_tracks.rename(columns = {'particle':'rejoined_particle'}, inplace = True)
+    tracks = tracks.reset_index(drop=True)     
     tracks = pd.concat([tracks,temp_tracks[['rejoined_particle']]],axis=1,join='inner')
 
     return tracks, n_rejoined
@@ -242,7 +243,10 @@ def acceleration_minimization_norm1(measure, sigma0, px, nn = 0):
     constraints = [ cp.atoms.norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
     prob = cp.Problem(objective, constraints)
     
-    prob.solve(solver='SCS',verbose=False,max_iters=1000000,acceleration_lookback=10,mkl=False) #alternatively, 'GUROBI' or 'MOSEK' #
+    try:
+        prob.solve(solver='SCS',verbose=False,max_iters=1000000,acceleration_lookback=10,mkl=True) #alternatively, 'GUROBI' or 'MOSEK' #
+    except ModuleNotFoundError:
+        prob.solve(solver='SCS',verbose=False,max_iters=1000000,acceleration_lookback=10,mkl=False) #alternatively, 'GUROBI' or 'MOSEK' #
     solution = variable.value
     if nn == 0:
         return solution

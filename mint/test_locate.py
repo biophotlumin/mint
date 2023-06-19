@@ -49,7 +49,7 @@ def test_locate(input_folder,parameters,settings):
 
         
         if settings['tophat']:
-            processed_frame = tophat(parameters['separation'],processed_frame)
+            processed_frame = tophat(parameters['filter_separation'],processed_frame)
             
         if settings['wavelet']:
             processed_frame = wavelet(processed_frame)
@@ -131,7 +131,8 @@ if __name__ == '__main__':
         #trackpy.batch
         'diameter':[7,12],
         'minmass':[250,350],
-        'separation':12,
+        'separation':[10,14],
+        'filter_separation':12,
         'diameter_scaling':2,
         'minmass_scaling':10,
         'separation_scaling':1,

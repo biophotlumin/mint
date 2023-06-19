@@ -64,7 +64,7 @@ settings = {
     'stub_filtering':False,
     'MSD':True,
     'rejoining':True,
-    'SNR_estimation':True,
+    'SNR_estimation':False,
     #Outputs
     'individual_images':False,
     'individual_txt':False,
@@ -85,7 +85,7 @@ settings = {
 
 #Define root input folder
 
-input_folder = r'/media/baptiste/Windows/Users/LUMIN10/Documents/Données/video_benchmark_min'
+input_folder = r'/media/lumin/SHG_tracking_data/Zebrafish data/video_benchmark_int'
 
 if __name__ == '__main__':
 
@@ -104,6 +104,12 @@ if __name__ == '__main__':
     
     if args.folder:
         input_folder = args.folder
+
+    try:
+        import joblib
+        settings['joblib'] = True
+    except ModuleNotFoundError:
+        settings['joblib'] = False
 
     input_folder = Path(input_folder)
 

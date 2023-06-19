@@ -70,19 +70,22 @@ def tracking(input_folder,parameters,settings,log):
         filt_start = time.time()
         processed_frames = frames.astype('float64') # Prevent conflict in case of wavelet filtering
 
-        # Experimental
+        if settings['joblib']:
 
-        processed_frames_gen = Parallel(n_jobs=12,return_generator=True)(delayed(tophat)(parameters['separation'],frame) for frame in processed_frames)
+            processed_frames_gen = Parallel(n_jobs=12,return_generator=True)(delayed(tophat)(parameters['separation'],frame) for frame in processed_frames)
+            
+            for i, frame in zip(range(len(processed_frames)), processed_frames_gen):
+                processed_frames[i] = frame
+        
+        else:
+            for i in range(len(frames)):
+                if settings['tophat']:
+                    processed_frames[i] = tophat(parameters['separation'],processed_frames[i])
+                    
+                if settings['wavelet']:
+                    processed_frames[i] = wavelet(processed_frames[i])
 
-        # for i in range(len(frames)):
-        #     if settings['tophat']:
-        #         processed_frames[i] = tophat(parameters['separation'],processed_frames[i])
-                
-        #     if settings['wavelet']:
-        #         processed_frames[i] = wavelet(processed_frames[i])
 
-        for i, frame in zip(range(len(processed_frames)), processed_frames_gen):
-            processed_frames[i] = frame
 
         filt_time = time.time() - filt_start
         log_tracking['t_filt'].append(filt_time)
@@ -94,6 +97,8 @@ def tracking(input_folder,parameters,settings,log):
         print_pb(f'\tLocating',j,len(path_list))
         raw_coordinates = tp.batch(processed_frames, minmass=parameters['minmass'], diameter=parameters['diameter'], \
             separation=parameters['separation'],preprocess=False,engine='numba',processes='auto')
+        
+        del processed_frames
 
         print_pb(f'\tLinking',j,len(path_list))
         raw_trajectory = tp.link(raw_coordinates, search_range=parameters['search_range'], adaptive_step= \
@@ -170,6 +175,8 @@ def tracking(input_folder,parameters,settings,log):
                 image_output(out_path,name,frames,processed_trajectory,False)
 
         log_tracking['n_traj'] += processed_trajectory.rejoined_particle.nunique()
+
+        del frames
     
     log_tracking['msd_mean'] = np.mean(log_tracking['t_msd'])
     log_tracking['msd_std'] = np.std(log_tracking['t_msd'])

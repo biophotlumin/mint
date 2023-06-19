@@ -875,7 +875,7 @@ if __name__ == '__main__':
     }
 
     start = time.time()
-    input_folder = Path(r"/media/baptiste/Windows/Users/LUMIN10/Documents/Données/video_benchmark_min Results - 20230612_143450/video_benchmark_min")
+    input_folder = Path(r"/media/lumin/SHG_tracking_data/Zebrafish data/video_benchmark_int Results - 20230619_151542/video_benchmark_int")
     data_extraction(input_folder,parameters,settings)
     end = time.time()
     duration = end - start
