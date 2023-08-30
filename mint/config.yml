@@ -35,6 +35,7 @@ parameters:
 #Optional image and trajectory processing
 
 settings: 
+  parallel: True
   #Denoising
   tophat: True
   wavelet: False

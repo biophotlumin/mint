@@ -149,6 +149,9 @@ def dict_load(input_folder,dict):
 
     return loaded_dict
 
+# Functions generating PDF reports through FPDF
+# Code is a bit messy and likely to break, but works for now
+
 def ind_page(pdf,list_var,input_folder,order,parameters,settings,n_cond):
     """Generate individual page.
 
@@ -336,6 +339,8 @@ def generate_report(input_folder):
     start_date = f'{start_time_date[0:4]}/{start_time_date[4:6]}/{start_time_date[6:8]}'
     start_time = f'{start_time_date[9:11]}h{start_time_date[11:13]}'
 
+    # Main page
+
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font('Helvetica','B', size=18)
@@ -358,6 +363,8 @@ def generate_report(input_folder):
     line_height = pdf.font_size * 2.5
     top_of_table = pdf.get_y()
 
+    # Building tables
+
     for k,v in disp_params.items():
         pdf.multi_cell(30, line_height, f'{k}', border=1,
                 new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size,align='C')
@@ -373,6 +380,8 @@ def generate_report(input_folder):
                 new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size,align='C')
         pdf.ln(line_height)
         pdf.set_xy(-150,pdf.get_y())
+
+    # Additional logging
 
     pdf.ln()
     pdf.set_font('Helvetica', size=10)  
@@ -402,6 +411,8 @@ def generate_report(input_folder):
     list_var = []
 
     stats_path = Path(input_folder).joinpath('Statistical test results.txt')
+
+    # Looping over statistical variables for subsequent pages
 
     with open(stats_path) as f:
         lines = f.readlines()

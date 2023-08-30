@@ -16,7 +16,7 @@ from pathlib import Path
 from statistics import mean
 from output import dict_dump
 
-vars = { # Variables of interest as keys, labels as values
+stats_vars = { # Variables of interest as keys, labels as values
         'pausing_time':'Pausing time (s)',
         'pausing_frequency':'Pausing frequency (events/min)',
         'curvilign_velocity':'Curvilign velocity (µm/s)',
@@ -43,11 +43,12 @@ vars = { # Variables of interest as keys, labels as values
         'switch_normal':'Directionality reversal per µm',
         'switch_var_stop':'Variation of intensity in STOP phases of reversal',
         'theta_std_go':'Standard deviation of θ in GO phases', # Theta might cause issues on Windows
-        'theta_std_stop':'Standard deviation of θ in STOP phases',
+        'theta_std_stop':'Standard deviation of θ in STOP phases', # despite being UTF-8
         'pausing_time_antero':'Pausing time in anterograde motion (s)',
         'pausing_time_retro':'Pausing time in retrograde motion (s)',
         'pausing_time_switch':'Pausing time in bidirectional motion (s)',
         'fraction_moving':'Fraction of moving particles',
+        'fraction_moving_msd':'Fraction of moving particles (MSD)' # Must be kept last in the dict !
         
 }
 
@@ -77,7 +78,7 @@ def statistical_analysis(settings,parameters,input_folder):
             data = pd.read_csv(file_path,sep=csv_sniffer(file_path))
 
             act_variables = {} # Get a dict of variables actually contained in the .csv
-            for k, v in vars.items():
+            for k, v in stats_vars.items():
                 if k in data.columns:
                     act_variables[k] = v
 
@@ -137,7 +138,7 @@ def run_stats(settings,parameters,act_variables,data,input_folder):
         log_stats[f'n_a_traj_{condition}'] = subdata.trajectory.nunique()
     
     dict_dump(input_folder,log_stats,'log')
-    dict_dump(input_folder,vars,'vars')
+    dict_dump(input_folder,stats_vars,'vars')
 
     if settings['antero_retro']:
         # Invert retrograde variables to display them with positive values
@@ -151,7 +152,7 @@ def run_stats(settings,parameters,act_variables,data,input_folder):
         print(f'\t{k}')
 
         if k == 'fraction_moving':
-            data = data.drop_duplicates(subset='file') # Must be kept last in the vars dict as to not interfere with the others
+            data = data.drop_duplicates(subset='file') # Must be kept last in the stats_vars dict as to not interfere with the others
 
         if data.condition.nunique() > 2:
             if normality(data,k) == False: # Check for normality
@@ -265,6 +266,7 @@ def kruskal(data,variable):
         list_of_arrays.append(data.loc[data.condition==index, variable])
 
     p = stats.kruskal(*list_of_arrays,nan_policy='omit')[1]
+    
     return p
 
 def t_test(data,variable):
@@ -283,6 +285,7 @@ def t_test(data,variable):
         list_of_arrays.append(data.loc[data.condition==index, variable])
 
     p = stats.ttest_ind(*list_of_arrays,nan_policy='omit')[1]
+
     return p
 
 def dunn(data,variable):
@@ -335,7 +338,7 @@ def boxplot(data,variable,input_folder,p,parameters):
             data=data, showfliers =False,linewidth=1)
     sns.despine(trim=True)
     plt.xlabel("Condition")
-    plt.ylabel(vars[variable])
+    plt.ylabel(stats_vars[variable])
     plt.annotate((f'p-value : {p}'),xy=(195,310),xycoords='figure points')
     plt.savefig(Path(input_folder).joinpath(f'Boxplot {str(data["condition"].unique())} {variable}.{parameters["extension_out"]}'),dpi=parameters["dpi"])
     plt.close()
@@ -365,7 +368,7 @@ def barplot(data,variable,input_folder,p,parameters):
             error_kw={'elinewidth':2,'capsize':4,'capthick':2})
     sns.despine(trim=True)
     plt.xlabel("Condition")
-    plt.ylabel(vars[variable])
+    plt.ylabel(stats_vars[variable])
     plt.annotate((f'p-value : {p}'),xy=(195,310),xycoords='figure points')
     plt.savefig(Path(input_folder).joinpath(f'Barplot {str(data["condition"].unique())} {variable}.{parameters["extension_out"]}'),dpi=parameters["dpi"])
     plt.close()
@@ -384,7 +387,7 @@ def violinplot(data,variable,p):
     sns.violinplot(x=data['condition'],y=data[variable],inner='box',cut=0)
     sns.despine(trim=True)
     plt.xlabel("Condition")
-    plt.ylabel(vars[variable])
+    plt.ylabel(stats_vars[variable])
     plt.annotate(("p-value : "+p),xy=(195,310),xycoords='figure points')
     plt.show()
 
@@ -433,11 +436,12 @@ def means(data,variable):
 
 if __name__ == '__main__':
 
-    input_folder = r''
-    parameters = {'antero_retro':True,
-                'extension_out':'svg',
+    input_folder = r'/media/lumin/SHG_tracking_data/NPC SEPIA/Merge PSEN APP BJ'
+    parameters = {
+                'extension_out':'png',
                 'dpi':300,
-                'order':['WT','HET','HOM'],
+                'order':['BJ','APP','PSEN'],
                 }
-    settings = {'ordering':True,}
+    settings = {'ordering':True,
+                'antero_retro':False,}
     statistical_analysis(settings,parameters,input_folder)

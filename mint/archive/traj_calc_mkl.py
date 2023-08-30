@@ -10,7 +10,83 @@ import pandas as pd
 import trackpy as tp
 
 from scipy import optimize
-from joblib import Parallel, delayed
+
+try:
+    import joblib
+except ModuleNotFoundError:
+    PARA = False
+else:
+    from joblib import Parallel, delayed
+
+def rej_start_end(tracks, item):
+
+    subtrack = tracks[tracks.particle==item]
+    df_temp = subtrack[subtrack.frame==np.min(subtrack.frame)]
+    df_start = pd.concat((df_start,df_temp),ignore_index=True)
+
+    df_temp = subtrack[subtrack.frame==np.max(subtrack.frame)]
+    df_end = pd.concat((df_end,df_temp),ignore_index=True)
+
+    df_start = df_start.sort_values(by = 'frame', ascending=False)
+    df_end = df_end.sort_values(by = 'frame', ascending=False)
+
+    return df_start, df_end
+
+def rej_thresh(linef, lined, threshold_t, threshold_r, temp_tracks, n_rejoined):
+
+    timed = lined.frame
+    timef = linef.frame
+    particle1 = linef.particle
+    particle2 = lined.particle
+
+    #Rejoins trajectories if they are within spatial and temporal range
+    if (timed > timef) and (timed - timef < threshold_t):
+        xd,yd = lined.x,lined.y
+        xf,yf = linef.x,linef.y
+        r = np.sqrt((xf-xd)**2 + (yf-yd)**2) 
+        if r < threshold_r and particle1 != particle2:
+            
+            df_start.loc[df_start['particle']==particle2,'particle']=particle1
+            df_end.loc[df_end['particle']==particle2,'particle']=particle1
+            temp_tracks.loc[temp_tracks['particle']==particle2,'particle']=particle1
+            df_start = df_start.loc[(df_start['frame']!=timed)&(df_start['particle']!=particle1)]
+            df_end = df_end.loc[(df_end['frame']!=timef)&(df_end['particle']!=particle1)]
+            n_rejoined += 1
+
+    return temp_tracks, n_rejoined
+        
+def rejoining_parallel(tracks,threshold_t,threshold_r):  
+
+    df_start = pd.DataFrame()
+    df_end = pd.DataFrame()
+    n_rejoined = 0
+    temp_tracks = tracks.copy()
+    #Get first and last point of each trajectory
+    for item in set(tracks.particle):
+
+        subtrack = tracks[tracks.particle==item]
+        df_temp = subtrack[subtrack.frame==np.min(subtrack.frame)]
+        df_start = pd.concat((df_start,df_temp),ignore_index=True)
+
+        df_temp = subtrack[subtrack.frame==np.max(subtrack.frame)]
+        df_end = pd.concat((df_end,df_temp),ignore_index=True)
+
+        df_start = df_start.sort_values(by = 'frame', ascending=False)
+        df_end = df_end.sort_values(by = 'frame', ascending=False)
+
+    temp_tracks = tracks.copy()
+
+    gen = Parallel(n_jobs=12,return_generator=True)(delayed(rej_thresh)(linef, lined, threshold_t, threshold_r, temp_tracks, n_rejoined) for linef in df_end.itertuples() for lined in df_start.itertuples())
+
+    for line, n_rej in gen:
+        n_rejoined += n_rej
+        temp_tracks = pd.concat((temp_tracks,line),axis=0)
+
+    temp_tracks.rename(columns = {'particle':'rejoined_particle'}, inplace = True)
+    temp_tracks = temp_tracks.reset_index(drop=True)     
+    tracks = pd.concat([tracks,temp_tracks[['rejoined_particle']]],axis=1,join='inner')
+
+    return tracks, n_rejoined
 
 def rejoining(tracks,threshold_t,threshold_r):
     """Rejoins split trajectories.
@@ -73,9 +149,8 @@ def rejoining(tracks,threshold_t,threshold_r):
                     break
 
     temp_tracks.rename(columns = {'particle':'rejoined_particle'}, inplace = True)
-    tracks = tracks.reset_index(drop=True)
-    temp_tracks = temp_tracks.reset_index(drop=True)
-    tracks = pd.concat([tracks,temp_tracks['rejoined_particle']],axis=1,join='inner')
+    tracks = tracks.reset_index(drop=True)     
+    tracks = pd.concat([tracks,temp_tracks[['rejoined_particle']]],axis=1,join='inner')
 
     return tracks, n_rejoined
 
@@ -173,12 +248,68 @@ def acceleration_minimization_norm1(measure, sigma0, px, nn = 0):
     constraints = [ cp.atoms.norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
     prob = cp.Problem(objective, constraints)
     
-    # prob.solve(solver='SCS',verbose=False,max_iters=10000,acceleration_lookback=10,mkl=False)
-    prob.solve(solver='MOSEK',verbose=False) # Alternatively, 'GUROBI', 'MOSEK' or 'SCS'
+    # try:
+    # prob.solve(solver='SCS',verbose=False,max_iters=10000,acceleration_lookback=10,mkl=False) #alternatively, 'GUROBI' or 'MOSEK' #
+    prob.solve(solver='MOSEK',verbose=False) #alternatively, 'GUROBI' or 'MOSEK' #
 
+    # except ModuleNotFoundError:
+    #     print('no mkl')
+    #     prob.solve(solver='SCS',verbose=False,max_iters=10000,acceleration_lookback=10,mkl=False) #alternatively, 'GUROBI' or 'MOSEK' #
     solution = variable.value
     if nn == 0:
         return solution
+    else:
+        return solution[nn:n-nn]
+
+def prec(N):
+    """Experimental fit of the precision of localisation.
+
+    :param N: Integrated photon count.
+    :type N: float
+    """    
+
+    return(30+(600/(np.sqrt(N))))
+
+def acceleration_minimization_norm1_pointwise_adaptative_error(measure, Signal, Noise_function, nn = 0, Solver = 'SCS'):
+    """
+    Parameters
+    ----------
+    measure : array (n, 2)
+        measured data (probably noisy) : x and y coordinates
+    Signal : array(n)
+        measured photon count. Higher signal means more photons thus better precision of localisation.
+    Noise_function : function
+        empirical noise estimation Signal : Noise_function(Signal) = array of the standard deviation of noise.
+    nn : int, optional
+        amount of data points not taken into account at the extremities of the solution.
+        For some methods, the extreme values are less reliable.
+    Solver : string, default is 'SCS'
+        default solver in cvxpy is ECOS which sometimes fail on complicated problems. SCS is more reliable but slower.
+    
+    Returns
+    -------
+    solution : array (n-2*nn, 2)
+        filtered solution with 
+        - minimization of the norm 1 of the acceleration 
+        - constraint : difference between measured data and solution, weighted by Signal, inferior or equal to the esperance of difference between measured data and truth, also weighted by Signal
+    """
+
+    n = len(measure)       
+    variable = cp.Variable((n, 2))
+    objective = cp.Minimize(cp.atoms.norm1(variable[2:,0]+variable[:-2,0] - 2*variable[1:-1,0])+cp.atoms.norm1(variable[2:,1]+variable[:-2,1] - 2*variable[1:-1,1]))
+    Weights = np.zeros((n,2))
+    Estimated_Noise = Noise_function(Signal)
+    Weights[:,0] = 1/Estimated_Noise
+    Weights[:,1] = 1/Estimated_Noise
+    Constrained = cp.multiply(Weights, variable - measure)
+
+    constraints = [ cp.atoms.norm(Constrained, 'fro')**2 <= 2*n ]
+    prob = cp.Problem(objective, constraints)
+    
+    prob.solve(solver = Solver, max_iters=100000)
+    solution = variable.value
+    if nn == 0:
+        return solution, Estimated_Noise
     else:
         return solution[nn:n-nn]
 
@@ -218,6 +349,50 @@ def minimization(subdata,px,sigma):
 
     return subdata
 
+def point_minimization(subdata,px):
+    """Prepares data for pointwise minimization.
+
+    :param subdata: DataFrame containing x and y coordinates.
+    :type subdata: DataFrame
+    :param parameters: Dictionary containing the pixel size under the `'px'` key.
+    :type parameters: dict
+    :return: DataFrame containing denoised x and y coordinates.
+    :rtype: DataFrame
+    """    
+
+    #Convert coordinates to µm
+    array_x = subdata['x'].to_numpy()
+    array_x * px
+    array_x = array_x[:, np.newaxis]
+    
+    array_y = subdata['y'].to_numpy()
+    array_y * px
+    array_y = array_y[:, np.newaxis]
+
+    #Convert mass to photons
+    array_mass = subdata['mass'].to_numpy()
+    array_mass = array_mass/(11.4)
+
+    array = np.concatenate((array_x,array_y),axis=1)
+
+    processed_array, estim_noise = acceleration_minimization_norm1_pointwise_adaptative_error(array, array_mass, prec, nn = 0, Solver = 'SCS')
+
+    subdata['x'] = processed_array[:,0]
+    subdata['y'] = processed_array[:,1]
+
+    #Convert coordinates back to pixels
+    subdata['x'] = subdata['x']/px
+    subdata['y'] = subdata['y']/px
+
+    #Include estimated precision of localisation
+    subdata['estim_noise'] = estim_noise
+
+    subdata.drop(subdata.head(1).index,inplace=True)
+    subdata.drop(subdata.tail(1).index,inplace=True)
+    subdata = subdata.reset_index(drop = True)
+
+    return subdata
+
 #Filtering functions
 
 def SNR_threshold(tracks):
@@ -231,7 +406,7 @@ def SNR_threshold(tracks):
     :rtype: DataFrame
     """    
 
-    threshold = 2 # To implement as an optional filter
+    threshold = 2
 
     df = pd.DataFrame()
     for item in set(tracks.particle):
@@ -300,16 +475,39 @@ def _fit_spot_by_gaussian(data):
 
     return feet, p
 
-def MSD_calculation(tracks,px,dt):
-    """Calculates the maximum Mean Square Displacement of a trajectory.
+def MSD_filtering(tracks,px,dt,threshold):
+    """Filters trajectories based on their Mean Square Displacement.
 
-    :param tracks: DataFrame containing trajectories.
+    Returns a DataFrame containing trajectories whose calculated MSD is above a set threshold.
+
+    :param tracks: DataFrame containing unfiltered trajectories.
     :type tracks: DataFrame
-    :param px: Pixel size, in microns.
-    :type px: float
-    :param dt: Sampling period, in seconds.
-    :type dt: float
-    :return: DataFrame with an extra column for maximum MSD.
+    :param threshold: MSD threshold.
+    :type threshold: int
+    :return: DataFrame of filtered trajectories.
+    :rtype: DataFrame
+    """    
+
+    df = pd.DataFrame()
+    for item in set(tracks.particle):
+        subtracks = tracks[tracks.particle==item]
+        if len(subtracks)<3:
+            continue
+        if subtracks.max_msd.unique()[0]>threshold:
+            df = pd.concat((df,subtracks))
+
+    return df
+
+def MSD_calculation(tracks,px,dt):
+    """Filters trajectories based on their Mean Square Displacement.
+
+    Returns a DataFrame containing trajectories whose calculated MSD is above a set threshold.
+
+    :param tracks: DataFrame containing unfiltered trajectories.
+    :type tracks: DataFrame
+    :param threshold: MSD threshold.
+    :type threshold: int
+    :return: DataFrame of filtered trajectories.
     :rtype: DataFrame
     """    
 
@@ -326,7 +524,7 @@ def MSD_calculation(tracks,px,dt):
 
     return df
 
-def MSD_filtering(tracks,threshold):
+def MSD_filtering_legacy(tracks,px,dt,threshold):
     """Filters trajectories based on their Mean Square Displacement.
 
     Returns a DataFrame containing trajectories whose calculated MSD is above a set threshold.
@@ -342,9 +540,10 @@ def MSD_filtering(tracks,threshold):
     df = pd.DataFrame()
     for item in set(tracks.particle):
         subtracks = tracks[tracks.particle==item]
-        if len(subtracks)<3: # MSD filtering has a built-in stub filter of 3
+        if len(subtracks)<3:
             continue
-        if subtracks.max_msd.unique()[0]>threshold:
+        df2 = tp.motion.msd(subtracks,px,(1/dt),max_lagtime=len(subtracks))
+        if max(df2.msd)>threshold:
             df = pd.concat((df,subtracks))
 
     return df
@@ -373,14 +572,14 @@ def polynomial_fit(data,len_cutoff,threshold):
     :rtype: Boolean.
     """    
 
-    # x = data.x
-    # y = data.y
-    # Fewer trajectories are rejected if they are rotated first    
+    #x = data.x
+    #y = data.y
+    #Fewer trajectories are rejected if they are rotated first    
     rot = rotate_single_track(data)
     x = rot.x_rotated
     y = rot.y_rotated
     n = len(x)
-    nn = 10 # Supresses the first and last 10 points
+    nn = 10 #Supresses the first and last 10 points
     x = x.iloc[nn:n-nn]
     x = x.reset_index(drop = True)
 
@@ -427,21 +626,9 @@ def rotate_single_track(data):
 ## Experimental
 
 def MSD_calculation_joblib(tracks,px,dt):
-    """_summary_
 
-    _extended_summary_
-
-    :param tracks: _description_
-    :type tracks: _type_
-    :param px: _description_
-    :type px: _type_
-    :param dt: _description_
-    :type dt: _type_
-    :return: _description_
-    :rtype: _type_
-    """
     df = pd.DataFrame()
-    MSD_gen = Parallel(n_jobs=os.cpu_count(),return_as='generator')(delayed(MSD_generator)(tracks, item, px, dt) for item in set(tracks.particle))
+    MSD_gen = Parallel(n_jobs=os.cpu_count(),return_generator=True)(delayed(MSD_generator)(tracks, item, px, dt) for item in set(tracks.particle))
     for subtracks in MSD_gen:
         if len(subtracks) > 1:
             df = pd.concat((df,subtracks))
@@ -451,21 +638,7 @@ def MSD_calculation_joblib(tracks,px,dt):
     return df
 
 def MSD_generator(tracks, item, px, dt):
-    """_summary_
 
-    _extended_summary_
-
-    :param tracks: _description_
-    :type tracks: _type_
-    :param item: _description_
-    :type item: _type_
-    :param px: _description_
-    :type px: _type_
-    :param dt: _description_
-    :type dt: _type_
-    :return: _description_
-    :rtype: _type_
-    """
     subtracks = tracks[tracks.particle==item].copy()
     df2 = tp.motion.msd(subtracks,px,(1/dt),max_lagtime=len(subtracks))
     max_msd = [df2.msd.max()]*len(subtracks)
@@ -475,21 +648,7 @@ def MSD_generator(tracks, item, px, dt):
 
 
 def lowpass_MSD_filtering(tracks,px,dt,threshold):
-    """_summary_
 
-    _extended_summary_
-
-    :param tracks: _description_
-    :type tracks: _type_
-    :param px: _description_
-    :type px: _type_
-    :param dt: _description_
-    :type dt: _type_
-    :param threshold: _description_
-    :type threshold: _type_
-    :return: _description_
-    :rtype: _type_
-    """
     df = pd.DataFrame()
     for item in set(tracks.particle):
         subtracks = tracks[tracks.particle==item]
@@ -500,171 +659,3 @@ def lowpass_MSD_filtering(tracks,px,dt,threshold):
             df = pd.concat((df,subtracks))
 
     return df
-
-def rej_start_end(tracks, item):
-
-    subtrack = tracks[tracks.particle==item]
-    df_temp = subtrack[subtrack.frame==np.min(subtrack.frame)]
-    df_start = pd.concat((df_start,df_temp),ignore_index=True)
-
-    df_temp = subtrack[subtrack.frame==np.max(subtrack.frame)]
-    df_end = pd.concat((df_end,df_temp),ignore_index=True)
-
-    df_start = df_start.sort_values(by = 'frame', ascending=False)
-    df_end = df_end.sort_values(by = 'frame', ascending=False)
-
-    return df_start, df_end
-
-def rej_thresh(linef, lined, threshold_t, threshold_r, df_start, df_end, temp_tracks, n_rejoined):
-
-    timed = lined.frame
-    timef = linef.frame
-    particle1 = linef.particle
-    particle2 = lined.particle
-
-    #Rejoins trajectories if they are within spatial and temporal range
-    if (timed > timef) and (timed - timef < threshold_t):
-        xd,yd = lined.x,lined.y
-        xf,yf = linef.x,linef.y
-        r = np.sqrt((xf-xd)**2 + (yf-yd)**2) 
-        if r < threshold_r and particle1 != particle2:
-            
-            df_start.loc[df_start['particle']==particle2,'particle']=particle1
-            df_end.loc[df_end['particle']==particle2,'particle']=particle1
-            temp_tracks.loc[temp_tracks['particle']==particle2,'particle']=particle1
-            df_start = df_start.loc[(df_start['frame']!=timed)&(df_start['particle']!=particle1)]
-            df_end = df_end.loc[(df_end['frame']!=timef)&(df_end['particle']!=particle1)]
-            n_rejoined += 1
-
-    return temp_tracks, n_rejoined
-        
-def rejoining_joblib(tracks,threshold_t,threshold_r):  
-
-    df_start = pd.DataFrame()
-    df_end = pd.DataFrame()
-    n_rejoined = 0
-    temp_tracks = tracks.copy()
-    #Get first and last point of each trajectory
-    for item in set(tracks.particle):
-
-        subtrack = tracks[tracks.particle==item]
-        df_temp = subtrack[subtrack.frame==np.min(subtrack.frame)]
-        df_start = pd.concat((df_start,df_temp),ignore_index=True)
-
-        df_temp = subtrack[subtrack.frame==np.max(subtrack.frame)]
-        df_end = pd.concat((df_end,df_temp),ignore_index=True)
-
-        df_start = df_start.sort_values(by = 'frame', ascending=False)
-        df_end = df_end.sort_values(by = 'frame', ascending=False)
-
-    temp_tracks = tracks.copy()
-
-    gen = Parallel(n_jobs=os.cpu_count(),return_as='generator')(delayed(rej_thresh)(linef, lined, threshold_t, threshold_r, df_start, df_end,\
-        temp_tracks, n_rejoined) for linef in df_end.itertuples() for lined in df_start.itertuples())
-
-    for line, n_rej in gen:
-        n_rejoined += n_rej
-        temp_tracks = pd.concat((temp_tracks,line),axis=0)
-
-    temp_tracks.rename(columns = {'particle':'rejoined_particle'}, inplace = True)
-    temp_tracks = temp_tracks.reset_index(drop=True)
-    tracks = tracks.reset_index(drop=True)        
-    tracks = pd.concat([tracks,temp_tracks[['rejoined_particle']]],axis=1,join='inner')
-
-    return tracks, n_rejoined
-
-def prec(N):
-    """Experimental fit of the precision of localisation.
-
-    :param N: Integrated photon count.
-    :type N: float
-    """    
-
-    return(30+(600/(np.sqrt(N))))
-
-def acceleration_minimization_norm1_pointwise_adaptative_error(measure, Signal, Noise_function, nn = 0, Solver = 'SCS'):
-    """
-    Parameters
-    ----------
-    measure : array (n, 2)
-        measured data (probably noisy) : x and y coordinates
-    Signal : array(n)
-        measured photon count. Higher signal means more photons thus better precision of localisation.
-    Noise_function : function
-        empirical noise estimation Signal : Noise_function(Signal) = array of the standard deviation of noise.
-    nn : int, optional
-        amount of data points not taken into account at the extremities of the solution.
-        For some methods, the extreme values are less reliable.
-    Solver : string, default is 'SCS'
-        default solver in cvxpy is ECOS which sometimes fail on complicated problems. SCS is more reliable but slower.
-    
-    Returns
-    -------
-    solution : array (n-2*nn, 2)
-        filtered solution with 
-        - minimization of the norm 1 of the acceleration 
-        - constraint : difference between measured data and solution, weighted by Signal, inferior or equal to the esperance of difference between measured data and truth, also weighted by Signal
-    """
-
-    n = len(measure)       
-    variable = cp.Variable((n, 2))
-    objective = cp.Minimize(cp.atoms.norm1(variable[2:,0]+variable[:-2,0] - 2*variable[1:-1,0])+cp.atoms.norm1(variable[2:,1]+variable[:-2,1] - 2*variable[1:-1,1]))
-    Weights = np.zeros((n,2))
-    Estimated_Noise = Noise_function(Signal)
-    Weights[:,0] = 1/Estimated_Noise
-    Weights[:,1] = 1/Estimated_Noise
-    Constrained = cp.multiply(Weights, variable - measure)
-
-    constraints = [ cp.atoms.norm(Constrained, 'fro')**2 <= 2*n ]
-    prob = cp.Problem(objective, constraints)
-    
-    prob.solve(solver = Solver, max_iters=100000)
-    solution = variable.value
-    if nn == 0:
-        return solution, Estimated_Noise
-    else:
-        return solution[nn:n-nn]
-    
-def point_minimization(subdata,px):
-    """Prepares data for pointwise minimization.
-
-    :param subdata: DataFrame containing x and y coordinates.
-    :type subdata: DataFrame
-    :param parameters: Dictionary containing the pixel size under the `'px'` key.
-    :type parameters: dict
-    :return: DataFrame containing denoised x and y coordinates.
-    :rtype: DataFrame
-    """    
-
-    #Convert coordinates to µm
-    array_x = subdata['x'].to_numpy()
-    array_x * px
-    array_x = array_x[:, np.newaxis]
-
-    array_y = subdata['y'].to_numpy()
-    array_y * px
-    array_y = array_y[:, np.newaxis]
-
-    #Convert mass to photons
-    array_mass = subdata['mass'].to_numpy()
-    array_mass = array_mass/(11.4)
-
-    array = np.concatenate((array_x,array_y),axis=1)
-
-    processed_array, estim_noise = acceleration_minimization_norm1_pointwise_adaptative_error(array, array_mass, prec, nn = 0, Solver = 'SCS')
-
-    subdata['x'] = processed_array[:,0]
-    subdata['y'] = processed_array[:,1]
-
-    #Convert coordinates back to pixels
-    subdata['x'] = subdata['x']/px
-    subdata['y'] = subdata['y']/px
-
-    #Include estimated precision of localisation
-    subdata['estim_noise'] = estim_noise
-
-    subdata.drop(subdata.head(1).index,inplace=True)
-    subdata.drop(subdata.tail(1).index,inplace=True)
-    subdata = subdata.reset_index(drop = True)
-
-    return subdata

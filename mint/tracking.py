@@ -11,7 +11,7 @@ import trackpy as tp
 import traj_calc as ft
 
 from joblib import Parallel, delayed
-from utils import print_pb
+from utils import print_pb, get_file_list, get_frames
 from denoising import *
 from output import *
 
@@ -37,19 +37,8 @@ def tracking(input_folder,parameters,settings,log):
     :type log: dict
     """    
 
-    path_list = []
-    name_list = []
-
-    for path, subfolder, files in os.walk(input_folder): # Scan entire folder structure for files
-            for name in files:
-                if name.endswith(f'.{parameters["extension_in"]}') == False:  # Check for correct file extension
-                    continue # Skip to next file if not correct extension  
-                log_tracking['n_files'] += 1        
-
-                file_path = os.path.join(path, name) # Get file path of current file
-                path_list.append(file_path) # Append to file path list
-                name_list.append(name)
-
+    path_list, name_list = get_file_list(str(input_folder), parameters['extension_in'])
+    
     for (path, name, j) in zip(path_list,name_list,[j for j in range(len(path_list))]): # Looping over file path list
 
         output_subfolder = path.replace(str(log['root_input_folder']),'') # Separate subfolder structure from root input folder
@@ -59,20 +48,15 @@ def tracking(input_folder,parameters,settings,log):
         os.makedirs(out_path) # Create output folder for current file
 
         #Opening video file         
-                                                    # match parameters['extension_in']:
-        if parameters['extension_in'] == 'tif':     #     case 'tif':
-            frames = imageio.volread(path)     #         frames = imageio.volread(file_path)
-        elif parameters['extension_in'] == 'nd2':   #     case 'nd2':
-            frames = nd2.imread(path)          #         frames = nd2.imread(file_path)
-        else:
-            warnings.warn(f'Extension {parameters["extension_in"]} is not supported')
+
+        frames = get_frames(path)
 
         filt_start = time.time()
         processed_frames = frames.astype('float64') # Prevent conflict in case of wavelet filtering
 
-        if settings['joblib']:
+        if settings['parallel']:
 
-            processed_frames_gen = Parallel(n_jobs=12,return_generator=True)(delayed(tophat)(parameters['separation'],frame) for frame in processed_frames)
+            processed_frames_gen = Parallel(n_jobs=os.cpu_count(),return_as='generator')(delayed(tophat)(parameters['separation'],frame) for frame in processed_frames)
             
             for i, frame in zip(range(len(processed_frames)), processed_frames_gen):
                 processed_frames[i] = frame
@@ -84,8 +68,6 @@ def tracking(input_folder,parameters,settings,log):
                     
                 if settings['wavelet']:
                     processed_frames[i] = wavelet(processed_frames[i])
-
-
 
         filt_time = time.time() - filt_start
         log_tracking['t_filt'].append(filt_time)
@@ -113,14 +95,18 @@ def tracking(input_folder,parameters,settings,log):
 
         # Dumping raw trajectories into csv file
         msd_start = time.time()
-        raw_trajectory = ft.MSD_calculation_parallel(raw_trajectory,parameters['px'],parameters['dt'])
+        if settings['parallel']:
+            raw_trajectory = ft.MSD_calculation_joblib(raw_trajectory,parameters['px'],parameters['dt'])
+        else:
+            raw_trajectory = ft.MSD_calculation(raw_trajectory,parameters['px'],parameters['dt'])
         trajectory_output(out_path,name,"",raw_trajectory)
         msd_time = time.time() - msd_start
         log_tracking['t_msd'].append(msd_time)
+        
         # Optional trajectory processing
         if settings['MSD']: 
             print_pb(f'\tMSD filtering',j,len(path_list))
-            processed_trajectory = ft.MSD_filtering(raw_trajectory,parameters['px'],parameters['dt'],parameters['msd'])
+            processed_trajectory = ft.MSD_filtering(raw_trajectory,parameters['msd'])
             if len(processed_trajectory) == 0: # Check if any trajectories were found. If not, the threshold might be too high.
                 warnings.warn('No trajectories retained, MSD threshold might be too high')
                 continue
@@ -130,7 +116,10 @@ def tracking(input_folder,parameters,settings,log):
         if settings['rejoining']:
             print_pb(f'\tRejoining',j,len(path_list))
             rej_start = time.time()
-            processed_trajectory, n_rejoined  = ft.rejoining(processed_trajectory,parameters['threshold_t'],parameters['threshold_r'])
+            if settings['parallel']:
+                processed_trajectory, n_rejoined  = ft.rejoining(processed_trajectory,parameters['threshold_t'],parameters['threshold_r'])
+            else:
+                processed_trajectory, n_rejoined  = ft.rejoining(processed_trajectory,parameters['threshold_t'],parameters['threshold_r'])
             rej_time = time.time() - rej_start
             log_tracking['t_rej'].append(rej_time)
             log_tracking['n_rejoined'] += n_rejoined
@@ -148,14 +137,14 @@ def tracking(input_folder,parameters,settings,log):
         processed_trajectory = processed_trajectory.reset_index(drop=True)
         processed_trajectory = pd.concat([processed_trajectory, n_particles],axis=1,join='inner')
 
-        # # Number of static particles
-        # static = ft.lowpass_MSD_filtering(raw_trajectory,parameters['px'],parameters['dt'],0.1)
-        # static = tp.filter_stubs(static,50)
-        # n_static = static.particle.nunique()
-        # n_static = [n_static]*len(raw_trajectory)    
-        # n_static = pd.DataFrame(n_static,columns=['n_static'])
-        # processed_trajectory = processed_trajectory.reset_index(drop=True)
-        # processed_trajectory = pd.concat([processed_trajectory, n_static],axis=1,join='inner')
+        # Number of static particles
+        static = ft.lowpass_MSD_filtering(raw_trajectory,parameters['px'],parameters['dt'],9)
+        static = tp.filter_stubs(static,len(frames)//10)
+        n_static = static.particle.nunique()
+        n_static = [n_static]*len(raw_trajectory)    
+        n_static = pd.DataFrame(n_static,columns=['n_static'])
+        processed_trajectory = processed_trajectory.reset_index(drop=True)
+        processed_trajectory = pd.concat([processed_trajectory, n_static],axis=1,join='inner')
         
         # Dumping rejoined trajectories into csv file
         trajectory_output(out_path,name,"_rejoined",processed_trajectory)

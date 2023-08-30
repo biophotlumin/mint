@@ -3,7 +3,6 @@
 #Imports
 import os
 import time
-import warnings
 import numpy as np
 import pandas as pd
 
@@ -13,8 +12,6 @@ from pathlib import Path
 from output import dict_dump
 from scipy.signal import savgol_filter
 
-warnings.filterwarnings(action='ignore', category=RuntimeWarning)
-
 log_analysis = {
     'r_poly':0,
     'r_speed':0,
@@ -22,6 +19,8 @@ log_analysis = {
 }
 
 list_r_conf = []
+
+os.environ['OMP_NUM_THREADS'] = '1' #str(os.cpu_count())
 
 def inst_velocity(x,y,dt):
     """Calculates instantaneous velocity.
@@ -130,10 +129,10 @@ def phase_calculations(parameters,data,settings,condition,slide,name,animal):
                 continue
 
         if settings['minimization']: # Experimental trajectory denoising
-            filt_start = time.time()
+            # filt_start = time.time()
             subdata = minimization(subdata,parameters['px'],parameters['sigma']) # Defined noise level for every trajectories
-            filt_time = time.time() - filt_start
-            log_analysis['t_filt'].append(filt_time)
+            # filt_time = time.time() - filt_start
+            # log_analysis['t_filt'].append(filt_time)
             #subdata = point_minimization(subdata,parameters['px']) # Point-by-point calculation of noise level based on signal intensity
 
         x = subdata.x
@@ -276,7 +275,7 @@ def phase_calculations(parameters,data,settings,condition,slide,name,animal):
                         'min_y':min_y,
                         'max_y':max_y,
                         'n_particles':data.n_particles.unique()[0],
-                        'n_static':data.n_static.unique()[0],
+                        # 'n_static':data.n_static.unique()[0],
                         }
             
             if settings['theta']:
@@ -325,10 +324,8 @@ def trajectory_calculations(phase_parameters,settings):
     animal = []
     slide = []
 
-    print("Per trajectory calculations of :")
-
     for file in set(phase_parameters.file.unique()):
-        print(f'\t{file}')
+        print(f'Per trajectory calculations of trajectories in file {file}')
         for item in set(phase_parameters[(phase_parameters.file==file)].rejoined_trajectory):
             
             data = phase_parameters[(phase_parameters.file==file) & (phase_parameters.rejoined_trajectory==item)]
@@ -427,8 +424,8 @@ def trajectory_calculations(phase_parameters,settings):
             n_particles = data.n_particles.tolist()
             moving_particles.append((phase_parameters[(phase_parameters.file==file)].rejoined_trajectory.nunique()/np.unique(n_particles))[0])
 
-            n_static = data.n_static.tolist()
-            moving_particles_msd.append((phase_parameters[(phase_parameters.file==file)].rejoined_trajectory.nunique()/np.unique(n_static))[0])
+            # n_static = data.n_static.tolist()
+            # moving_particles_msd.append((phase_parameters[(phase_parameters.file==file)].rejoined_trajectory.nunique()/np.unique(n_static))[0])
 
             if settings['antero_retro']:
 
@@ -558,7 +555,7 @@ def trajectory_calculations(phase_parameters,settings):
                 'file':file_list,
                 'n_stop':number_stop,
                 'fraction_moving':moving_particles,
-                'fraction_moving_msd':moving_particles_msd,
+                # 'fraction_moving_msd':moving_particles_msd,
                 'pausing_time':pausing_time, 
                 'pausing_frequency':pausing_frequency,
                 'diag_size':diag_size,
@@ -608,25 +605,28 @@ def trajectory_calculations(phase_parameters,settings):
 
     return trajectory_parameters
 
-def phase_calculations_joblib(parameters,data,settings,condition,slide,name,animal):
+def phase_calculations_parallel(parameters,data,settings,condition,slide,name,animal):
 
     f_phase_parameters = pd.DataFrame()
 
-    phase_calc_gen = Parallel(n_jobs=os.cpu_count(),return_as='generator')(delayed(phase_generator)\
-        (data, trajectory, settings, parameters, condition, slide, animal, name) for trajectory in set(data.particle))
-    
+    phase_calc_gen = Parallel(n_jobs=40,return_generator=False)(delayed(per_traj_calc)(data, trajectory, settings, parameters, condition, slide, animal, name)\
+                                                                for trajectory in set(data.particle))
     for traj in phase_calc_gen:
         try:
-            traj.bool() == False # Convoluted but more reliable way to log the amount of polynom rejections
+            traj.bool() == False
             log_analysis['r_poly'] += 1
             continue
         except ValueError:
             f_phase_parameters.reset_index(inplace=True, drop=True)
             f_phase_parameters = pd.concat((f_phase_parameters,traj))
+            
+            # f_phase_parameters.reset_index(inplace=True, drop=True)
+            # f_phase_parameters = pd.concat((f_phase_parameters,traj))
+            # f_phase_parameters.dropna(axis=0,how='all',inplace=True)
 
     return f_phase_parameters
 
-def phase_generator(data, trajectory, settings, parameters, condition, slide, animal, name):
+def per_traj_calc(data, trajectory, settings, parameters, condition, slide, animal, name):
 
     dt = parameters['dt']
     sw = parameters['sliding_window']
@@ -644,10 +644,7 @@ def phase_generator(data, trajectory, settings, parameters, condition, slide, an
             return pd.DataFrame({'col': [False]})
 
     if settings['minimization']: # Experimental trajectory denoising
-        filt_start = time.time()
         subdata = minimization(subdata,parameters['px'],parameters['sigma']) # Defined noise level for every trajectories
-        filt_time = time.time() - filt_start
-        log_analysis['t_filt'].append(filt_time)
         #subdata = point_minimization(subdata,parameters['px']) # Point-by-point calculation of noise level based on signal intensity
 
     x = subdata.x
@@ -791,7 +788,6 @@ def phase_generator(data, trajectory, settings, parameters, condition, slide, an
                     'min_y':min_y,
                     'max_y':max_y,
                     'n_particles':data.n_particles.unique()[0],
-                    'n_static':data.n_static.unique()[0],
                     }
         
         if settings['theta']:
@@ -799,6 +795,8 @@ def phase_generator(data, trajectory, settings, parameters, condition, slide, an
             data_dict = {**data_dict, **temp_dict}
         
         m_data = pd.concat((m_data, pd.DataFrame([data_dict])))
+        if m_data.empty == True:
+            print('empty despite rpoly')
 
     return m_data
 
@@ -837,8 +835,6 @@ def data_extraction(input_folder,parameters,settings):
             file_path = os.path.join(path, name)
             path_list.append(file_path)
 
-    print("Per phase calculations of :")
-
     for (path, j) in zip(path_list,[j for j in range(len(path_list))]):
 
         file_folder_path = os.path.split(Path(path).parent)[0]
@@ -848,20 +844,13 @@ def data_extraction(input_folder,parameters,settings):
 
         data = pd.read_csv(path,sep=csv_sniffer(path))
         
-        print_pb(f'\t{str(Path(path).name)}', j, len(path_list))
-
-        if settings['parallel']:
-            calc_func = phase_calculations_joblib
-        else:
-            calc_func = phase_calculations
-        phase_parameters = pd.concat((phase_parameters,calc_func(parameters,data,settings,condition,slide,str(Path(path).name),animal)))
+        print_pb("Per phase calculations of "+str(Path(path).name), j, len(path_list))
+        phase_parameters = pd.concat((phase_parameters,phase_calculations(parameters,data,settings,condition,slide,str(Path(path).name),animal)))
 
     if phase_parameters.empty:
         raise RuntimeError('No trajectories retained during analysis')
     else:
         phase_parameters.to_csv(phase_parameters_output, sep = '\t')
-
-    print('\n')
 
     trajectory_parameters = trajectory_calculations(phase_parameters,settings)
 
@@ -898,7 +887,6 @@ if __name__ == '__main__':
     'threshold_poly3':1.4, # Deviation from third-degree polynom
     }   
     settings = {
-    'parallel':False,
     # Data Extraction
     'polynomial_fit':True,
     'minimization':True,

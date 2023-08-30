@@ -3,10 +3,15 @@
 
 #Imports
 import os
+import csv
+import nd2
 import shutil
+import imageio
+import warnings
+
 from datetime import datetime
 from pathlib import Path
-import csv
+
 
 def extraction_csv(input_folder):
     """Extracts .csv files from a folder into another.
@@ -76,6 +81,15 @@ def print_pb(text,i,max):
     print(f'| {("▊"*int(i/m_max*60))}{"_"*int((1-(i/m_max))*60)} | {i}/{max} | {round((i/m_max)*100,2)}%',end='\r',flush=True)
 
 def get_file_list(input_folder, extension):
+    """Build a list of file paths and names to loop over.
+
+    :param input_folder: Path to folder or file
+    :type input_folder: Path or string
+    :param extension: Extension of files to loop over.
+    :type extension: str
+    :return: Lists of file paths and names.
+    :rtype: list
+    """ 
 
     path_list = []
     name_list = []
@@ -95,3 +109,49 @@ def get_file_list(input_folder, extension):
                     name_list.append(name)
     
     return path_list, name_list
+
+try:
+    import imagej
+
+    IJ_INSTALLED = True
+
+    def pyimagej_reader(path):
+
+        path = str(path) #jpype doesn't like PosixPath objects, apparently
+
+        ij = imagej.init()
+        jimage = ij.io().open(path)
+        frames = ij.py.from_java(jimage)
+
+        try:
+            frames.shape
+        except AttributeError:
+            warnings.warn(f'Extension {path.split(".")[-1]} is not supported')
+        if len(frames.shape) != 3:
+            warnings.warn(f'File has {len(frames.shape)} dimension(s), needs 3')
+
+        return frames
+    
+except ImportError:
+
+    IJ_INSTALLED = False
+
+    def pyimagej_reader(path):
+        print('PyImageJ not installed, Bio-Formats reader not available') # Shouldn't print 
+
+def get_frames(path):
+
+    extension = Path(path).suffix
+
+                                                # match extension:
+    if extension == '.tif':     #     case 'tif':
+        frames = imageio.volread(path)     #         frames = imageio.volread(file_path)
+    elif extension == '.nd2':   #     case 'nd2':
+        frames = nd2.imread(path)          #         frames = nd2.imread(file_path)
+    elif IJ_INSTALLED == True:
+        frames = pyimagej_reader(path)
+    else:
+        warnings.warn(f'Extension {extension} is not supported')
+
+    return frames
+

@@ -12,7 +12,7 @@ import time
 import argparse
 
 from pathlib import Path
-from tracking import tracking
+from tracking_copy import tracking
 from data_extraction import data_extraction
 from utils import  folder_structure_creation
 from output import dict_dump, generate_report
@@ -31,14 +31,14 @@ parameters = {
     'memory':5,
     'adaptive_stop':5,
     'adaptive_step':0.9,
-    'stub_filtering':3, # Minimum le ngth of trajectories, in points
+    'stub_filtering':3, # Minimum length of trajectories, in points
     #trackpy.motion.msd
     'msd':9, # Threshold for MSD filtering
     #SNR estimation
     'base_level':0, #Base level for SNR estimation
     #Rejoining
     'threshold_t':10, # Temporal threshold for trajectory rejoining, in frames
-    'threshold_r':60, # Spatial threshold for trajectory rejoining, in pixels
+    'threshold_r':40, # Spatial threshold for trajectory rejoining, in pixels
     #Data Extraction
     'r_conf_cut' : 0.64, # Confinement ratio cutoff between GO and STOP phases
     'px' : 0.173, # Pixel size, in µm
@@ -57,6 +57,7 @@ parameters = {
 #Optional image and trajectory processing
 
 settings = {
+    'parallel':False,
     #Denoising
     'tophat':True,
     'wavelet':False,
@@ -74,7 +75,7 @@ settings = {
     'minimization':True,
     'theta':True,
     'antero_retro':True,
-    'conf_list':True,
+    'conf_list':False,
     #Stats
     'ordering':True,
     'clean_up':False,
@@ -85,7 +86,7 @@ settings = {
 
 #Define root input folder
 
-input_folder = r'/media/lumin/SHG_tracking_data/Zebrafish data/video_benchmark_int'
+input_folder = r'/media/lumin/SHG_tracking_data/Zebrafish data/KIF5_sorted'
 
 if __name__ == '__main__':
 
@@ -105,12 +106,6 @@ if __name__ == '__main__':
     if args.folder:
         input_folder = args.folder
 
-    try:
-        import joblib
-        settings['joblib'] = True
-    except ModuleNotFoundError:
-        settings['joblib'] = False
-
     input_folder = Path(input_folder)
 
     start = time.time()
@@ -124,6 +119,22 @@ if __name__ == '__main__':
     dict_dump(log['output_folder'],parameters,'parameters')
     dict_dump(log['output_folder'],settings,'settings')
     dict_dump(log['output_folder'],log,'log')
+
+    print('\n')
+    print(' ############################################################################# ')
+    print(' ############################################################################# ')
+    print('\n')
+    print('                      ███╗   ███╗   ██╗   ███╗  ██╗████████╗                   ')
+    print('                      ████╗ ████║   ██║   ████╗ ██║╚══██╔══╝                   ')
+    print('                      ██╔████╔██║   ██║   ██╔██╗██║   ██║                      ')
+    print('                      ██║╚██╔╝██║   ██║   ██║╚████║   ██║                      ')
+    print('                      ██║ ╚═╝ ██║██╗██║██╗██║ ╚███║██╗██║                      ')                   
+    print('                      ╚═╝     ╚═╝╚═╝╚═╝╚═╝╚═╝  ╚══╝╚═╝╚═╝                      ')
+    print('\n')
+    print('                                     v0.2.1                                    ')
+    print('\n')
+    print(' ############################################################################# ')
+    print(' ############################################################################# ')
 
     print(f'\nAnalyzing {input_folder}\n')
     print(f'Results stored in {Path(log["output_folder"].name)}')
@@ -156,8 +167,8 @@ if __name__ == '__main__':
 
     dict_dump(log['output_folder'],log,'log')
 
-    if True not in vars(args).values():
-        generate_report(log['output_folder'])
+    # if True not in vars(args).values():
+    #     generate_report(log['output_folder'])
 
 
 # TODO GUI
