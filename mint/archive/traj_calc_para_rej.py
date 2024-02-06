@@ -14,12 +14,12 @@ from joblib import Parallel, delayed
 
 pd.options.mode.chained_assignment = None
 
-def rejoining(tracks: pd.DataFrame, threshold_t: int, threshold_r: int) -> tuple[pd.DataFrame, int]:
+def rejoining(tracks: pd.DataFrame,threshold_t: int,threshold_r: int,parallelize: bool):
     """Rejoins split trajectories.
 
-    Joins trajectories whose start and end points are within set spatial and temporal threshold of each other.
-
-    This function does not generate additional data points, rejoined trajectories will be considered as one for statistical purposes thus reducing oversampling.
+    Joins trajectories whose start and end points are within set spatial and temporal threshold of each other.  
+    
+    This function does not generate additional data points, rejoined trajectories will be considered as one for statistical purposes thus reducing oversampling. 
 
     :param tracks: DataFrame containing trajectories.
     :type tracks: DataFrame
@@ -29,56 +29,85 @@ def rejoining(tracks: pd.DataFrame, threshold_t: int, threshold_r: int) -> tuple
     :type threshold_r: int
     :return: DataFrame containing rejoined trajectories.
     :rtype: DataFrame
-    """
+    """    
 
     df_start = pd.DataFrame()
     df_end = pd.DataFrame()
     n_rejoined = 0
     temp_tracks = tracks.copy()
+    alreay_rejoined = []
 
     #Get first and last point of each trajectory
     for item in set(tracks.particle):
 
-        subtrack = tracks[tracks.particle == item]
-        df_temp = subtrack[subtrack.frame == np.min(subtrack.frame)]
-        df_start = pd.concat((df_start, df_temp), ignore_index=True)
+        subtrack = tracks[tracks.particle==item]
+        df_temp = subtrack[subtrack.frame==np.min(subtrack.frame)]
+        df_start = pd.concat((df_start,df_temp),ignore_index=True)
 
-        df_temp = subtrack[subtrack.frame == np.max(subtrack.frame)]
-        df_end = pd.concat((df_end, df_temp), ignore_index=True)
+        df_temp = subtrack[subtrack.frame==np.max(subtrack.frame)]
+        df_end = pd.concat((df_end,df_temp),ignore_index=True)
 
-    df_start = df_start.sort_values(by='frame', ascending=False)
-    df_end = df_end.sort_values(by='frame', ascending=False)
+    df_start = df_start.sort_values(by = 'frame', ascending=False)
+    df_end = df_end.sort_values(by = 'frame', ascending=False)
 
-    for linef in df_end.itertuples():
-        for lined in df_start.itertuples():
-            timed = lined.frame
-            timef = linef.frame
-            particle1 = linef.particle
-            particle2 = lined.particle
+    if parallelize is True:
+        rej_generator = Parallel(n_jobs=os.cpu_count(),return_as='list')(delayed(rej_threshold)(linef, lined, threshold_t, threshold_r, df_start, df_end,
+            temp_tracks, n_rejoined) for linef in df_end.itertuples() for lined in df_start.itertuples())
 
-            #Rejoins trajectories if they are within spatial and temporal range
-            if (timed > timef) and (timed - timef < threshold_t):
-                xd, yd = lined.x, lined.y
-                xf, yf = linef.x, linef.y
-                r = np.sqrt((xf-xd)**2 + (yf-yd)**2)
-                if r < threshold_r and particle1 != particle2:
+        for line, n_rej in rej_generator:
+            n_rejoined += n_rej
+            if line is not None:
+                particle1 = line[0]
+                particle2 = line[1]
+                df_start.loc[df_start['particle']==particle2,'particle']=particle1
+                df_end.loc[df_end['particle']==particle2,'particle']=particle1
+                temp_tracks.loc[temp_tracks['particle']==particle2,'particle']=particle1
+                df_start = df_start.loc[(df_start['frame']!=timed)&(df_start['particle']!=particle1)]
+                df_end = df_end.loc[(df_end['frame']!=timef)&(df_end['particle']!=particle1)]
+            # differences = tracks.compare(line)
+            # if differences.empty is False:
+                # if differences.particle.other.iloc[0] not in alreay_rejoined:
+                # temp_tracks.particle.loc[temp_tracks.particle == differences.particle.self.iloc[0]] = differences.particle.other.iloc[0]
+                # alreay_rejoined.append(differences.particle.other.iloc[0])
+        #     temp_tracks = line # pd.concat((temp_tracks,line),axis=0)
 
-                    df_start.loc[df_start['particle'] == particle2, 'particle'] = particle1
-                    df_end.loc[df_end['particle'] == particle2, 'particle'] = particle1
-                    temp_tracks.loc[temp_tracks['particle'] == particle2, 'particle'] = particle1
-                    df_start = df_start.loc[(df_start['frame'] != timed)&(df_start['particle'] != particle1)]
-                    df_end = df_end.loc[(df_end['frame'] != timef)&(df_end['particle'] != particle1)]
-                    n_rejoined += 1
-                    break
+    elif parallelize is False:
+        for linef in df_end.itertuples():
+            for lined in df_start.itertuples():
+                timed = lined.frame
+                timef = linef.frame
+                particle1 = linef.particle
+                particle2 = lined.particle
+                
+                #Rejoins trajectories if they are within spatial and temporal range
+                if (timed > timef) and (timed - timef < threshold_t):
+                    xd,yd = lined.x,lined.y
+                    xf,yf = linef.x,linef.y
+                    r = np.sqrt((xf-xd)**2 + (yf-yd)**2) 
+                    if r < threshold_r and particle1 != particle2:
+                        
+                        df_start.loc[df_start['particle']==particle2,'particle']=particle1
+                        df_end.loc[df_end['particle']==particle2,'particle']=particle1
+                        temp_tracks.loc[temp_tracks['particle']==particle2,'particle']=particle1
+                        df_start = df_start.loc[(df_start['frame']!=timed)&(df_start['particle']!=particle1)]
+                        df_end = df_end.loc[(df_end['frame']!=timef)&(df_end['particle']!=particle1)]
+                        n_rejoined += 1
+                        break
+                # temp_tracks, n_rej = rej_threshold(linef, lined, threshold_t, threshold_r, df_start, df_end,
+                #     temp_tracks, n_rejoined)
+                
+                # n_rejoined += n_rej
+                # temp_tracks = line # pd.concat((temp_tracks,line),axis=0)
 
-    temp_tracks.rename(columns={'particle': 'rejoined_particle'}, inplace=True)
+
+    temp_tracks.rename(columns = {'particle':'rejoined_particle'}, inplace = True)
     tracks = tracks.reset_index(drop=True)
     temp_tracks = temp_tracks.reset_index(drop=True)
-    tracks = pd.concat([tracks, temp_tracks['rejoined_particle']], axis=1, join='inner')
+    tracks = pd.concat([tracks,temp_tracks['rejoined_particle']],axis=1,join='inner')
 
     return tracks, n_rejoined
 
-def SNR_spot_estimation(frames: np.array, tracks: pd.DataFrame, base_level: int) -> pd.DataFrame:
+def SNR_spot_estimation(frames,tracks,base_level):
     """Estimates SNR for each feature.
 
     Returns a DataFrame with a column containing the SNR and one column containing the signal (as the integral of the 2D gaussian).
@@ -95,15 +124,15 @@ def SNR_spot_estimation(frames: np.array, tracks: pd.DataFrame, base_level: int)
     :type base_level: int
     :return: DataFrame with added SNR column.
     :rtype: DataFrame
-    """
+    """    
 
-    nb_frames, nb_rows,nb_columns = frames.shape[0], frames.shape[1], frames.shape[2]
+    nb_frames,nb_rows,nb_columns = frames.shape[0],frames.shape[1],frames.shape[2]
     df = pd.DataFrame()
 
     for line in tracks.itertuples():
         Pixel_x = int(line.x)
         Pixel_y = int(line.y)
-        N = 7 #Half the size in pixel of  the square in which the gaussian is calculated
+        N = 7 #Half the size in pixel of  the square in which the gaussian is calculated 
 
         if Pixel_x>7 and Pixel_y>7 and Pixel_x<nb_columns-7 and Pixel_y<nb_rows-7:
             data = frames[line.frame,Pixel_y-N:Pixel_y+N,Pixel_x-N:Pixel_x+N]-base_level
@@ -136,37 +165,42 @@ def SNR_spot_estimation(frames: np.array, tracks: pd.DataFrame, base_level: int)
             df = pd.concat((df,pd.DataFrame([{'N':N, 'SNR':SNR,'feet':feet,
                              'particle':line.particle,
                              'frame':line.frame}])))
-
+            # df = df.append([{'N':N, 'SNR':SNR,'feet':feet,
+            #                  'particle': line.particle,
+            #                  'frame': line.frame}])
         else:
             df = pd.concat((df,pd.DataFrame([{'N':0, 'SNR':0,'feet':0,
                              'particle':line.particle,
                              'frame':line.frame}])))
+            # df = df.append([{'N':0, 'SNR':0,'feet':0,
+            #                  'particle':line.particle,
+            #                  'frame':line.frame}])
 
     tracks = tracks.merge(df, on=['particle', 'frame'], how='left')
     return tracks
 
 def acceleration_minimization_norm1(measure, sigma0, px, nn = 0):
-    """Experimental noise reduction algorithm.
+    """Experimental noise reduction algorithm. 
 
     :param measure: Measured data as x and y coordinates.
     :type measure: array (n, 2)
     :param sigma0: Standard deviation of localisation in nm.
     :type sigma0: int
-    :param px: Pixel size in µm.
+    :param px: Pixel size in µm.        
     :type px: float
     :param nn: Number of data points not taken into account at the extremities of the solution. For some methods, the extreme values are less reliable.
     :type nn: int, optional
     :return: Filtered solution with minimization of the norm 1 of the acceleration with difference between measured data and solution inferior or equal to the theoretical noise.
     :rtype: array (n-2*nn, 2)
-    """
+    """    
 
     measure = px*measure
-    n = len(measure)
+    n = len(measure)       
     variable = cp.Variable((n, 2))
     objective = cp.Minimize(cp.atoms.norm1(variable[2:,0]+variable[:-2,0] - 2*variable[1:-1,0])+cp.atoms.norm1(variable[2:,1]+variable[:-2,1] - 2*variable[1:-1,1]))
     constraints = [ cp.atoms.norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
     prob = cp.Problem(objective, constraints)
-
+    
     # prob.solve(solver='SCS',verbose=False,max_iters=10000,acceleration_lookback=10,mkl=False)
     prob.solve(solver='MOSEK',verbose=False) # Alternatively, 'GUROBI', 'MOSEK' or 'SCS'
 
@@ -185,13 +219,13 @@ def minimization(subdata: pd.DataFrame,px: float,sigma: int) -> pd.DataFrame:
     :type parameters: dict
     :return: DataFrame containing denoised x and y coordinates.
     :rtype: DataFrame
-    """
+    """    
 
     #Convert coordinates to µm
 
     array_x = subdata['x'].to_numpy()
     array_x = array_x[:, np.newaxis]
-
+    
     array_y = subdata['y'].to_numpy()
     array_y = array_y[:, np.newaxis]
 
@@ -221,9 +255,9 @@ def SNR_threshold(tracks: pd.DataFrame) -> pd.DataFrame:
 
     :param tracks: DataFrame containing trajectories.
     :type tracks: DataFrame
-    :return: DataFrame containing filtered trajectories.
+    :return: DataFrame containing filtered trajectories. 
     :rtype: DataFrame
-    """
+    """    
 
     threshold = 2 # To implement as an optional filter
 
@@ -243,7 +277,7 @@ def _gaussian(feet,height, center_x, center_y, width_x, width_y):
     :type feet, height, center_x, center_y, width_x, width_y: float
     :return: Gaussian function.
     :rtype: func
-    """
+    """    
 
     width_x = float(width_x)
     width_y = float(width_y)
@@ -257,7 +291,7 @@ def _spot_moments(data):
     :type data: NumPy array
     :return: Gaussian parameters. `feet` is calculated by averaging pixels on the edge of 'data'.
     :rtype: float
-    """
+    """    
 
     nbx = data.shape[0]
     nby = data.shape[1]
@@ -279,11 +313,11 @@ def _fit_spot_by_gaussian(data):
 
     Returns the gaussian fit parameters of a 2D distribution.
 
-    :param data: 2D array of a given frame.
+    :param data: 2D array of a given frame. 
     :type data: NumPy array
     :return: Gaussian fit parameters.
     :rtype: int
-    """
+    """    
 
     parameters = _spot_moments(data)
     feet = parameters[0]
@@ -328,7 +362,7 @@ def MSD_calculation(tracks: pd.DataFrame,px: float,dt: float) -> pd.DataFrame:
     :type dt: float
     :return: DataFrame with an extra column for maximum MSD.
     :rtype: DataFrame
-    """
+    """    
 
     df = pd.DataFrame()
     for traj in set(tracks.particle):
@@ -357,7 +391,7 @@ def MSD_calculation_p(tracks: pd.DataFrame,px: float,dt: float) -> pd.DataFrame:
     for subtracks in MSD_generator:
         if len(subtracks) > 1:
             df = pd.concat((df,subtracks))
-
+        
     return df
 
 def MSD_filtering(tracks: pd.DataFrame,threshold: int,highpass:bool = True) -> pd.DataFrame:
@@ -371,7 +405,7 @@ def MSD_filtering(tracks: pd.DataFrame,threshold: int,highpass:bool = True) -> p
     :type threshold: int
     :return: DataFrame of filtered trajectories.
     :rtype: DataFrame
-    """
+    """    
 
     df = pd.DataFrame()
     for item in set(tracks.particle):
@@ -409,11 +443,11 @@ def polynomial_fit(data: pd.DataFrame,len_cutoff: int,threshold: float):
     :type parameters: dict
     :return: `True` if the deviation is below the threshold, `False` if it is greater or equal.
     :rtype: Boolean.
-    """
+    """    
 
     # x = data.x
     # y = data.y
-    # Fewer trajectories are rejected if they are rotated first
+    # Fewer trajectories are rejected if they are rotated first    
     rot = rotate_single_track(data)
     x = rot.x_rotated
     y = rot.y_rotated
@@ -444,7 +478,7 @@ def rotate_single_track(data: pd.DataFrame) -> pd.DataFrame:
     :type data: DataFrame
     :return: DataFrame containing rotated x and y coordinates.
     :rtype: DataFrame
-    """
+    """    
     coords = data.loc[:, ['x', 'y']].values
     coords = coords - coords[0, :]
 
@@ -465,12 +499,71 @@ def rotate_single_track(data: pd.DataFrame) -> pd.DataFrame:
 
 ## Experimental
 
+def rej_threshold(linef, lined, threshold_t, threshold_r, df_start, df_end, temp_tracks, n_rejoined):
+
+    timed = lined.frame
+    timef = linef.frame
+    particle1 = linef.particle
+    particle2 = lined.particle
+
+    #Rejoins trajectories if they are within spatial and temporal range
+    if (timed > timef) and (timed - timef < threshold_t):
+        xd,yd = lined.x,lined.y
+        xf,yf = linef.x,linef.y
+        r = np.sqrt((xf-xd)**2 + (yf-yd)**2) 
+        if r < threshold_r and particle1 != particle2:
+            
+            df_start.loc[df_start['particle']==particle2,'particle']=particle1
+            df_end.loc[df_end['particle']==particle2,'particle']=particle1
+            temp_tracks.loc[temp_tracks['particle']==particle2,'particle']=particle1
+            df_start = df_start.loc[(df_start['frame']!=timed)&(df_start['particle']!=particle1)]
+            df_end = df_end.loc[(df_end['frame']!=timef)&(df_end['particle']!=particle1)]
+            n_rejoined += 1
+            return (particle1,particle2), n_rejoined
+
+    return None, n_rejoined
+        
+# def rejoining_joblib(tracks,threshold_t,threshold_r):  
+
+#     df_start = pd.DataFrame()
+#     df_end = pd.DataFrame()
+#     n_rejoined = 0
+#     temp_tracks = tracks.copy()
+#     #Get first and last point of each trajectory
+#     for item in set(tracks.particle):
+
+#         subtrack = tracks[tracks.particle==item]
+#         df_temp = subtrack[subtrack.frame==np.min(subtrack.frame)]
+#         df_start = pd.concat((df_start,df_temp),ignore_index=True)
+
+#         df_temp = subtrack[subtrack.frame==np.max(subtrack.frame)]
+#         df_end = pd.concat((df_end,df_temp),ignore_index=True)
+
+#         df_start = df_start.sort_values(by = 'frame', ascending=False)
+#         df_end = df_end.sort_values(by = 'frame', ascending=False)
+
+#     temp_tracks = tracks.copy()
+
+#     gen = Parallel(n_jobs=os.cpu_count(),return_as='generator')(delayed(rej_thresh)(linef, lined, threshold_t, threshold_r, df_start, df_end,\
+#         temp_tracks, n_rejoined) for linef in df_end.itertuples() for lined in df_start.itertuples())
+
+#     for line, n_rej in gen:
+#         n_rejoined += n_rej
+#         temp_tracks = pd.concat((temp_tracks,line),axis=0)
+
+#     temp_tracks.rename(columns = {'particle':'rejoined_particle'}, inplace = True)
+#     temp_tracks = temp_tracks.reset_index(drop=True)
+#     tracks = tracks.reset_index(drop=True)        
+#     tracks = pd.concat([tracks,temp_tracks[['rejoined_particle']]],axis=1,join='inner')
+
+#     return tracks, n_rejoined
+
 def prec(N):
     """Experimental fit of the precision of localisation.
 
     :param N: Integrated photon count.
     :type N: float
-    """
+    """    
 
     return(30+(600/(np.sqrt(N))))
 
@@ -489,16 +582,16 @@ def acceleration_minimization_norm1_pointwise_adaptative_error(measure, Signal, 
         For some methods, the extreme values are less reliable.
     Solver : string, default is 'SCS'
         default solver in cvxpy is ECOS which sometimes fail on complicated problems. SCS is more reliable but slower.
-
+    
     Returns
     -------
     solution : array (n-2*nn, 2)
-        filtered solution with
-        - minimization of the norm 1 of the acceleration
+        filtered solution with 
+        - minimization of the norm 1 of the acceleration 
         - constraint : difference between measured data and solution, weighted by Signal, inferior or equal to the esperance of difference between measured data and truth, also weighted by Signal
     """
 
-    n = len(measure)
+    n = len(measure)       
     variable = cp.Variable((n, 2))
     objective = cp.Minimize(cp.atoms.norm1(variable[2:,0]+variable[:-2,0] - 2*variable[1:-1,0])+cp.atoms.norm1(variable[2:,1]+variable[:-2,1] - 2*variable[1:-1,1]))
     Weights = np.zeros((n,2))
@@ -509,14 +602,14 @@ def acceleration_minimization_norm1_pointwise_adaptative_error(measure, Signal, 
 
     constraints = [ cp.atoms.norm(Constrained, 'fro')**2 <= 2*n ]
     prob = cp.Problem(objective, constraints)
-
+    
     prob.solve(solver = Solver, max_iters=100000)
     solution = variable.value
     if nn == 0:
         return solution, Estimated_Noise
     else:
         return solution[nn:n-nn]
-
+    
 def point_minimization(subdata,px):
     """Prepares data for pointwise minimization.
 
@@ -526,7 +619,7 @@ def point_minimization(subdata,px):
     :type parameters: dict
     :return: DataFrame containing denoised x and y coordinates.
     :rtype: DataFrame
-    """
+    """    
 
     #Convert coordinates to µm
     array_x = subdata['x'].to_numpy()
@@ -581,7 +674,7 @@ def GFP_mask(path,name,trajectories):
     mask = img
     mask[mask >= threshold] = 4096
     mask[mask < threshold] = 0
-
+    
     mask_list = []
 
     for x,y in zip(trajectories.x, trajectories.y):
@@ -614,7 +707,7 @@ def GFP_mask(path,name,trajectories):
     # trajectories['streak'] = streak_list
 
     return df
-
+    
 def longest_streak(lst: list) -> int:
     max_streak = 0
     current_streak = 0

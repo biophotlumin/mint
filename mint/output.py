@@ -5,6 +5,7 @@ import os
 import ast
 import sys
 import scs
+import yaml
 import cvxpy
 
 import numpy as np
@@ -14,7 +15,7 @@ import matplotlib.pyplot as plt
 
 from fpdf import FPDF
 from io import StringIO
-from pathlib import Path
+from pathlib import Path, PosixPath
 from datetime import datetime
 
 plt.switch_backend('agg')
@@ -34,11 +35,13 @@ def trajectory_output(output_file_path,name,process,output):
     :type output: DataFrame
     """
 
-    filecsv = Path(str(output_file_path)).joinpath(name+process+".csv") #Creates file path and name
+    # Create file path and name
+    filecsv = Path(str(output_file_path)).joinpath(name+process+".csv")
     output.to_csv(filecsv,sep='\t')
 
 def image_output(output_file_path,name,frames,trajectory,item):
-    """Plots trajectories onto the first frame of a file. Inputs a dictionary, a string, a NumPy array, and a DataFrame.
+    """Plots trajectories onto the first frame of a file. Inputs a dictionary, 
+        a string, a NumPy array, and a DataFrame.
 
     :param output_file_path: Current output file path.
     :type output_file_path: str or Path
@@ -48,20 +51,22 @@ def image_output(output_file_path,name,frames,trajectory,item):
     :type frames: str
     :param trajectory: DataFrame containing the trajectory to be plotted.
     :type trajectory: DataFrame
-    :param item: Number of the trajectory to be plotted. Pass False to plot all trajectories.
+    :param item: Number of the trajectory to be plotted. 
+        Pass False to plot all trajectories.
     :type item: int, boolean
     """  
 
     # Initialize plot
     plt.imshow(frames[0])
-    plt.gca().invert_yaxis() # Plotting the y axis inverts it by default, so it must be inverted again
+    # Plotting the y axis inverts it by default, so it must be inverted again
+    plt.gca().invert_yaxis() 
     bbox_props = dict(boxstyle="round", fc="w", ec="w")
     arrow_props = dict(arrowstyle="simple")
 
     trajectories = []
     if isinstance(item, bool):
         plt.title('Trajectories from '+name)
-        filepng = Path(str(output_file_path)).joinpath(name+".png") #Creates file path and name
+        filepng = Path(str(output_file_path)).joinpath(name+".png")
         for item in set(trajectory.rejoined_particle):
             trajectories.append(item)
     else:
@@ -75,7 +80,8 @@ def image_output(output_file_path,name,frames,trajectory,item):
         plt.plot(x,y,lw=0.5)
         if len(trajectories)>1:
             x0,y0 = x.iloc[0],y.iloc[0]
-            plt.annotate(str(item),xy=(x0,y0),xytext=(x0+30,y0+30),bbox=bbox_props,arrowprops=arrow_props, size = 4)
+            plt.annotate(str(item),xy=(x0,y0),xytext=(x0+30,y0+30),bbox=bbox_props,
+                         arrowprops=arrow_props, size = 4)
 
     plt.savefig(filepng,dpi=300)
     plt.close()
@@ -83,7 +89,8 @@ def image_output(output_file_path,name,frames,trajectory,item):
 def trajectory_separation(output_file_path,name,trajectory,settings,sub):
     """Separates individual trajectories and writes them into .txt files. 
 
-    For each trajectory contained in the DataFrame, removes unnecessary columns, reindexes the remaining ones, and writes it into a .txt file.
+    For each trajectory contained in the DataFrame, removes unnecessary columns, 
+        reindexes the remaining ones, and writes it into a .txt file.
 
     :param output_file_path: Current output file path.
     :type output_file_path: str or Path
@@ -91,28 +98,31 @@ def trajectory_separation(output_file_path,name,trajectory,settings,sub):
     :type name: string
     :param trajectory: Number of the trajectory being plotted.
     :type trajectory: int
-    :param settings: Dictionary specifying wether or not a specific process should be applied.
+    :param settings: Dictionary specifying wether or not 
+        a specific process should be applied.
     :type settings: dict
     :param sub: Subset of the DataFrame containing the trajectories.
     :type sub: DataFrame
     """    
 
-    file = Path(str(output_file_path)).joinpath(name+"-"+str(trajectory)+".txt") # Create file path and name
+    file = Path(str(output_file_path)).joinpath(name+"-"+str(trajectory)+".txt")
     pd.options.mode.chained_assignment = None
-    if settings['SNR_estimation'] == True: # Check wether SNR_estimation was used
-        sub.drop(sub.columns.difference(['y','x','mass','feet']), axis='columns', inplace=True) # If it was, drops the following columns
+    if settings['SNR_estimation'] is True: # Check wether SNR_estimation was used
+        sub.drop(sub.columns.difference(['y','x','mass','feet']), 
+                 axis='columns', inplace=True) # If it was, drops the following columns
         sub.columns = ['Yraw','Xraw','mass','feet']
         sub = sub.reindex(columns = ['Xraw','Yraw','mass','feet'])
         sub = sub.rename(columns={"mass":"Signal" , "feet":"Noise"})
     else:
-        sub.drop(sub.columns.difference(['y','x','mass']), axis='columns', inplace=True) # If not, drops only the columns that aren't added by SNR_estimation
+        sub.drop(sub.columns.difference(['y','x','mass']), 
+                 axis='columns', inplace=True) # If not, drops only the columns that aren't added by SNR_estimation
         sub.columns = ['Yraw','Xraw','mass']
         sub = sub.reindex(columns = ['Xraw','Yraw','mass'])
         sub = sub.rename(columns={"mass":"Signal"})
 
     sub.to_csv(file, sep = '\t',index = False)
 
-def dict_dump(path,dict,file_name):
+def dict_dump_legacy(path,dict,file_name):
     """Writes the content of a dictionary into a .txt file
 
     :param path: Folder where the dictionary will be saved.
@@ -127,7 +137,7 @@ def dict_dump(path,dict,file_name):
         for k, v in dict.items():
             dict_txt.write(f'{str(k)} : {str(v)}\n')
 
-def dict_load(input_folder,dict):
+def dict_load_legacy(input_folder,dict):
     """Load a dictionary from a text file.
 
     :param input_folder: Folder where the dictionary is located.
@@ -149,8 +159,37 @@ def dict_load(input_folder,dict):
 
     return loaded_dict
 
+def dict_dump(path,data: dict,file_name: str,overwrite: bool=False):
+
+    data = data.copy() # Just in case the dict has to be modified
+
+    for k,v in data.items(): # YAML doesn't like PosixPath, convert to string
+        if isinstance(v,PosixPath):
+            data[k] = str(data[k])
+        elif isinstance(v,np.float64):
+            data[k] = float(data[k])
+
+    file_path = Path(path).joinpath(f'{file_name}.yml')
+    if file_path.is_file(): # Check for existing file
+        if overwrite is True:
+            with open(file_path, 'w') as f: # Overwrite if required
+                yaml.dump(data,f)
+        else:
+            old_dict = yaml.safe_load(open(file_path))
+            old_dict.update(data) # Otherwise update the preexisting dict
+            with open(file_path, 'w') as f:
+                yaml.dump(old_dict,f)
+    else:
+        with open(file_path, 'w') as f: # Otherwise create the file
+            yaml.dump(data,f)
+
+def dict_load(path,name: str):
+
+    return yaml.safe_load(open(Path(path).joinpath(f'{name}.yml')))
+
 # Functions generating PDF reports through FPDF
 # Code is a bit messy and likely to break, but works for now
+# (as long as there is no space in the name of the conditons)
 
 def ind_page(pdf,list_var,input_folder,order,parameters,settings,n_cond):
     """Generate individual page.
@@ -179,15 +218,17 @@ def ind_page(pdf,list_var,input_folder,order,parameters,settings,n_cond):
 
     for path, subfolder, files in os.walk(input_folder): # Embed plots side by side
         for name in files:
-            if name == 'Barplot '+str(order).replace(',','')+' '+list_var[0].lower().strip('\n')+'.'+str(parameters['extension_out']).strip("'"):
+            if name == 'Barplot '+str(order).replace(',','')+'\
+                  '+list_var[0].lower().strip('\n')+'.'+str(parameters['extension_out']).strip("'"):
                 file_path = os.path.join(path, name) 
                 pdf.image(file_path,w=pdf.epw/2)
-                if settings['clean_up'] == True:
+                if settings['clean_up'] is True:
                     os.remove(file_path)
-            elif name == 'Boxplot '+str(order).replace(',','')+' '+list_var[0].lower().strip('\n')+'.'+str(parameters['extension_out']).strip("'"):    
+            elif name == 'Boxplot '+str(order).replace(',','')+'\
+                  '+list_var[0].lower().strip('\n')+'.'+str(parameters['extension_out']).strip("'"):    
                 file_path = os.path.join(path, name)
                 pdf.image(file_path,w=pdf.epw/2,x=(pdf.epw/2)+15,y=top_of_page)
-                if settings['clean_up'] == True:
+                if settings['clean_up'] is True:
                     os.remove(file_path)
     pdf.ln(5)
 
@@ -236,11 +277,13 @@ def ind_page(pdf,list_var,input_folder,order,parameters,settings,n_cond):
 
         pdf.ln()
         for i,row in enumerate(data):
-            pdf.multi_cell(col_width, line_height, str(df.index.values[i]), border=1, align='C',
-                        new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size)
+            pdf.multi_cell(col_width, line_height, str(df.index.values[i]), border=1,
+                            align='C', new_x="RIGHT", new_y="TOP",
+                              max_line_height=pdf.font_size)
             for datum in row:
-                pdf.multi_cell(col_width, line_height, str(round(datum[1],6)), border=1, align = 'C',
-                        new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size)
+                pdf.multi_cell(col_width, line_height, str(round(datum[1],6)), border=1,
+                                align = 'C', new_x="RIGHT", new_y="TOP",
+                                  max_line_height=pdf.font_size)
             pdf.ln(line_height)
         end_of_ind_table = pdf.get_y()
         dunn +=1
@@ -255,7 +298,8 @@ def ind_page(pdf,list_var,input_folder,order,parameters,settings,n_cond):
 
     df2 = df2.drop([0])
     df2 = df2.drop(['deviation'],axis=1)
-    df2 = df2.rename(columns={'Sample':'Condition','size':'Sample size','Standard':'Standard deviation'})
+    df2 = df2.rename(columns={'Sample':'Condition','size':'Sample size',
+                              'Standard':'Standard deviation'})
     df2 = df2.round(decimals=6)
 
     pdf.set_xy(-110,top_of_ind_table)
@@ -294,7 +338,7 @@ def generate_report(input_folder):
     settings = dict_load(input_folder,'settings') 
     vars = dict_load(input_folder,'vars')
 
-    if settings['ordering'] == True:
+    if settings['ordering'] is True:
         order = parameters['order']
     else:
         order = log['raw_order']
@@ -308,30 +352,30 @@ def generate_report(input_folder):
     for k in ['dpi','extension_out','order','extension_in']:
         disp_params.pop(k)
 
-    if settings['stub_filtering'] == False:
+    if settings['stub_filtering'] is False:
         disp_params.pop('stub_filtering')
 
-    if settings['MSD'] == False:
+    if settings['MSD'] is False:
         disp_params.pop('msd')
 
-    if settings['rejoining'] == False:
+    if settings['rejoining'] is False:
         for k in ['threshold_t','threshold_r']:
             disp_params.pop(k)
 
-    if settings['SNR_estimation'] == False:
+    if settings['SNR_estimation'] is False:
         disp_params.pop('base_level')
 
-    if settings['polynomial_fit'] == False:
+    if settings['polynomial_fit'] is False:
         for k in ['len_cutoff','threshold_poly3']:
             disp_params.pop(k)
 
-    if settings['minimization'] == False:
+    if settings['minimization'] is False:
         disp_params.pop('sigma')
     
     for k in ['ordering','clean_up']:
         disp_settings.pop(k)
 
-    order = ast.literal_eval(order)
+    # order = ast.literal_eval(str(order))
 
     n_cond = len(order)
 
@@ -436,4 +480,7 @@ def generate_report(input_folder):
     print('Generating report... Done\r')
 
 if __name__ == '__main__':
-    generate_report(r'')
+    # generate_report(r'/media/lumin/DATA/DATA_DEVRIM Results - 20231214_132940 gfp ok/DATA_DEVRIM Results - 20231214_212651 fixed')
+    # td = {'a':1,'b':2}
+    td = {'b':3,'c':5}
+    dict_dump(td,'./','td',overwrite=True)

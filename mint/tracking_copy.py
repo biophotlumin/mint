@@ -183,7 +183,7 @@ def tracking(input_folder,parameters,settings,log):
 
     path_list, name_list = get_file_list(str(input_folder), parameters['extension_in'])
 
-    track_gen = Parallel(n_jobs=int(24),return_as='generator', backend='loky', batch_size='auto')(delayed(tracking_gen)(settings,parameters,log,path,name,) \
+    track_gen = Parallel(n_jobs=int(20),return_as='generator', backend='loky', batch_size='auto')(delayed(tracking_gen)(settings,parameters,log,path,name,) \
         for (path, name) in zip(path_list,name_list))
     
     j = 1

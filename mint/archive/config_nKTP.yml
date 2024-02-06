@@ -1,10 +1,8 @@
-input_folder: 
-
 parameters:
-  extension_in: nd2 
+  extension_in: tif 
   #trackpy.batch
-  diameter: 7
-  minmass:  40
+  diameter:  9
+  minmass:  300
   separation: 12
   #trackpy.link
   search_range: 6
@@ -13,23 +11,23 @@ parameters:
   adaptive_step: 0.9
   stub_filtering: 3 # Minimum length of trajectories, in points
   #trackpy.motion.msd
-  msd: 3 # Threshold for MSD filtering
+  msd: 9 # Threshold for MSD filtering
   # SNR estimation
   base_level: 0 # Base level for SNR estimation
   # Rejoining
   threshold_t: 10 # Temporal threshold for trajectory rejoining, in frames
   threshold_r: 40 # Spatial threshold for trajectory rejoining, in pixels
   # Data Extraction
-  r_conf_cut :  0.817 # Confinement ratio cutoff between GO and STOP phases
-  px :  0.11 # Pixel size, in µm
+  r_conf_cut :  0.64 # Confinement ratio cutoff between GO and STOP phases
+  px :  0.173 # Pixel size, in µm
   dt :  0.05 # Time interaval between frames, in s
   min_thr_prec :  50 # Minimum theoretical precision, in nm
   sliding_window: 3 # Sliding window for confinement ratio calculation
   sigma: 129 # Estimated precision of localization, in nm
-  len_cutoff: 10 # Number of points
-  threshold_poly3: 1 # Deviation from third-degree polynom
+  len_cutoff: 30 # Number of points
+  threshold_poly3: 1.4 # Deviation from third-degree polynom
   # Stats
-  order: [Condition 1,Condition 2,Condition 3] # Order of conditions in tables and graphs
+  order: [WT,HET,HOM] # Order of conditions in tables and graphs
   extension_out: svg # File extension of saved graphs
   dpi: 300 # DPI of saved graphs if they're not vectorial
 
@@ -37,10 +35,10 @@ parameters:
 # Optional image and trajectory processing
 
 settings: 
-  parallel: True
+  parallel: False
   # Denoising
   tophat: True
-  wavelet: True
+  wavelet: False
   # Processing
   stub_filtering: False
   MSD: True
@@ -52,10 +50,10 @@ settings:
   group_image: True
   # Data Extraction
   polynomial_fit: True
-  minimization: False
-  theta: False
+  minimization: True
+  theta: True
   antero_retro: True
   conf_list: False
   # Stats
-  ordering: False
+  ordering: True
   clean_up: False
