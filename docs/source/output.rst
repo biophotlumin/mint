@@ -1,7 +1,7 @@
 output module
 =============
 
-.. automodule:: output
+.. automodule:: mint.output
    :members:
    :undoc-members:
    :show-inheritance:

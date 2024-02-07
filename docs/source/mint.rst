@@ -1,7 +1,7 @@
 mint module
 ===========
 
-.. automodule:: mint
+.. automodule:: mint.mint
    :members:
    :undoc-members:
    :show-inheritance:

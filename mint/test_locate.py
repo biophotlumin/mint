@@ -12,8 +12,8 @@ import trackpy as tp
 import matplotlib.pyplot as plt
 
 from pathlib import Path
-from utils import get_file_list
-from denoising import tophat, wavelet
+from .utils import get_file_list
+from .denoising import tophat, wavelet
 
 # plt.switch_backend('TkAgg')
 
@@ -37,11 +37,12 @@ def test_locate(input_folder, parameters, settings):
     :type parameters: dict
     :param settings: Dictionary containing calculation settings.
     :type settings: dict
-    """    
+    """
 
     path_list, name_list = get_file_list(input_folder, parameters['extension_in'])
 
-    for (path, name, j) in zip(path_list, name_list, [j for j in range(len(path_list))]):
+    for (path, name, j) in zip(path_list, name_list,
+                               [j for j in range(len(path_list))]):
 
         print(f'\nProcessing {name}')
 
@@ -89,12 +90,14 @@ def test_locate(input_folder, parameters, settings):
         separation_range = get_range(parameters['separation'],
                                      parameters['separation_scaling'])
 
-        output_folder = Path(input_folder).parent.joinpath(f'{name} - Locate parameters test')
+        output_folder = Path(input_folder).parent.joinpath(
+            f'{name} - Locate parameters test')
         if not Path.is_dir(output_folder):
             os.makedirs(output_folder)
 
         matplotlib.use('Agg')
-        values_tup = [(diameter, minmass, separation) for diameter in diameter_range for minmass in minmass_range for separation in separation_range]
+        values_tup = [(diameter, minmass, separation) for diameter in diameter_range
+                      for minmass in minmass_range for separation in separation_range]
         for diameter, minmass, separation in values_tup:
             raw_coordinates = tp.locate(processed_frame,
                                         minmass=minmass,
@@ -141,5 +144,5 @@ if __name__ == '__main__':
         'show_filter': False,
     }
 
-    input_folder = r'/home/lumin/Documents/Test Devrim/20231123_KG_Exp46_Transport_CS6C_pos3007.nd2'
+    input_folder = r''
     test_locate(input_folder, parameters, settings=settings)

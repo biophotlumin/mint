@@ -44,22 +44,24 @@ stats_vars = { # Variables of interest as keys, labels as values
         'phase_dir_total': 'Number of retrograde phases over total number of phases',
         'switch_normal': 'Directionality reversal per µm',
         'switch_var_stop': 'Variation of intensity in STOP phases of reversal',
-        'theta_std_go': 'Standard deviation of θ in GO phases', # Theta might cause issues on Windows
-        'theta_std_stop': 'Standard deviation of θ in STOP phases', # despite being UTF-8
+        # Theta might cause issues on Windows despite being UTF-8
+        'theta_std_go': 'Standard deviation of θ in GO phases',
+        'theta_std_stop': 'Standard deviation of θ in STOP phases',
         'pausing_time_antero': 'Pausing time in anterograde motion (s)',
         'pausing_time_retro': 'Pausing time in retrograde motion (s)',
         'pausing_time_switch': 'Pausing time in bidirectional motion (s)',
+        # Must be kept last in the dict !
         'fraction_moving': 'Fraction of moving particles',
-        'fraction_moving_msd': 'Fraction of moving particles (MSD)' # Must be kept last in the dict !
+        'fraction_moving_msd': 'Fraction of moving particles (MSD)'
 
 }
-
-statistical_tests = {'kruskal': 'Kruskal-Wallis ', #Function names as keys, label as values (with a trailing space)
+# Function names as keys, label as values (with a trailing space)
+statistical_tests = {'kruskal': 'Kruskal-Wallis ',
                      'ranksums': 'rank-sums ',
                      't_test': 't-',
                      }
 
-def statistical_analysis(settings: dict, parameters: dict, input_folder: Path_type) -> None:
+def statistical_analysis(settings: dict, parameters: dict, input_folder: Path_type):
     """Perform statistical analysis.
 
     Scans through .csv files and runs them through statistical analysis.
@@ -72,10 +74,10 @@ def statistical_analysis(settings: dict, parameters: dict, input_folder: Path_ty
     : type input_folder:  str or Path
     """
 
-    for path, subfolder, files in os.walk(input_folder):  # Scan entire folder structure for files
+    for path, subfolder, files in os.walk(input_folder):
         for name in files:
-            if name.endswith('rajectory_parameters.csv') is False:   # Check for correct file
-                continue # Skip to next file if not correct .csv
+            if name.endswith('rajectory_parameters.csv') is False:
+                continue
 
             file_path = os.path.join(path, name)
             data = pd.read_csv(file_path, sep=csv_sniffer(file_path))
@@ -87,7 +89,7 @@ def statistical_analysis(settings: dict, parameters: dict, input_folder: Path_ty
 
             run_stats(settings, parameters, act_variables, data, input_folder)
 
-def run_stats(settings,parameters, act_variables, data, input_folder):
+def run_stats(settings, parameters, act_variables, data, input_folder):
     """Statistical tests and plotting functions for each variable of interest.
 
     : param ordering:  Optional order of experimental conditions in graphs.
@@ -100,29 +102,39 @@ def run_stats(settings,parameters, act_variables, data, input_folder):
     : type data:  DataFrame
     : param input_folder:  Folder containing .csv file to be analysed.
     : type input_folder:  str or Path
-    : raises RuntimeError:  Raises error in case the order list does not match actual data.
+    : raises RuntimeError:  Raises error in case the order list does not match data.
     """
 
     # Uncomment for subpopulation analysis
 
-    # non_antero = data.loc[data['directionality']>0] #Everything but purely anterograde trajectories
-    # non_retro = data.loc[data['directionality']<1] #Everything but purely retrograde trajectories
-    # mixed = non_antero.loc[non_antero['directionality']<1] #Everything but unidirectional trajectories
-    # pure_retro = data.loc[data['directionality']==1] #Purely retrograde trajectories
-    # pure_antero = data.loc[data['directionality']==0] #Purely anterograde trajectories
-    # left = data.loc[data['slide']=='oeil_gauche'] #Left eye only
-    # right = data.loc[data['slide']=='oeil_droit'] #Right eye only
+    # Everything but purely anterograde trajectories
+    # non_antero = data.loc[data['directionality']>0]
+    # Everything but purely retrograde trajectories
+    # non_retro = data.loc[data['directionality']<1]
+    # Everything but unidirectional trajectories
+    # mixed = non_antero.loc[non_antero['directionality']<1]
+    # Purely retrograde trajectories
+    # pure_retro = data.loc[data['directionality']==1]
+    # Purely anterograde trajectories
+    # pure_antero = data.loc[data['directionality']==0]
+    # Left eye only
+    # left = data.loc[data['slide']=='oeil_gauche']
+    # Right eye only
+    # right = data.loc[data['slide']=='oeil_droit']
     # gfp_pos = data.loc[data['gfp']=="[ True]"]
     # data = gfp_pos
 
     if settings['ordering']:
         order = parameters['order'] # Optionally order by condition
         if len(order) != data.condition.nunique():
-            raise RuntimeError('Length of order list does not match number of conditions')
+            raise RuntimeError(
+                'Length of order list does not match number of conditions')
         if any(c not in data.condition.unique() for c in order):
-            raise RuntimeError('Item(s) in order list not found in conditions')
+            raise RuntimeError(
+                'Item(s) in order list not found in conditions')
         if len(order) != len(set(order)):
-            raise RuntimeError('Order list contains duplicates')
+            raise RuntimeError(
+                'Order list contains duplicates')
 
         data['condition_sorted'] = data.condition.astype("category")
         data.condition_sorted = data.condition_sorted.cat.set_categories(order)
@@ -152,11 +164,12 @@ def run_stats(settings,parameters, act_variables, data, input_folder):
     results = []
 
     print('Calculating stats for : ')
-    for k,v in act_variables.items():
+    for k, v in act_variables.items():
         print(f'\t{k}')
 
+        # Must be kept last in the stats_vars dict as to not interfere with the others
         if k == 'fraction_moving':
-            data = data.drop_duplicates(subset='file') # Must be kept last in the stats_vars dict as to not interfere with the others
+            data = data.drop_duplicates(subset='file')
 
         if data.condition.nunique() > 2:
             if normality(data, k) is False:  # Check for normality
@@ -213,7 +226,7 @@ def run_variable(var, normal, test, data, dunn_b, input_folder, parameters):
         var_res.append(f'Distribution of {str(var)} is not normal \n')
 
     if test:
-        p_value = eval(test)(data,var)
+        p_value = eval(test)(data, var)
         var_res.append(f'p-value of {statistical_tests[test]}test for '
                        f'{var} is {str(round(p_value, 6))}\n')
     else:
@@ -225,10 +238,10 @@ def run_variable(var, normal, test, data, dunn_b, input_folder, parameters):
     boxplot(data, var, input_folder, str(round(p_value, 6)), parameters)
     barplot(data, var, input_folder, str(round(p_value, 6)), parameters)
 
-    var_res.append(f'Sample size of {var} is {round(means(data,var)[0],6)}\n')
-    var_res.append(f'Mean of {var} is {round(means(data,var)[1],6)}\n')
-    var_res.append(f'Median of {var} is {round(means(data,var)[2],6)}\n')
-    var_res.append(f'Standard deviation of {var} is {round(means(data,var)[3],6)}\n')
+    var_res.append(f'Sample size of {var} is {round(means(data, var)[0], 6)}\n')
+    var_res.append(f'Mean of {var} is {round(means(data, var)[1], 6)}\n')
+    var_res.append(f'Median of {var} is {round(means(data, var)[2], 6)}\n')
+    var_res.append(f'Standard deviation of {var} is {round(means(data, var)[3], 6)}\n')
     var_res.append('\n')
 
     var_df = pd.DataFrame(columns=['Condition', 'Sample size', 'Mean', 'Median',
@@ -243,7 +256,7 @@ def run_variable(var, normal, test, data, dunn_b, input_folder, parameters):
 
     return var_res
 
-def ranksums(data:  pd.DataFrame,variable:  str) -> float:
+def ranksums(data:  pd.DataFrame, variable:  str) -> float:
     """Two-sided Mann-Whitney U test
 
     : param data:  DataFrame containing trajectory parameters.
@@ -275,13 +288,13 @@ def kruskal(data:  pd.DataFrame, variable:  str) -> float:
 
     list_of_arrays = []
     for index in data.condition.unique():
-        list_of_arrays.append(data.loc[data.condition==index, variable])
+        list_of_arrays.append(data.loc[data.condition == index, variable])
 
-    p = stats.kruskal(*list_of_arrays,nan_policy='omit')[1]
+    p = stats.kruskal(*list_of_arrays, nan_policy='omit')[1]
 
     return p
 
-def t_test(data:  pd.DataFrame,variable:  str) -> float:
+def t_test(data:  pd.DataFrame, variable:  str) -> float:
     """t-test.
 
     : param data:  DataFrame containing trajectory parameters.
@@ -294,13 +307,13 @@ def t_test(data:  pd.DataFrame,variable:  str) -> float:
 
     list_of_arrays = []
     for index in data.condition.unique():
-        list_of_arrays.append(data.loc[data.condition==index, variable])
+        list_of_arrays.append(data.loc[data.condition == index, variable])
 
-    p = stats.ttest_ind(*list_of_arrays,nan_policy='omit')[1]
+    p = stats.ttest_ind(*list_of_arrays, nan_policy='omit')[1]
 
     return p
 
-def dunn(data:  pd.DataFrame,variable:  str) -> str:
+def dunn(data:  pd.DataFrame, variable:  str) -> str:
     """Dunn's test.
 
     : param data:  DataFrame containing trajectory parameters.
@@ -314,7 +327,7 @@ def dunn(data:  pd.DataFrame,variable:  str) -> str:
     list_of_arrays = []
     conditions_list = []
     for index in data.condition.unique():
-        list_of_arrays.append(data.loc[data.condition==index, variable])
+        list_of_arrays.append(data.loc[data.condition == index, variable])
         conditions_list.append(index)
 
     p = sp.posthoc_dunn(list_of_arrays)
@@ -323,11 +336,11 @@ def dunn(data:  pd.DataFrame,variable:  str) -> str:
     for i in range(len(list_of_arrays)):  # Rename DataFrame with analysed conditions
         index.append(i+1)
     label_dict = dict(zip(index, conditions_list))
-    p.rename(index=label_dict,columns=label_dict,inplace=True)
+    p.rename(index=label_dict, columns=label_dict, inplace=True)
 
     return p.to_string()
 
-def boxplot(data,variable,input_folder,p,parameters):
+def boxplot(data, variable, input_folder, p, parameters):
     """Box plot.
 
     Generate a box plot, with a notch at the median,
@@ -347,16 +360,19 @@ def boxplot(data,variable,input_folder,p,parameters):
 
     sns.set_theme(style="ticks", palette=sns.color_palette("deep")) # 'crest'
     sns.boxplot(x=data['condition'],
-            y=data[variable],hue=data['condition'], width=0.35, notch=True,
-            data=data, showfliers =False,linewidth=1)
+            y=data[variable], hue=data['condition'], width=0.35, notch=True,
+            data=data, showfliers=False, linewidth=1)
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(stats_vars[variable])
-    plt.annotate((f'p-value :  {p}'),xy=(195,310),xycoords='figure points')
-    plt.savefig(Path(input_folder).joinpath(f'Boxplot {str(data["condition"].unique())} {variable}.{parameters["extension_out"]}'),dpi=parameters["dpi"])
+    plt.annotate((f'p-value :  {p}'), xy=(195, 310), xycoords='figure points')
+    plt.savefig(Path(input_folder).joinpath((f'Boxplot '
+                                             f'{str(data["condition"].unique())} '
+                                             f'{variable}.{parameters["extension_out"]}')),
+                                             dpi=parameters["dpi"])
     plt.close()
 
-def barplot(data,variable,input_folder,p,parameters):
+def barplot(data, variable, input_folder, p, parameters):
     """Bar plot.
 
     Generate a bar plot, with SEM as error bars,
@@ -377,34 +393,38 @@ def barplot(data,variable,input_folder,p,parameters):
     error = []
 
     for i in data['condition'].unique():
-        error.append(stats.sem(data[variable].loc[data['condition']==i],nan_policy='omit')
-                     if len(data)>3 else 0)
+        error.append(stats.sem(data[variable].loc[data['condition'] == i],
+                               nan_policy='omit') if len(data) > 3 else 0)
 
     # Order isn't properly inferred from DataFrame for columns with missing values
     # since seaborn 13.0, need to pass order explicitly
-    # bars = sns.barplot(y=data[variable].dropna(),x=data['condition'],estimator=mean, errorbar=None,\
-    #         order = parameters['order'], error_kw={'elinewidth': 2,'capsize': 4,'capthick': 2},hue=data['condition'])
     data = data.dropna()
-    bars = sns.barplot(data=data,y=variable,x='condition',estimator=mean, errorbar=None,
-                       hue='condition',order = parameters['order'],
-                       error_kw={'elinewidth': 2,'capsize': 4,'capthick': 2})
+    bars = sns.barplot(data=data, y=variable, x='condition', estimator=mean,
+                       errorbar=None, hue='condition', order=parameters['order'],
+                       error_kw={'elinewidth': 2, 'capsize': 4, 'capthick': 2})
 
-    # Can't pass a list to yerr directly since seaborn 13.0, need to plot errorbars independently
+    # Can't pass a list to yerr directly since seaborn 13.0,
+    # need to plot errorbars independently
     # If `hue` isn't used above :
     bars = bars.containers # bars = bars.containers[0]
-    x_coordinates = [bar[0].get_x() + bar[0].get_width() / 2 for bar in bars] # Remove [0] here
-    y_coordinates = [bar[0].get_height() for bar in bars] # and here
-    plt.errorbar(x_coordinates, y_coordinates, yerr=error,elinewidth=2,capsize=4,
-                 capthick=2, fmt='None',ecolor='black')
+    # Remove [0] here
+    x_coordinates = [bar[0].get_x() + bar[0].get_width() / 2 for bar in bars]
+    # and here
+    y_coordinates = [bar[0].get_height() for bar in bars]
+    plt.errorbar(x_coordinates, y_coordinates, yerr=error, elinewidth=2, capsize=4,
+                 capthick=2, fmt='None', ecolor='black')
 
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(stats_vars[variable])
-    plt.annotate((f'p-value :  {p}'),xy=(195,310),xycoords='figure points')
-    plt.savefig(Path(input_folder).joinpath(f'Barplot {str(data["condition"].unique())} {variable}.{parameters["extension_out"]}'),dpi=parameters["dpi"])
+    plt.annotate((f'p-value :  {p}'), xy=(195, 310), xycoords='figure points')
+    plt.savefig(Path(input_folder).joinpath(f'Barplot '
+                                            f'{str(data["condition"].unique())} '
+                                            f'{variable}.{parameters["extension_out"]}'),
+                                            dpi=parameters["dpi"])
     plt.close()
 
-def violinplot(data,variable,p):
+def violinplot(data, variable, p):
     """Violin plot.
 
     : param data:  DataFrame containing trajectory parameters.
@@ -415,11 +435,11 @@ def violinplot(data,variable,p):
     : type p:  float
     """
 
-    sns.violinplot(x=data['condition'],y=data[variable],inner='box',cut=0)
+    sns.violinplot(x=data['condition'], y=data[variable], inner='box', cut=0)
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(stats_vars[variable])
-    plt.annotate(("p-value :  "+p),xy=(195,310),xycoords='figure points')
+    plt.annotate(("p-value :  "+p), xy=(195, 310), xycoords='figure points')
     plt.show()
 
 def normality(data:  pd.DataFrame, variable:  str) -> bool:
@@ -468,7 +488,7 @@ def means(data:  pd.DataFrame, variable:  str):
 
 if __name__ == '__main__':
 
-    input_folder = r'/media/lumin/DATA/DATA_DEVRIM Results - 20231214_132940 gfp ok/DATA_DEVRIM_GFP Results - 20240104_145046'
+    input_folder = r''
     parameters = {
                 'extension_out': 'png',
                 'dpi': 300,

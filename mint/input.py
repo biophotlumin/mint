@@ -20,6 +20,9 @@ except ImportError:
     IJ_INSTALLED = False
 
 class BaseReader(abc.ABC):
+    """
+    Abstract base class for video readers.
+    """
 
     def __init__(self):
         self.name = 'Base reader'
@@ -90,6 +93,14 @@ class BioFormatsReader(BaseReader):
         return frames
 
 def get_frames(file_path: Path_type) -> np.ndarray:
+    """Get frames from a file.
+    Reader selected based on file extension.
+
+    :param file_path: File path
+    :type file_path: Path_type
+    :return: 3D array of frames
+    :rtype: np.ndarray
+    """
 
     extension = Path(file_path).suffix
 

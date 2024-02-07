@@ -1000,6 +1000,7 @@ def data_extraction(input_folder: Path_type, parameters: dict, settings: dict):
                                                     parameters, settings)
 
     # Write results to .csv files
+    trajectory_parameters.sort_values(by=['file', 'trajectory'], inplace=True)
     trajectory_parameters.to_csv(traj_parameters_output, sep='\t')
     phase_parameters.drop(['min_x', 'max_x', 'min_y', 'max_y'], axis='columns',
                           inplace=True)

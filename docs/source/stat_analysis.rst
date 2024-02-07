@@ -1,7 +1,7 @@
 stat\_analysis module
 =====================
 
-.. automodule:: stat_analysis
+.. automodule:: mint.stat_analysis
    :members:
    :undoc-members:
    :show-inheritance:

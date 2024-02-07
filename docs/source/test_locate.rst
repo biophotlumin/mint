@@ -1,7 +1,7 @@
 test\_locate module
 ===================
 
-.. automodule:: test_locate
+.. automodule:: mint.test_locate
    :members:
    :undoc-members:
    :show-inheritance:

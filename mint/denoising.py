@@ -10,14 +10,14 @@ from joblib import Parallel, delayed
 def tophat(separation: int, frame: np.ndarray) -> np.ndarray:
     """Applies top-hat transform.
 
-    Frame-by-frame top-hat filtering with `cv2.MORPH_TOPHAT`. Removes artifacts.
+    Top-hat filtering with `cv2.MORPH_TOPHAT`. Removes artifacts.
 
     :param separation: Minimum distance (in pixels) between features.
     :type separation: dict
     :param frame: 2D array of unfiltered data.
-    :type frame: NumPy array
+    :type frame: np.ndarray
     :return: 2D array of filtered data.
-    :rtype: NumPy array
+    :rtype: np.ndarray
     """
 
     kernelC = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (separation, separation))
@@ -29,7 +29,7 @@ def lowpass() -> tuple[np.ndarray, np.ndarray]:
     """Defines a pair of arrays for low pass filtering.
 
     :return: Arrays for low pass filtering.
-    :rtype: NumPy array
+    :rtype: np.ndarray
     """
 
     h0 = 3./8
@@ -51,12 +51,12 @@ def lowpass() -> tuple[np.ndarray, np.ndarray]:
 def wavelet(frame: np.ndarray) -> np.ndarray:
     """Applies wavelet denoising.
 
-    Uses two low-pass filers and `scipy.signal.convolve2d` to remove background noise.
+    Uses two lowpass filers and `scipy.signal.convolve2d` to remove background noise.
 
     :param frame: 2D array of unfiltered data.
-    :type frame: NumPy array
+    :type frame: np.ndarray
     :return: 2D array of filtered data.
-    :rtype: NumPy array
+    :rtype: np.ndarray
     """
 
     lp1 = lowpass()[0]
@@ -69,6 +69,17 @@ def wavelet(frame: np.ndarray) -> np.ndarray:
     return processed_frame
 
 def filtering(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarray:
+    """Performs frame-by-frame filtering.
+
+    :param frames: 3D array of video frames.
+    :type frames: np.ndarray
+    :param settings: Dictionary of filtering settings.
+    :type settings: dict
+    :param parameters: Dictionary of filtering parameters.
+    :type parameters: dict
+    :return: 3D array of filtered video frames.
+    :rtype: np.ndarray
+    """
 
     for i in range(len(frames)):
         if settings['tophat']:
@@ -80,6 +91,17 @@ def filtering(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarra
     return frames
 
 def filtering_p(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarray:
+    """Performs frame-by-frame filtering using parallel processing.
+
+    :param frames: 3D array of video frames.
+    :type frames: np.ndarray
+    :param settings: Dictionary of filtering settings.
+    :type settings: dict
+    :param parameters: Dictionary of filtering parameters.
+    :type parameters: dict
+    :return: 3D array of filtered video frames.
+    :rtype: np.ndarray
+    """
 
     if settings['tophat']:
 

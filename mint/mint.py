@@ -1,7 +1,7 @@
 """ Script used to track particles in videos and extract trajectories.
 
     This Python script performs automated analysis of videos, including tracking,
-      data analysis and statistical tests.
+    data analysis and statistical tests.
 
     Please refer to https: //github.com/biophotlumin/mint and
     https: //lumin-mint.readthedocs.io/en/latest/ for more information.
@@ -14,7 +14,7 @@ import time
 import argparse
 
 from pathlib import Path
-from .tracking import tracking
+from .tracking import tracking, p_tracking
 from .data_extraction import data_extraction
 from .utils import  folder_structure_creation
 from .output import dict_dump, generate_report
@@ -61,7 +61,7 @@ def main():
     # Optional image and trajectory processing
 
     settings = {
-        'parallel': True,
+        'parallel': False,
         # Denoising
         'tophat': True,
         'wavelet': False,
@@ -83,6 +83,8 @@ def main():
         # Stats
         'ordering': True,
         'clean_up': False,
+        #
+        'parallel_tracking': False,
     }
 
     ##
@@ -141,7 +143,7 @@ def main():
             parameters = config['parameters']
             settings = config['settings']
         except FileNotFoundError:
-            print('\n Warning ! Running with default parameters')
+            print('\nWarning ! Running with default parameters')
 
     start = time.time()
 
@@ -158,11 +160,16 @@ def main():
     dict_dump(log['output_folder'], settings, 'settings')
     dict_dump(log['output_folder'], log, 'log')
 
-    print(f'\nAnalyzing {input_folder}\n')
+    print(f'\nAnalyzing {input_folder.name}\n')
     print(f'Results stored in {Path(log["output_folder"].name)}')
 
+    if settings['parallel_tracking']:
+        tracker = p_tracking
+    else:
+        tracker = tracking
+
     if args.locate:
-        tracking(input_folder, parameters, settings, log)
+        tracker(input_folder, parameters, settings, log)
     if args.extract:
         if args.locate:
             data_extraction(Path(log['output_folder']).joinpath(input_folder.name),
@@ -176,7 +183,7 @@ def main():
             statistical_analysis(settings, parameters, input_folder)
 
     if True not in vars(args).values():
-        tracking(input_folder, parameters, settings, log)
+        tracker(input_folder, parameters, settings, log)
         data_extraction(Path(log['output_folder']).joinpath(input_folder.name),
                         parameters, settings)
         statistical_analysis(settings, parameters, log['output_folder'])

@@ -46,11 +46,12 @@ target-version = "py310"
 # McCabe complexity (`C901`) by default.
 # E124 E502 E303 E302 E301 E305
 select = ["E4", "E7", "E9", "F", "E501", "E101","E201","E202","E203","E211","W293","W291","E402","E231","E225","E251"] 
-ignore = []
+ignore = ["F541"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
+preview = true
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
