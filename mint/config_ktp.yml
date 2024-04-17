@@ -1,3 +1,5 @@
+input_folder: ''
+
 parameters:
   extension_in: tif 
   #trackpy.batch

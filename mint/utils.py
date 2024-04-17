@@ -4,6 +4,7 @@
 #Imports
 import csv
 import os
+import yaml
 import shutil
 from datetime import datetime
 from pathlib import Path, PosixPath, WindowsPath
@@ -17,11 +18,12 @@ def extraction_csv(input_folder: Path_type) -> None:
     :type input_folder: string or Path
     """
 
-    print(input_folder)
+    input_folder = str(input_folder)
+
     shutil.copytree(input_folder, input_folder+" CSV ONLY", symlinks=False,
                     ignore=shutil.ignore_patterns('*.png', '*.txt'))
 
-def folder_structure_creation(input_folder: Path_type) -> None:
+def folder_structure_creation(input_folder: Path_type) -> tuple:
     """Generates paths to output folders.
 
     Adds "Results" and the time and date of the start of the run to the input folder.
@@ -35,6 +37,8 @@ def folder_structure_creation(input_folder: Path_type) -> None:
             `root_input_folder` is the root of the input folder.
     :rtype: Path, string, Path
     """
+
+    input_folder = Path(input_folder)
 
     # String added to output file path
     identifier = " Results - "+str(datetime.now().strftime('%Y%m%d_%H%M%S'))
@@ -97,7 +101,7 @@ def get_file_list(input_folder: Path_type, extension: str) -> tuple[list, list]:
     path_list = []
     name_list = []
 
-    if input_folder.endswith(f'.{extension}'):
+    if str(input_folder).endswith(f'.{extension}'):
         path_list.append(Path(input_folder))
         name_list.append(Path(input_folder).name)
 
@@ -112,3 +116,22 @@ def get_file_list(input_folder: Path_type, extension: str) -> tuple[list, list]:
                     name_list.append(name)
 
     return path_list, name_list
+
+def load_params(path: Path_type) -> dict:
+    """Load parameters from a yaml file.
+
+    This function loads parameters from a yaml file located at the
+    given path. If the file does not exist, it returns None.
+
+    :param path: Path to the yaml file.
+    :type path: Path or string
+    :return: Dictionary containing the loaded parameters.
+    :rtype: dict
+    """
+
+    try:
+        config = yaml.safe_load(open(path))
+    except FileNotFoundError:
+        raise FileNotFoundError(f'File not found : {path}')
+
+    return config

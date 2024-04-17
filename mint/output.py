@@ -1,11 +1,9 @@
 """Functions used to output calculation results into files.
 """
-
 import os
 import sys
 import scs
 import yaml
-import cvxpy
 
 import numpy as np
 import pandas as pd
@@ -14,24 +12,27 @@ import matplotlib.pyplot as plt
 
 from fpdf import FPDF
 from io import StringIO
-from pathlib import Path, PosixPath
 from datetime import datetime
+from pathlib import Path, PosixPath
+from cvxpy.version import version as cvxpy_version
+
 
 plt.switch_backend('agg')
 
 def trajectory_output(output_file_path, name, process, output):
-    """Writes trajectories into a .csv file.
+    """
+    Write trajectories into a .csv file.
 
-    Uses pandas to_csv to write the DataFrame containing trajectories into a .csv file.
-
-    :param output_file_path: Current output file path.
-    :type output_file_path: str or Path
-    :param name: Name of the file currently being processed.
-    :type name: str
-    :param process: Suffix appended to the file name.
-    :type process: str
-    :param output: DataFrame that is being dumped.
-    :type output: DataFrame
+    Parameters
+    ----------
+    output_file_path : str or Path
+        Output file path.
+    name : str
+        Name of the file currently being processed.
+    process : str
+        Suffix appended to the file name.
+    output : DataFrame
+        DataFrame that is being dumped.
     """
 
     # Create file path and name
@@ -39,20 +40,23 @@ def trajectory_output(output_file_path, name, process, output):
     output.to_csv(filecsv, sep='\t')
 
 def image_output(output_file_path, name, frames, trajectory, item):
-    """Plots trajectories onto the first frame of a file. Inputs a dictionary,
-        a string, a NumPy array, and a DataFrame.
+    """
+    Plot trajectories onto the first frame of a file.
 
-    :param output_file_path: Current output file path.
-    :type output_file_path: str or Path
-    :param name: Name of the file currently being processed.
-    :type name: str
-    :param frames: Name of the file currently being processed.
-    :type frames: str
-    :param trajectory: DataFrame containing the trajectory to be plotted.
-    :type trajectory: DataFrame
-    :param item: Number of the trajectory to be plotted.
-        Pass False to plot all trajectories.
-    :type item: int, boolean
+    Parameters
+    ----------
+    output_file_path : str or Path
+        Output file path.
+    name : str
+        Name of the file currently being processed.
+    frames : str
+        Frames of the file currently being processed.
+    trajectory : DataFrame
+        DataFrame containing the trajectory to be plotted.
+    item : int or bool
+        Number of the trajectory to be plotted. Pass False to plot all
+        trajectories.
+
     """
 
     # Initialize plot
@@ -86,22 +90,22 @@ def image_output(output_file_path, name, frames, trajectory, item):
     plt.close()
 
 def trajectory_separation(output_file_path, name, trajectory, settings, sub):
-    """Separates individual trajectories and writes them into .txt files.
+    """
+    Separates individual trajectories and writes them into .txt files.
 
-    For each trajectory contained in the DataFrame, removes unnecessary columns,
-        reindexes the remaining ones, and writes it into a .txt file.
+    Parameters
+    ----------
+    output_file_path : str or Path
+        Current output file path.
+    name : str
+        Name of the file currently being processed.
+    trajectory : int
+        Number of the trajectory being saved.
+    settings : dict
+        Dictionary containing settings.
+    sub : DataFrame
+        Subset of the DataFrame containing the trajectory.
 
-    :param output_file_path: Current output file path.
-    :type output_file_path: str or Path
-    :param name: Name of the file currently being processed.
-    :type name: string
-    :param trajectory: Number of the trajectory being plotted.
-    :type trajectory: int
-    :param settings: Dictionary specifying wether or not
-        a specific process should be applied.
-    :type settings: dict
-    :param sub: Subset of the DataFrame containing the trajectories.
-    :type sub: DataFrame
     """
 
     file = Path(str(output_file_path)).joinpath(name+"-"+str(trajectory)+".txt")
@@ -123,34 +127,45 @@ def trajectory_separation(output_file_path, name, trajectory, settings, sub):
     sub.to_csv(file, sep='\t', index=False)
 
 def dict_dump_legacy(path, dict, file_name):
-    """Writes the content of a dictionary into a .txt file
+    """
+    Dump a dictionary into a text file.
 
-    :param path: Folder where the dictionary will be saved.
-    :type path: str or Path
-    :param dict: Dictionary to dump.
-    :type dict: dict
-    :param file_name: Name of the text file.
-    :type file_name: string
+    Parameters
+    ----------
+    path : str or Path
+        Folder where the dictionary will be saved.
+    dict : dict
+        Dictionary to dump.
+    file_name : str
+        Name of the text file.
+
     """
 
     with open(Path(path).joinpath(str(file_name)+".txt"), 'a') as dict_txt:
         for k, v in dict.items():
             dict_txt.write(f'{str(k)} : {str(v)}\n')
 
-def dict_load_legacy(input_folder, dict):
-    """Load a dictionary from a text file.
+def dict_load_legacy(input_folder, dict_: str) -> dict:
+    """
+    Load a dictionary from a text file.
 
-    :param input_folder: Folder where the dictionary is located.
-    :type input_folder: str or Path
-    :param dict: Name of text file to be loaded.
-    :type dict: str
-    :return: Loaded dictionary.
-    :rtype: dict
+    Parameters
+    ----------
+    input_folder : str or Path
+        Folder where the dictionary is located.
+    dict_ : str
+        Name of text file to be loaded.
+
+    Returns
+    -------
+    loaded_dict : dict
+        Loaded dictionary.
+
     """
 
     loaded_dict = {}
 
-    with open(input_folder.joinpath(f'{str(dict)}.txt')) as f:
+    with open(input_folder.joinpath(f'{str(dict_)}.txt')) as f:
         lines = f.readlines()
         for line in lines:
             line = line.strip('\n')
@@ -160,13 +175,29 @@ def dict_load_legacy(input_folder, dict):
     return loaded_dict
 
 def dict_dump(path, data: dict, file_name: str, overwrite: bool=False):
+    """
+    Dump a dictionary to a YAML file.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the folder where the YAML file will be saved.
+    data : dict
+        Dictionary to dump.
+    file_name : str
+        Name of the YAML file.
+    overwrite : bool, optional (default=False)
+        Overwrite existing file if True, otherwise update the preexisting
+        dictionary.
+
+    """
 
     data = data.copy() # Just in case the dict has to be modified
 
     for k, v in data.items(): # YAML doesn't like PosixPath, convert to string
         if isinstance(v, PosixPath):
             data[k] = str(data[k])
-        elif isinstance(v, np.float64):
+        elif isinstance(v, np.floating):
             data[k] = float(data[k])
 
     file_path = Path(path).joinpath(f'{file_name}.yml')
@@ -184,7 +215,21 @@ def dict_dump(path, data: dict, file_name: str, overwrite: bool=False):
             yaml.dump(data, f)
 
 def dict_load(path, name: str):
+    """
+    Loads a YAML file from the specified path and returns the contents as a dictionary.
 
+    Parameters
+    ----------
+    path : str
+        The path to the directory containing the YAML file.
+    name : str
+        The name of the YAML file (without the extension).
+
+    Returns
+    -------
+    dict
+        The contents of the YAML file as a dictionary.
+    """
     return yaml.safe_load(open(Path(path).joinpath(f'{name}.yml')))
 
 # Functions generating PDF reports through FPDF
@@ -192,22 +237,26 @@ def dict_load(path, name: str):
 # (as long as there is no space in the name of the conditons)
 
 def ind_page(pdf, list_var, input_folder, order, parameters, settings, n_cond):
-    """Generate individual page.
+    """
+    Generate individual PDF page.
 
-    :param pdf: PDF to which the page is appended.
-    :type pdf: FPDF instance
-    :param list_var: Variable-specific results.
-    :type list_var: List of strings
-    :param input_folder: Folder where plots are located.
-    :type input_folder: str or Path
-    :param order: Order of experimental conditions.
-    :type order: List of strings
-    :param parameters: Dictionary containing parameters.
-    :type parameters: dict
-    :param settings: Dictionary containing settings.
-    :type settings: dict
-    :param n_cond: Number of experimental conditions.
-    :type n_cond: int
+    Parameters
+    ----------
+    pdf : FPDF instance
+        PDF to which the page is appended.
+    list_var : list of str
+        Variable-specific results.
+    input_folder : str or Path
+        Folder where plots are located.
+    order : list of str
+        Order of experimental conditions.
+    parameters : dict
+        Dictionary containing parameters.
+    settings : dict
+        Dictionary containing settings.
+    n_cond : int
+        Number of experimental conditions.
+
     """
 
     pdf.set_font('Helvetica', 'B', size=13)
@@ -265,7 +314,7 @@ def ind_page(pdf, list_var, input_folder, order, parameters, settings, n_cond):
 
         string_io = StringIO(t_sring)
 
-        df = pd.read_csv(string_io, sep='\s+')
+        df = pd.read_csv(string_io, sep=r'\s+')
 
         data = []
 
@@ -301,7 +350,7 @@ def ind_page(pdf, list_var, input_folder, order, parameters, settings, n_cond):
 
     tt2 = StringIO(string2)
 
-    df2 = pd.read_csv(tt2, sep='\s+')
+    df2 = pd.read_csv(tt2, sep=r'\s+')
 
     df2 = df2.drop([0])
     df2 = df2.drop(['deviation'], axis=1)
@@ -329,10 +378,14 @@ def ind_page(pdf, list_var, input_folder, order, parameters, settings, n_cond):
     pdf.ln(5)
 
 def generate_report(input_folder):
-    """Generate an experiment report.
+    """
+    Generate an experiment report.
 
-    :param input_folder: Folder containing plots and statistical test results.
-    :type input_folder: str or Path
+    Parameters
+    ----------
+    input_folder : str or Path
+        Folder containing plots and statistical test results.
+
     """
 
     print('Generating report...\r', end='')
@@ -404,7 +457,7 @@ def generate_report(input_folder):
     pdf.ln()
     pdf.cell(0, 10, (f"Trackpy version {tp.__version__}"
                      f" | NumPy version {np.__version__}"
-                     f" | CVXPY version {cvxpy.__version__}"
+                     f" | CVXPY version {cvxpy_version}"
                      f" | SCS version {scs.__version__}"), align='C')
     pdf.ln()
     pdf.cell(0, 10, f"Input folder :  {log['input_folder']}", align='C')
@@ -511,7 +564,7 @@ def generate_report(input_folder):
 
     pdf_path = Path(input_folder).joinpath(
         str(datetime.now().strftime('%Y%m%d_%H%M%S'))+'_Experiment_report.pdf')
-    pdf.output(pdf_path)
+    pdf.output(str(pdf_path))
     print('Generating report... Done\r')
 
 if __name__ == '__main__':

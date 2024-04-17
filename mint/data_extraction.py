@@ -34,12 +34,13 @@ class BaseParameter(abc.ABC):
 
     Parameters
     ----------
-    antero_retro : bool, optional
-        Indicates whether to calculate the parameter in anterograde or retrograde phases
-        default None
-    go_stop : bool, optional
-        Indicates whether to calculate the parameter in GO or STOP phases
-        default None
+    antero_retro : str, optional
+        If specified, indicates whether to calculate the parameter in anterograde
+        or retrograde phases
+        default empty
+    go_stop : str, optional
+        If specified, indicates whether to calculate the parameter in GO or STOP phases
+        default empty
 
     Attributes
     ----------
@@ -49,20 +50,28 @@ class BaseParameter(abc.ABC):
         Name of the parameter
     column_name : str
         Name of the column in the output DataFrame
-    antero_retro : bool
+    antero_retro : str
         Indicates whether to calculate the parameter in anterograde or retrograde phases
-    go_stop : bool
+    go_stop : str
         Indicates whether to calculate the parameter in GO or STOP phases
 
+    :meta private:
+
     """
-    def __init__(self, antero_retro: bool =None, go_stop: bool =None):
+    def __init__(self, antero_retro: str='', go_stop: str=''):
         self.results = []
         self.name = 'Base parameter'
         self.column_name = 'base'
-        self.antero_retro = antero_retro
-        self.go_stop = go_stop
 
-    def append_to_results(self, result: list):
+        self.antero_retro = antero_retro
+        if self.antero_retro not in ['antero', 'retro']:
+            self.antero_retro = ''
+
+        self.go_stop = go_stop
+        if self.go_stop not in ['GO', 'STOP']:
+            self.go_stop = ''
+
+    def append_to_results(self, result): # float ?
         self.results.append(result)
 
     def get_last_result(self):
@@ -87,27 +96,34 @@ class BaseParameter(abc.ABC):
 class Intensity(BaseParameter):
     """Mean intensity
     """
-    def __init__(self, go_stop=None, **kwargs):
+
+    def __init__(self, go_stop: str='', **kwargs):
         super().__init__(go_stop=go_stop, **kwargs)
         self.name = (f'Mean intensity in {self.go_stop} phases'
-                    if self.go_stop is not None else 'Mean intensity')
+                    if self.go_stop else 'Mean intensity')
         self.column_name = (f'intensity_{self.go_stop}'
-                            if self.go_stop is not None else 'intensity')
+                            if self.go_stop else 'intensity')
 
     def calculate_results(self, data):
         return np.mean(data.intensity)
 
 class Variance(BaseParameter):
+    """Mean variance
+    """
 
-    def __init__(self, go_stop=None, **kwargs):
+    def __init__(self, go_stop: str='', **kwargs):
         super().__init__(go_stop=go_stop, **kwargs)
-        self.name = f'Mean variance in {self.go_stop} phases'
-        self.column_name = f'variance_{self.go_stop}'
+        self.name = (f'Mean variance in {self.go_stop} phases'
+                    if self.go_stop else 'Mean variance')
+        self.column_name = (f'variance_{self.go_stop}'
+                            if self.go_stop else 'variance')
 
     def calculate_results(self, data):
         return np.mean(data.variance)
 
 class DiagonalLength(BaseParameter):
+    """Diagonal length, calculated as the distance between the first and last points.
+    """
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -127,6 +143,12 @@ class DiagonalLength(BaseParameter):
         return np.sqrt(delta_x**2+delta_y**2)
 
 class CurvilignLength(BaseParameter):
+    """Curvilign length, calculated as the sum of run lengths.
+    If `absolute` is True, retrograde run lengths are added as absolute values,
+    reflecting the total travelled length of the trajectory.
+    If `absolute` is False, retrograde run lengths are subtracted from the sum,
+    reflecting the distance travelled between the first and last point.
+    """
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -142,6 +164,8 @@ class CurvilignLength(BaseParameter):
         return np.abs(np.sum(rl))
 
 class PausingFrequency(BaseParameter):
+    """Pausing frequency, expressed as the number of stops per minute.
+    """
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -152,21 +176,25 @@ class PausingFrequency(BaseParameter):
     def calculate_results(self, data):
         trajectory_time = np.sum(data.phase_duration)
         n_stop = len(data[data.phase == 0])
-        self.n_stop.append(n_stop) # Maybe return
+        self.n_stop.append(n_stop)
 
         return 60*n_stop/trajectory_time
 
 class Duration(BaseParameter):
+    """Duration, in seconds.
+    """
 
     def __init__(self, **kwargs):
         super().__init__()
         self.name = 'Duration'
         self.column_name = 'duration'
 
-    def calculate_results(self, data, dt):
-        return np.sum(data.phase_duration)*dt
+    def calculate_results(self, data):
+        return np.sum(data.phase_duration)
 
 class PausingTime(BaseParameter):
+    """Time spent in STOP phases.
+    """
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -180,6 +208,15 @@ class PausingTime(BaseParameter):
             return np.mean(data.phase_duration)
 
 class FractionMoving(BaseParameter):
+    """Fraction of moving particles.
+    If `msd` is False, the  total amount of particles is the number of features
+    found in the first frame of the video.
+    If `msd` is True, the total amount of particles is the number of trajectories
+    above and below the MSD threshold.
+    This calculation does not take into account files with no retained trajectories.
+    This might artificially increase the fraction of moving particles if the amount
+    of moving particles is very low.
+    """
 
     def __init__(self, msd: bool=False):
         super().__init__()
@@ -193,42 +230,45 @@ class FractionMoving(BaseParameter):
 
     def calculate_results(self, data, n_trajectories):
         if self.msd is False:
-            reference = 'n_particles'
+            n_ref = data['n_particles'].unique()
+            n_ref = n_ref[0] + n_trajectories
         else:
-            reference = 'n_static'
+            n_ref = data['n_static'].unique()[0]
 
-        n_ref = data[reference].tolist()
-        fraction = (n_trajectories/np.unique(n_ref))[0]
-        if np.unique(n_ref)[0] > 0:
-            return fraction
-        else:
-            return 1
+        fraction = n_trajectories/n_ref
+        return fraction
 
 class RunLength(BaseParameter):
+    """Mean distance traveled in GO phases.
+    """
 
-    def __init__(self, antero_retro=None, **kwargs):
+    def __init__(self, antero_retro='', **kwargs):
         super().__init__(antero_retro=antero_retro, **kwargs)
         self.name = (f'Mean run length in {self.antero_retro} phases'
-                    if self.antero_retro is not None else 'Mean run length')
+                    if self.antero_retro else 'Mean run length')
         self.column_name = (f'run_length_{self.antero_retro}'
-                            if self.antero_retro is not None else 'run_length')
+                            if self.antero_retro else 'run_length')
 
     def calculate_results(self, data):
         return np.mean(data.run_length)
 
 class Processivity(BaseParameter):
+    """Mean duration of GO phases.
+    """
 
-    def __init__(self, antero_retro=None, **kwargs):
+    def __init__(self, antero_retro='', **kwargs):
         super().__init__(antero_retro=antero_retro, **kwargs)
         self.name = (f'Mean processivity in {self.antero_retro} phases'
-                    if self.antero_retro is not None else 'Mean processivity')
+                    if self.antero_retro else 'Mean processivity')
         self.column_name = (f'processivity_{self.antero_retro}'
-                            if self.antero_retro is not None else 'processivity')
+                            if self.antero_retro else 'processivity')
 
     def calculate_results(self, data):
         return np.mean(data.phase_duration)
 
 class FractionPaused(BaseParameter):
+    """Fraction of time in STOP phases.
+    """
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -244,15 +284,17 @@ class FractionPaused(BaseParameter):
             return time_paused/total_time
 
 class Directionality(BaseParameter):
+    """Fraction of anterograde or retrograde transport.
+    """
 
-    def __init__(self, antero_retro=None, **kwargs):
+    def __init__(self, antero_retro='', **kwargs):
         super().__init__(antero_retro=antero_retro, **kwargs)
         self.name = f'Directionality ({self.antero_retro})'
         self.column_name = 'directionality'
         self.phase_directionality = []
 
     def calculate_results(self, data, data_antero, data_retro):
-        if self.antero_retro is None:
+        if not self.antero_retro:
             warnings.warn('Directionality cannot be calculated on non-directional data')
             return None
         else:
@@ -269,18 +311,23 @@ class Directionality(BaseParameter):
             return np.abs(distance_direction)/np.abs(distance)
 
 class CurvilignVelocity(BaseParameter):
+    """Average curvilign velocity.
+    """
 
-    def __init__(self, antero_retro=None, **kwargs):
+    def __init__(self, antero_retro='', **kwargs):
         super().__init__(antero_retro=antero_retro, **kwargs)
         self.name = (f'Curvilign velocity in {self.antero_retro} phases'
-                    if self.antero_retro is not None else 'Curvilign velocity')
+                    if self.antero_retro else 'Curvilign velocity')
         self.column_name = (f'curv_velocity_{self.antero_retro}'
-                            if self.antero_retro is not None else 'curv_velocity')
+                            if self.antero_retro else 'curv_velocity')
 
     def calculate_results(self, data):
         return np.mean(data.curvilign_velocity)
 
 class Switch(BaseParameter):
+    """Reversals of directionality and related measurements.
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.name = 'Switch'
@@ -316,12 +363,14 @@ class Switch(BaseParameter):
             p_data.reset_index(inplace=True, drop=True)
             zero_phases = p_data.index[p_data['phase'] == 0]
             zero_phases = self.check_index(p_data, zero_phases)
+
             for phase in zero_phases:
                 first_phase = p_data.iloc[phase-1]
                 stop_phase = p_data.iloc[phase]
                 second_phase = p_data.iloc[phase+1]
                 vel_first_phase = first_phase['curvilign_velocity']
                 vel_sec_phase = second_phase['curvilign_velocity']
+
                 if vel_first_phase > 0 and vel_sec_phase < 0:
                     switch += 1
                     switch_a_to_r += 1
@@ -354,17 +403,21 @@ class Switch(BaseParameter):
         return self.switch
 
 class Theta(BaseParameter):
+    """EXPERIMENTAL : Standard deviation of the theta angle.
+    """
 
-    def __init__(self, go_stop=None, **kwargs):
+    def __init__(self, go_stop='', **kwargs):
         super().__init__(go_stop=go_stop, **kwargs)
         self.name = (f'Standard deviation in {self.go_stop} phases'
-                    if self.go_stop is not None else 'Standard deviation')
+                    if self.go_stop else 'Standard deviation')
         self.column_name = (f'theta_std_{self.go_stop}'
-                            if self.go_stop is not None else 'theta_std')
+                            if self.go_stop else 'theta_std')
     def calculate_results(self, data):
         return np.mean(data.theta_std)
 
 class GFPMask(BaseParameter):
+    """EXPERIMENTAL : Only retains trajectories located within a GFP mask.
+    """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -375,17 +428,24 @@ class GFPMask(BaseParameter):
         return data.gfp.unique()
 
 def inst_velocity(x: np.ndarray, y: np.ndarray, dt: float) -> np.ndarray:
-    """Calculates instantaneous velocity.
-
-    :param x: Array of x coordinates
-    :type x: NumPy array
-    :param y: Array of y coordinates
-    :type y: NumPy array
-    :param dt: Sampling period in seconds.
-    :type dt: float
-    :return: Array of point by point instantaneous velocity
-    :rtype: NumPy array
     """
+    Calculates instantaneous velocity.
+
+    Parameters
+    ----------
+    x : numpy array
+        Array of x coordinates.
+    y : numpy array
+        Array of y coordinates.
+    dt : float
+        Sampling period in seconds.
+
+    Returns
+    -------
+    numpy array
+        Array of point by point instantaneous velocity.
+    """
+
 
     size = len(x)
     v_inst = np.zeros(size)
@@ -400,17 +460,26 @@ def inst_velocity(x: np.ndarray, y: np.ndarray, dt: float) -> np.ndarray:
 
     return v_inst
 
-def confinement(x: np.ndarray, y: np.ndarray, sw: int) -> list:
-    """Calculates point by point confinement ratio
+def confinement(x: np.ndarray | pd.Series,
+                y: np.ndarray | pd.Series,
+                sw: int) -> list:
+    """
+    Calculate point-by-point confinement ratio.
 
-    :param x: Array of x coordinates
-    :type x: NumPy array
-    :param y: Array of y coordinates
-    :type y: NumPy array
-    :param sw: Confinement ratio sliding window in number of points.
-    :type sw: int
-    :return: List of point by point confinement ratio
-    :rtype: list
+    Parameters
+    ----------
+    x : array_like
+        Array of x coordinates.
+    y : array_like
+        Array of y coordinates.
+    sw : int
+        Confinement ratio sliding window in number of points.
+
+    Returns
+    -------
+    list
+        List of point-by-point confinement ratio.
+
     """
 
     r_conf = []
@@ -506,7 +575,7 @@ def per_phase(data, trajectory, settings, parameters, condition, slide, name, an
     if settings['conf_list']:
         list_r_conf.append(r_conf)
 
-    # Switch from pixels to µm   data_dict = {}
+    # Switch from pixels to µm
     x = x*parameters['px']
     x = x.dropna()
     y = y*parameters['px']
@@ -577,7 +646,7 @@ def per_phase(data, trajectory, settings, parameters, condition, slide, name, an
 
             thetalist = []
             savgol = savgol_filter(intensity, window_length=9, polyorder=3,
-                                    mode="nearest")
+                                   mode="nearest").astype('float64') # type: ignore
 
             for n in savgol:
                 thetalist.append(np.arcsin(np.sqrt((n-np.min(savgol))/(np.max(savgol)-np.min(savgol))))
@@ -592,25 +661,25 @@ def per_phase(data, trajectory, settings, parameters, condition, slide, name, an
                                     +(y[stop-1]-y[start])**2))/(dt*phase_length))
 
         if settings['antero_retro']:
-            # Check wether trajectory belongs to the right or left eye
-            if slide == "oeil_droit":
-                sign = 1
-            else:
-                sign = -1
-
-            # Change the sign of the velocity accordingly
-            if ((x[stop-1]-x[start]) > 0):
-                curvilign_velocity = -sign * curvilign_velocity
-                vectorial_velocity = -sign * vectorial_velocity
-            else:
-                curvilign_velocity = sign * curvilign_velocity
-                vectorial_velocity = sign * vectorial_velocity
-            # if ((x[stop-1]-x[start])>0):
-            #     curvilign_velocity = 1 * curvilign_velocity
-            #     vectorial_velocity = 1 * vectorial_velocity
+            # # Check wether trajectory belongs to the right or left eye
+            # if slide == "oeil_droit":
+            #     sign = 1
             # else:
-            #     curvilign_velocity = -1 * curvilign_velocity
-            #     vectorial_velocity = -1 * vectorial_velocity
+            #     sign = -1
+
+            # # Change the sign of the velocity accordingly
+            # if ((x[stop-1]-x[start]) > 0):
+            #     curvilign_velocity = -sign * curvilign_velocity
+            #     vectorial_velocity = -sign * vectorial_velocity
+            # else:
+            #     curvilign_velocity = sign * curvilign_velocity
+            #     vectorial_velocity = sign * vectorial_velocity
+            if ((x[stop-1] - x[start]) > 0):
+                curvilign_velocity = 1 * curvilign_velocity
+                vectorial_velocity = 1 * vectorial_velocity
+            else:
+                curvilign_velocity = -1 * curvilign_velocity
+                vectorial_velocity = -1 * vectorial_velocity
 
         if (phase[start] == 0):
             phase_sign = 0
@@ -813,7 +882,7 @@ def trajectory_calculations(phase_parameters, parameters, settings):
             pausing_frequency.update_results(data=data)
 
             # Trajectory duration
-            duration.update_results(data=data, dt=parameters['dt'])
+            duration.update_results(data=data)
 
             # Pausing time
             pausing_time.update_results(data=data_STOP)
@@ -944,6 +1013,7 @@ def data_extraction(input_folder: Path_type, parameters: dict, settings: dict):
 
     # Guard against os.walk running on an empty folder,
     # if the input folder is placed at the root of a drive
+    input_folder = Path(input_folder)
     if len(input_folder.parents) < 3:
         input_folder = input_folder.parent
 
@@ -982,7 +1052,7 @@ def data_extraction(input_folder: Path_type, parameters: dict, settings: dict):
         print_pb(f'\t{str(Path(path).name)}', j, len(path_list))
 
         if settings['parallel']:
-            calc_func = p_phase_calculations
+            calc_func = phase_calculations
         else:
             calc_func = phase_calculations
         phase_parameters = pd.concat((phase_parameters, calc_func(parameters, data,

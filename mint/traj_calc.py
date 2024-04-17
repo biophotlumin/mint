@@ -4,11 +4,15 @@
 
 import os
 import math
+import imageio
 import numpy as np
 import cvxpy as cp
 import pandas as pd
-import trackpy as tp
-import imageio
+import polars as pl
+
+from cvxpy.atoms.norm import norm
+from cvxpy.atoms.norm1 import norm1
+from trackpy.motion import msd
 from pathlib import Path
 
 from scipy import optimize
@@ -42,7 +46,7 @@ def rejoining(tracks: pd.DataFrame, threshold_t: int,
     n_rejoined = 0
     temp_tracks = tracks.copy()
 
-    #Get first and last point of each trajectory
+    # Get first and last point of each trajectory
     for item in set(tracks.particle):
 
         subtrack = tracks[tracks.particle == item]
@@ -89,7 +93,101 @@ def rejoining(tracks: pd.DataFrame, threshold_t: int,
 
     return tracks, n_rejoined
 
-def SNR_spot_estimation(frames: np.array, tracks: pd.DataFrame,
+def rejoining_2(tracks: pd.DataFrame, threshold_t: int,
+              threshold_r: int) -> tuple[pd.DataFrame, int]:
+
+    df_start = tracks.groupby(by="particle").agg(
+        {'frame': 'min'}).sort_values(by='frame', ascending=False)
+    df_end = tracks.groupby(by="particle").agg(
+        {'frame': 'max'}).sort_values(by='frame', ascending=False)
+
+    tstart = tracks.merge(df_start, on=['frame', 'particle'], how='right')
+    tend = tracks.merge(df_end, on=['frame', 'particle'], how='right')
+
+    joined = tend[['x', 'y', 'frame', 'particle']
+                  ].merge(tstart[['x', 'y', 'frame', 'particle']], how='cross')
+
+    joined['r_dist'] = np.sqrt((joined.x_x - joined.x_y)**2 +
+                               (joined.y_x - joined.y_y)**2)
+    joined['t_dist'] = joined.frame_y - joined.frame_x
+
+    filtered = joined.loc[(joined.t_dist > 0) & (joined.t_dist < threshold_t)]
+    filtered = filtered.loc[joined.r_dist < threshold_r]
+    filtered = filtered.sort_values(by=['t_dist', 'r_dist'])
+    filtered = filtered.drop_duplicates('particle_y')
+
+    n_rejoined = len(filtered)
+
+    merged = tracks.merge(filtered['particle_x'], left_on='rejoined_particle',
+                          right_on='particle_x', how='left')
+    merged = merged.drop('particle_x', axis=1)
+
+    return merged, n_rejoined
+
+
+def rejoining_polars(tracks: pl.DataFrame, threshold_t: int,
+              threshold_r: int) -> tuple[pl.DataFrame, int]:
+
+    if isinstance(tracks, pd.DataFrame):
+        tracks = pl.from_pandas(tracks)
+
+    end = tracks.group_by('particle').agg(pl.col('frame').max())
+    start = tracks.group_by('particle').agg(pl.col('frame').min())
+
+    end = tracks.join(end, on=['particle', 'frame'],
+                    how='inner').sort('frame', descending=True)
+    start = tracks.join(start, on=['particle', 'frame'],
+                    how='inner').sort('frame', descending=True)
+
+    joined = end.select([pl.col('frame'), pl.col('x'), pl.col('y'), pl.col('particle')]
+                        ).join(
+        start.select([pl.col('frame'), pl.col('x'), pl.col('y'), pl.col('particle')]),
+        on='frame', how='cross').with_columns(
+            (pl.col('frame_right') - pl.col('frame')).alias('tdist')
+    )
+
+    joined = joined.with_columns(((pl.col('x') - pl.col('x_right'))**2 + (pl.col('y')
+                                    - pl.col('y_right'))**2).sqrt().alias('rdist'))
+    joined = joined.filter((pl.col('tdist') < threshold_t) & (pl.col('tdist') > 0)
+                           & (pl.col('rdist') < threshold_r))
+    joined = joined.filter(pl.col('particle') != pl.col('particle_right'))
+    joined = joined.sort(['tdist', 'rdist'])
+    joined = joined.unique(subset='particle_right')
+
+    n_rejoined = joined.select(pl.len()).item()
+
+    tracks = tracks.with_columns(tracks.get_column('particle')
+                                 .alias('rejoined_particle'))
+
+    df_with = tracks.join(joined.select(['particle_right']), left_on='particle',
+                          right_on='particle_right', how='semi')
+
+    df_without = tracks.join(joined.select(['particle_right']), left_on='particle',
+                             right_on='particle_right', how='anti')
+
+    df_with = df_with.join(joined.select('particle'), left_on='rejoined_particle',
+                           right_on='particle', how='cross')
+
+    df_with = df_with.with_columns(df_with.get_column('particle_right')
+                                   .alias('rejoined_particle'))
+
+    df_with = df_with.drop('particle_right')
+
+    tracks = pl.concat([df_without, df_with], how='vertical')
+
+    # tracks = tracks.with_columns(
+    #     pl.when((pl.col('particle').is_in(joined.select('particle_right')))
+    #             & (joined.count() > 0))
+    #     .then(joined.select('particle'))
+    #     .otherwise(pl.col('particle'))
+    #     .alias('rejoined_particle')
+    # )
+
+    tracks = tracks.to_pandas()
+
+    return tracks, n_rejoined
+
+def SNR_spot_estimation(frames: np.ndarray, tracks: pd.DataFrame,
                         base_level: int) -> pd.DataFrame:
     """Estimates SNR for each feature.
 
@@ -176,23 +274,23 @@ def acceleration_minimization_norm1(measure, sigma0, px, nn=0):
     :param px: Pixel size in µm.
     :type px: float
     :param nn: Number of data points not taken into account
-    at the extremities of the solution.
-    For some methods, the extreme values are less reliable.
+        at the extremities of the solution.
+        For some methods, the extreme values are less reliable.
     :type nn: int, optional
     :return: Filtered solution with minimization of the norm 1 of the acceleration with
-    difference between measured data and solution
-    inferior or equal to the theoretical noise.
+        difference between measured data and solution
+        inferior or equal to the theoretical noise.
     :rtype: array (n-2*nn, 2)
     """
 
     measure = px*measure
     n = len(measure)
     variable = cp.Variable((n, 2))
-    objective = cp.Minimize(cp.atoms.norm1(variable[2:, 0]+variable[:-2, 0]
+    objective = cp.Minimize(norm1(variable[2:, 0]+variable[:-2, 0]
                                            - 2*variable[1:-1, 0])
-                            +cp.atoms.norm1(variable[2:, 1]+variable[:-2, 1]
+                            +norm1(variable[2:, 1]+variable[:-2, 1]
                                             - 2*variable[1:-1, 1]))
-    constraints = [cp.atoms.norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
+    constraints = [norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
     prob = cp.Problem(objective, constraints)
 
     prob.solve(solver='MOSEK', verbose=False) # Alternatively, 'GUROBI', 'MOSEK', 'SCS'
@@ -209,7 +307,7 @@ def minimization(subdata: pd.DataFrame, px: float, sigma: int) -> pd.DataFrame:
     :param subdata: DataFrame containing x and y coordinates.
     :type subdata: DataFrame
     :param parameters: Dictionary containing the pixel size under the `'px'` key
-    and the precision of localisation under the `'sigma'` key.
+        and the precision of localisation under the `'sigma'` key.
     :type parameters: dict
     :return: DataFrame containing denoised x and y coordinates.
     :rtype: DataFrame
@@ -343,7 +441,7 @@ def MSD_per_traj(tracks: pd.DataFrame, traj: int, px: float, dt: float) -> pd.Da
     :rtype: _type_
     """
     subtracks = tracks[tracks.particle == traj].copy()
-    df2 = tp.motion.msd(subtracks, px, (1/dt), max_lagtime=len(subtracks))
+    df2 = msd(subtracks, px, (1/dt), max_lagtime=len(subtracks))
     max_msd = [df2.msd.max()]*len(subtracks)
     subtracks['max_msd'] = max_msd
 
@@ -445,7 +543,7 @@ def polynomial_fit(data: pd.DataFrame, len_cutoff: int, threshold: float):
     :param parameters: Dictionary with the threshold under the `'threshold_poly3'` key.
     :type parameters: dict
     :return: `True` if the deviation is below the threshold,
-    `False` if it is greater or equal.
+        `False` if it is greater or equal.
     :rtype: Boolean.
     """
 
@@ -545,9 +643,9 @@ def acc_min_norm1_pointwise_adaptative_error(measure, Signal,
 
     n = len(measure)
     variable = cp.Variable((n, 2))
-    objective = cp.Minimize(cp.atoms.norm1(variable[2:, 0] +
+    objective = cp.Minimize(norm1(variable[2:, 0] +
                                            variable[:-2, 0] - 2*variable[1:-1, 0]) +
-                            cp.atoms.norm1(variable[2:, 1] +
+                            norm1(variable[2:, 1] +
                                            variable[:-2, 1] - 2*variable[1:-1, 1]))
     Weights = np.zeros((n, 2))
     Estimated_Noise = Noise_function(Signal)
@@ -555,7 +653,7 @@ def acc_min_norm1_pointwise_adaptative_error(measure, Signal,
     Weights[:, 1] = 1/Estimated_Noise
     Constrained = cp.multiply(Weights, variable - measure)
 
-    constraints = [cp.atoms.norm(Constrained, 'fro')**2 <= 2*n]
+    constraints = [norm(Constrained, 'fro')**2 <= 2*n]
     prob = cp.Problem(objective, constraints)
 
     prob.solve(solver=Solver, max_iters=100000)
@@ -578,11 +676,11 @@ def point_minimization(subdata, px):
 
     #Convert coordinates to µm
     array_x = subdata['x'].to_numpy()
-    array_x * px
+    array_x = array_x * px
     array_x = array_x[:, np.newaxis]
 
     array_y = subdata['y'].to_numpy()
-    array_y * px
+    array_y = array_y * px
     array_y = array_y[:, np.newaxis]
 
     #Convert mass to photons
@@ -591,10 +689,11 @@ def point_minimization(subdata, px):
 
     array = np.concatenate((array_x, array_y), axis=1)
 
-    processed_array, estim_noise = acc_min_norm1_pointwise_adaptative_error(array,
-                                                                            array_mass,
-                                                                            prec, nn=0,
-                                                                            Solver='SCS')
+    (processed_array,
+     estim_noise) = acc_min_norm1_pointwise_adaptative_error(array,
+                                                            array_mass,
+                                                            prec, nn=0,
+                                                            Solver='SCS')
 
     subdata['x'] = processed_array[:, 0]
     subdata['y'] = processed_array[:, 1]
@@ -615,14 +714,14 @@ def point_minimization(subdata, px):
 def GFP_mask(path, name, trajectories):
 
     folder = Path(path).parent
-    img = name[:-7]+'GFP.tif'
+    img_name = name[:-7]+'GFP.tif'
 
     try:
-        img = imageio.imread(Path(folder).joinpath(img))
+        img = imageio.imread(Path(folder).joinpath(img_name))
         # print('File found !')
 
     except FileNotFoundError:
-        # print('File not found')
+        print(f'File not found : {img_name}')
         return trajectories
 
     threshold = 120

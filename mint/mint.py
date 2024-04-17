@@ -9,14 +9,16 @@
 
 #Imports modules
 import os
-import yaml
+import sys
+import shutil
+import warnings
 import time
 import argparse
 
 from pathlib import Path
 from .tracking import tracking, p_tracking
 from .data_extraction import data_extraction
-from .utils import  folder_structure_creation
+from .utils import  folder_structure_creation, load_params
 from .output import dict_dump, generate_report
 from .stat_analysis import statistical_analysis
 
@@ -61,7 +63,7 @@ def main():
     # Optional image and trajectory processing
 
     settings = {
-        'parallel': False,
+        'parallel': True,
         # Denoising
         'tophat': True,
         'wavelet': False,
@@ -92,25 +94,26 @@ def main():
 
     #Define root input folder
 
-    input_folder = r'/media/lumin/DATA/Demo_BioProbe/'
+    input_folder = r''
 
     parser = argparse.ArgumentParser(prog='M.I.N.T',
                                      description='Intraneuronal nanoparticle tracking')
     parser.add_argument('-f', '--folder',
-                        default=input_folder if input_folder else os.getcwd(),
+                        default=os.getcwd(),
                         help='Path to data folder')
     parser.add_argument('-p', '--params',
                         default='', help='Path to config file')
     parser.add_argument('-l', '--locate',
-                        default='', help='Locate and link particles',
+                        default=False, help='Locate and link particles',
                         action='store_true')
     parser.add_argument('-e', '--extract',
-                        default='', help='Extract transport parameters',
+                        default=False, help='Extract transport parameters',
                         action='store_true')
     parser.add_argument('-s', '--stats',
-                        default='', help='Statistical analysis',
+                        default=False, help='Statistical analysis',
                         action='store_true')
-    args = parser.parse_args()
+
+    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
     print('\n')
     print(' ######################################################################### ')
@@ -128,22 +131,24 @@ def main():
     print(' ######################################################################### ')
     print(' ######################################################################### ')
 
-    if args.folder:
-        input_folder = args.folder
+    if args.params:
+        config = load_params(args.params)
+        input_folder = config.get('input_folder', os.getcwd())
+        settings = config['settings']
+        parameters = config['parameters']
+        if args.folder != os.getcwd():
+            input_folder = args.folder
+    else:
+        if args.folder:
+            input_folder = args.folder
+            config = load_params(Path(input_folder).joinpath('config.yml'))
+            if config is not None:
+                settings = config['settings']
+                parameters = config['parameters']
+            else:
+                warnings.warn('Running with default parameters')
 
     input_folder = Path(input_folder)
-
-    if args.params:
-        config = yaml.safe_load(open(args.params))
-        parameters = config['parameters']
-        settings = config['settings']
-    else:
-        try:
-            config = yaml.safe_load(open(input_folder.joinpath('config.yml')))
-            parameters = config['parameters']
-            settings = config['settings']
-        except FileNotFoundError:
-            print('\nWarning ! Running with default parameters')
 
     start = time.time()
 
@@ -152,7 +157,8 @@ def main():
     log['input_folder'] = input_folder
     (log['output_folder'],
      log['identifier'],
-     log['root_input_folder']) = folder_structure_creation(input_folder)
+     log['root_input_folder']
+     ) = folder_structure_creation(input_folder)
 
     os.makedirs(log['output_folder'])
 
@@ -180,6 +186,9 @@ def main():
         if args.extract:
             statistical_analysis(settings, parameters, Path(log['output_folder']))
         else:
+            # Rerunning stats overwrites previous results for now
+            shutil.rmtree(log['output_folder'])
+            log['output_folder'] = input_folder
             statistical_analysis(settings, parameters, input_folder)
 
     if True not in vars(args).values():
@@ -187,7 +196,6 @@ def main():
         data_extraction(Path(log['output_folder']).joinpath(input_folder.name),
                         parameters, settings)
         statistical_analysis(settings, parameters, log['output_folder'])
-
 
     end = time.time()
 
@@ -206,4 +214,4 @@ if __name__ == '__main__':
     main()
 
 # TODO GUI
-# TODO Save plots and reports in extract folders
+# TODO osqp and qdldl wheels not existing for Python-3.12

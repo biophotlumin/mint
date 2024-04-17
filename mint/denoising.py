@@ -6,30 +6,37 @@ import numpy as np
 from scipy import signal
 from joblib import Parallel, delayed
 
-
-def tophat(separation: int, frame: np.ndarray) -> np.ndarray:
-    """Applies top-hat transform.
+def tophat(
+    separation: int,
+    frame: np.ndarray
+    ) -> np.ndarray:
+    """
+    Applies top-hat transform to input image.
 
     Top-hat filtering with `cv2.MORPH_TOPHAT`. Removes artifacts.
 
-    :param separation: Minimum distance (in pixels) between features.
-    :type separation: dict
-    :param frame: 2D array of unfiltered data.
-    :type frame: np.ndarray
-    :return: 2D array of filtered data.
-    :rtype: np.ndarray
+    Parameters
+    ----------
+    separation : int
+        Minimum distance (in pixels) between features.
+    frame : np.ndarray
+        2D array of unfiltered data.
+
+    Returns
+    -------
+    np.ndarray
+        2D array of filtered data.
     """
-
-    kernelC = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (separation, separation))
-    processed_frame = cv2.morphologyEx(frame, cv2.MORPH_TOPHAT, kernelC)
-
-    return processed_frame
+    kernelC = np.ones((separation, separation), dtype=int)
+    return frame - cv2.erode(frame, kernelC)
 
 def lowpass() -> tuple[np.ndarray, np.ndarray]:
     """Defines a pair of arrays for low pass filtering.
 
-    :return: Arrays for low pass filtering.
-    :rtype: np.ndarray
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        Arrays for low pass filtering.
     """
 
     h0 = 3./8
@@ -49,14 +56,19 @@ def lowpass() -> tuple[np.ndarray, np.ndarray]:
     return array1, array2
 
 def wavelet(frame: np.ndarray) -> np.ndarray:
-    """Applies wavelet denoising.
+    """Applies wavelet denoising to a single frame.
 
-    Uses two lowpass filers and `scipy.signal.convolve2d` to remove background noise.
+    Uses two lowpass filters and `scipy.signal.convolve2d` to remove background noise.
 
-    :param frame: 2D array of unfiltered data.
-    :type frame: np.ndarray
-    :return: 2D array of filtered data.
-    :rtype: np.ndarray
+    Parameters
+    ----------
+    frame : np.ndarray
+        2D array of unfiltered data.
+
+    Returns
+    -------
+    np.ndarray
+        2D array of filtered data.
     """
 
     lp1 = lowpass()[0]
@@ -64,43 +76,82 @@ def wavelet(frame: np.ndarray) -> np.ndarray:
 
     lc1 = signal.convolve2d(frame, lp1, mode='same')
     lc2 = signal.convolve2d(lc1, lp2, mode='same')
-    processed_frame = lc1 - lc2
 
-    return processed_frame
+    return lc1 - lc2
 
 def filtering(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarray:
-    """Performs frame-by-frame filtering.
+    """
+    Perform frame-by-frame filtering.
 
-    :param frames: 3D array of video frames.
-    :type frames: np.ndarray
-    :param settings: Dictionary of filtering settings.
-    :type settings: dict
-    :param parameters: Dictionary of filtering parameters.
-    :type parameters: dict
-    :return: 3D array of filtered video frames.
-    :rtype: np.ndarray
+    Parameters
+    ----------
+    frames : np.ndarray
+        3D array of video frames.
+    settings : dict
+        Dictionary of filtering settings.
+    parameters : dict
+        Dictionary of filtering parameters.
+
+    Returns
+    -------
+    np.ndarray
+        3D array of filtered video frames.
     """
 
-    for i in range(len(frames)):
+    for i, frame in enumerate(frames):
         if settings['tophat']:
-            frames[i] = tophat(parameters['separation'], frames[i])
+            frames[i] = tophat(parameters['separation'], frame)
 
         if settings['wavelet']:
-            frames[i] = wavelet(frames[i])
+            frames[i] = wavelet(frame)
+
+    return frames
+
+def array_filtering(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarray:
+    """
+    Perform frame-by-frame filtering.
+
+    Parameters
+    ----------
+    frames : np.ndarray
+        3D array of video frames.
+    settings : dict
+        Dictionary of filtering settings.
+    parameters : dict
+        Dictionary of filtering parameters.
+
+    Returns
+    -------
+    np.ndarray
+        3D array of filtered video frames.
+    """
+
+    if settings['tophat']:
+        frames = np.array([tophat(separation=parameters['separation'], frame=frame)
+                           for frame in frames])
+
+    if settings['wavelet']:
+        frames = np.array([wavelet(frame=frame) for frame in frames])
 
     return frames
 
 def filtering_p(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarray:
-    """Performs frame-by-frame filtering using parallel processing.
+    """
+    Perform frame-by-frame filtering.
 
-    :param frames: 3D array of video frames.
-    :type frames: np.ndarray
-    :param settings: Dictionary of filtering settings.
-    :type settings: dict
-    :param parameters: Dictionary of filtering parameters.
-    :type parameters: dict
-    :return: 3D array of filtered video frames.
-    :rtype: np.ndarray
+    Parameters
+    ----------
+    frames : np.ndarray
+        3D array of video frames.
+    settings : dict
+        Dictionary of filtering settings.
+    parameters : dict
+        Dictionary of filtering parameters.
+
+    Returns
+    -------
+    np.ndarray
+        3D array of filtered video frames.
     """
 
     if settings['tophat']:
@@ -109,8 +160,7 @@ def filtering_p(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndar
                               return_as='generator')(delayed(tophat)
                                                     (parameters['separation'], frame)
                                                     for frame in frames)
-
-        for i, frame in zip(range(len(frames)), tophat_gen):
+        for i, frame in enumerate(tophat_gen):
             frames[i] = frame
 
     if settings['wavelet']:
@@ -118,8 +168,7 @@ def filtering_p(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndar
         wavelet_gen = Parallel(n_jobs=os.cpu_count(),
                                return_as='generator')(delayed(wavelet)(frame)
                                                        for frame in frames)
-
-        for i, frame in zip(range(len(frames)), wavelet_gen):
+        for i, frame in enumerate(wavelet_gen):
             frames[i] = frame
 
     return frames

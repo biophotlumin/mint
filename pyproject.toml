@@ -31,6 +31,7 @@ exclude = [
     "node_modules",
     "site-packages",
     "venv",
+    "*.ipynb",
 ]
 
 # Same as Black.

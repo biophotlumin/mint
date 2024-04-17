@@ -1,5 +1,5 @@
 input module
-===========
+=============
 
 .. automodule:: mint.input
    :members:

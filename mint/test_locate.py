@@ -3,21 +3,41 @@
 
 #Imports
 import os
-import nd2
-import imageio
-import warnings
 import matplotlib
 import numpy as np
 import trackpy as tp
 import matplotlib.pyplot as plt
 
 from pathlib import Path
+from .input import get_frames
 from .utils import get_file_list
-from .denoising import tophat, wavelet
+from .denoising import filtering
 
 # plt.switch_backend('TkAgg')
 
-def get_range(parameter, scaling):
+def get_range(parameter: int | list, scaling: int) -> list | np.ndarray:
+    """
+    Create a sequence of numbers according to the parameter.
+
+    Parameters
+    ----------
+    parameter : int, float, or list of two numbers
+        If `parameter` is a list of two ints, returns a range between the two numbers,
+        with `scaling` as the step size.
+    scaling : float
+        The step size between the start and end points of the range
+        when a list is provided.
+
+    Returns
+    -------
+    result : list or ndarray
+        Parameter or list of parameters
+
+    Raises
+    ------
+    ValueError
+        Raised if the specified argument do not match the expected format.
+    """
 
     if isinstance(parameter, int) or isinstance(parameter, float):
         return [parameter]
@@ -26,17 +46,22 @@ def get_range(parameter, scaling):
     elif isinstance(parameter, list) and len(parameter) == 2:
         return np.arange(parameter[0], parameter[1], scaling)
     else:
-        warnings.warn(f'Invalid parameter : {parameter}')
+        raise ValueError(f'Invalid parameter : {parameter}')
+
 
 def test_locate(input_folder, parameters, settings):
-    """Test filters and locate parameters.
+    """
+    Test locate parameters.
 
-    :param input_folder: Path to input folder containing raw videos.
-    :type input_folder: Path or string
-    :param parameters: Dictionary containing calculation parameters.
-    :type parameters: dict
-    :param settings: Dictionary containing calculation settings.
-    :type settings: dict
+    Parameters
+    ----------
+    input_folder : Path or str
+        Path to input folder containing raw videos.
+    parameters : dict
+        Dictionary containing calculation parameters.
+    settings : dict
+        Dictionary containing calculation settings.
+
     """
 
     path_list, name_list = get_file_list(input_folder, parameters['extension_in'])
@@ -45,25 +70,17 @@ def test_locate(input_folder, parameters, settings):
                                [j for j in range(len(path_list))]):
 
         print(f'\nProcessing {name}')
+        frames = get_frames(path)
 
-        #Opening video file
-        if parameters['extension_in'] == 'tif':
-            frames = imageio.volread(path)
-        elif parameters['extension_in'] == 'nd2':
-            frames = nd2.imread(path)
-        else:
-            warnings.warn(f'Extension {parameters["extension_in"]} is not supported')
+        if len(frames) == 0:
+            return
 
         processed_frame = frames[0]
 
         # Prevent conflict in case of wavelet filtering
-        processed_frame = processed_frame.astype('float64')
+        processed_frames = processed_frame.astype('float64')
 
-        if settings['tophat']:
-            processed_frame = tophat(parameters['filter_separation'], processed_frame)
-
-        if settings['wavelet']:
-            processed_frame = wavelet(processed_frame)
+        processed_frames = filtering(processed_frames, settings, parameters)
 
         # Show filter results
 
@@ -79,7 +96,7 @@ def test_locate(input_folder, parameters, settings):
 
         # Locating particles and finding trajectories
 
-        tp.quiet([True]) # Silencing TrackPy messages
+        tp.quiet(suppress=True) # Silencing TrackPy messages
 
         print('\tLocating')
 

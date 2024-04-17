@@ -42,12 +42,17 @@ def tracking(input_folder: Path_type, parameters: dict, settings: dict, log: dic
                                [j for j in range(len(path_list))]):
         per_file(path, name, j, len(path_list), parameters, settings, log)
 
+    if len(path_list) == 0:
+        raise Exception(f"No files found matching extension "
+                        f"{parameters['extension_in']}")
+
     log_tracking['msd_mean'] = np.mean(log_tracking['t_msd'])
     log_tracking['msd_std'] = np.std(log_tracking['t_msd'])
     log_tracking['filt_mean'] = np.mean(log_tracking['t_filt'])
     log_tracking['filt_std'] = np.std(log_tracking['t_filt'])
     log_tracking['rej_mean'] = np.mean(log_tracking['t_rej'])
     log_tracking['rej_std'] = np.std(log_tracking['t_rej'])
+
     dict_dump(log['output_folder'], log_tracking, 'log')
     print_pb('\n', j+1, len(path_list))
     print('\n')
@@ -104,6 +109,9 @@ def per_file(path, name, j, j_max, parameters: dict, settings: dict, log: dict):
 
     frames = get_frames(path)
 
+    if len(frames) == 0:
+        return
+
     filt_start = time.time()
 
     # Prevent conflict in case of wavelet filtering
@@ -122,7 +130,7 @@ def per_file(path, name, j, j_max, parameters: dict, settings: dict, log: dict):
 
     # Localizing particles and finding trajectories
 
-    tp.quiet([True])  # Silencing TrackPy messages
+    tp.quiet(suppress=True)  # Silencing TrackPy messages
 
     print_pb('\tLocating', j, j_max)
     raw_coordinates = tp.batch(processed_frames,
@@ -171,7 +179,7 @@ def per_file(path, name, j, j_max, parameters: dict, settings: dict, log: dict):
         processed_trajectory = MSD_filtering(raw_trajectory, parameters['msd'])
         if len(processed_trajectory) == 0: # Check if any trajectories were found.
             # If not, the threshold might be too high.
-            warnings.warn('No trajectories retained,'
+            warnings.warn('No trajectories retained, '
                             'MSD threshold might be too high')
             return
     else:
@@ -207,8 +215,12 @@ def per_file(path, name, j, j_max, parameters: dict, settings: dict, log: dict):
     static = MSD_filtering(raw_trajectory,
                             parameters['msd'],
                             highpass=False)
-    static = tp.filter_stubs(static, len(frames)//10)
-    n_static = static.particle.nunique()
+    if len(static) == 0:
+        n_static = 0
+    else:
+        static = tp.filter_stubs(static, len(frames)//10)
+        n_static = static.particle.nunique()
+
     n_static = [n_static]*len(raw_trajectory)
     n_static = pd.DataFrame(n_static, columns=['n_static'])
     processed_trajectory = processed_trajectory.reset_index(drop=True)

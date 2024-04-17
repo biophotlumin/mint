@@ -1,34 +1,49 @@
 ********************
-**User guide**
+User guide
 ********************
+
 .. contents:: :backlinks: None
+
+
+All parameters and settings are specified in a single ``config.yml`` file.
+It (or copies of it) can be edited to change the behavior of the program.
  
 
-**General information**
+**Input**
 ===============================
 
-Input data must be in the form of .tif or Nikon .nd2 files, and should be placed in a dedicated folder. Proper folder structure is detailed in `Statistical analysis`_.
 
-Default parameters are provided in ``mint.py``, but as they are very specific to our experimental setup please expect some trial and error
-before obtaining satisfactory results. 
+``input_folder`` is the absolute path to the folder containing videos to analyse.
+Proper folder structure is detailed in `Statistical analysis`_.
 
-You can use the ``test_locate.py`` module to try feature findind parameters.
+MINT can read .tif and Nikon .nd2 files through ``imageio`` and ``nd2``, respectively.
+
+Other file types supported by Bio-Formats can be read through ``imagej``, albeit much slower.
+
+Default parameters are provided in ``config.yml`` but are very much experiment-dependent.
+Expect some trial and error before obtaining satisfactory results. 
+
+You can use the ``test_locate`` function to optimize feature findind parameters.
 
 
 **Parameters and settings**
 ===============================
 
 
-* **extension_in** : File format of the videos. Currently, only .tif and .nd2 are supported.
+* **extension_in** : File format of the videos (as its extension).
+
+* **parallel** : ``joblib``-based parallelization. Depending on the number of avaible cores, it can dramatically speed up calculation.
+
+* **parallel_tracking** : Experimental. Parallelizes the entire tracking process. Reading files from disk and RAM can become bottlenecks.
 
 
 **Preprocessing**
 ---------------------
 
-Two preprocessing filters can be applied to the videos before going through trackpy :
+Two preprocessing filters can be applied to the videos before going through tracking :
 
 
-* **Wavelet** denoising reduces background noise and improves signal-to-noise ratio.
+* **Wavelet** denoising reduces background noise and improves the signal-to-noise ratio.
 
 
 * **Top-hat** transform (white) removes large spots and artifacts.
@@ -46,16 +61,16 @@ Please refer to their own documentation for more details on each parameter.
   **Feature finding** :
 
 
-  * **diameter** : Size of the features to be found. Must be odd.
+  * **diameter** : Size of the features to be found (in pixels). Must be odd.
   * **minmass** : Minimum integrated brightness.
-  * **separation** : Minimum separation between features.
+  * **separation** : Minimum separation between features (in pixels).
 
 * 
   **Linking** : 
 
 
   * **search_range** : Maximum distance a feature can move between frames.
-  * **memory** (optional) : Maximum number of frames a feature can disappear for and still be considered the same spot.
+  * **memory** (optional) : Maximum number of frames a spot can disappear for and still be considered the same feature.
   * **adaptive_stop** (optional) : Bottom line ``search_range`` that trackpy will gradually move towards if the original parameter results in an unsolvable calculation.
   * **adaptive_step** (optional) : Factor by which ``search_range`` will decrease until it reaches ``adaptive_stop``.
   * **stub_filtering** (setting, optional) : Filters trajectories based on length.
@@ -63,7 +78,7 @@ Please refer to their own documentation for more details on each parameter.
     * **stub_filtering** (parameter) : Minimum number of points required for a trajectory to be retained.
 
 * 
-  **Additionally** : 
+  **Postprocessing** : 
 
 
   * **MSD** (setting, optional) : Computes the Mean Square Displacement (MSD) for each trajectory, and filters them accordingly.
@@ -103,7 +118,7 @@ This part of the script calculates transport parameters from extracted trajector
 
 * **antero_retro** (optional) : Separates transport parameters into anterograde and retrograde categories. Note : this is highly dependent on our original experimental setup and will most likely not work elsewhere. 
 
-* **conf_list** (optional) : Saves the confinement ratio of each point into a .csv file that contain a list of points for each trajectory. Can be used to determinate ``r_conf_cut``.
+* **conf_list** (optional) : Saves the confinement ratio of each point into a .csv file that contain a list of points for each trajectory. Can be used to determine ``r_conf_cut``.
 
 |
 
@@ -111,7 +126,7 @@ This part of the script calculates transport parameters from extracted trajector
 --------------
 
 
-* **individual_images** (optional) : Plots each individual trajectory on the first frame of the corresponding film, and saves it.
+* **individual_images** (optional) : Plots each individual trajectory on the first frame of the corresponding video, and saves it.
 * **individual_txt** (optional) : Saves the point coordinates of each individual trajectory into a .txt file.
 * **group_image** (optional) : Plots all trajectories found on a film on its first frame, and saves it.
 * **ordering** (optional) : Specify the order of experimental conditions in graphs.

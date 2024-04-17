@@ -52,7 +52,7 @@ stats_vars = { # Variables of interest as keys, labels as values
         'pausing_time_switch': 'Pausing time in bidirectional motion (s)',
         # Must be kept last in the dict !
         'fraction_moving': 'Fraction of moving particles',
-        'fraction_moving_msd': 'Fraction of moving particles (MSD)'
+        # 'fraction_moving_msd': 'Fraction of moving particles (MSD)'
 
 }
 # Function names as keys, label as values (with a trailing space)
@@ -62,16 +62,17 @@ statistical_tests = {'kruskal': 'Kruskal-Wallis ',
                      }
 
 def statistical_analysis(settings: dict, parameters: dict, input_folder: Path_type):
-    """Perform statistical analysis.
-
+    """
     Scans through .csv files and runs them through statistical analysis.
 
-    : param settings:  Dictionary containing settings.
-    : type settings:  dict
-    : param parameters:  Dictionary containing parameters.
-    : type parameters:  dict
-    : param input_folder:  Folder containing .csv file to be analysed.
-    : type input_folder:  str or Path
+    Parameters
+    ----------
+    settings : dict
+        Dictionary containing settings.
+    parameters : dict
+        Dictionary containing parameters.
+    input_folder : str or Path
+        Folder containing .csv file to be analysed.
     """
 
     for path, subfolder, files in os.walk(input_folder):
@@ -90,20 +91,28 @@ def statistical_analysis(settings: dict, parameters: dict, input_folder: Path_ty
             run_stats(settings, parameters, act_variables, data, input_folder)
 
 def run_stats(settings, parameters, act_variables, data, input_folder):
-    """Statistical tests and plotting functions for each variable of interest.
-
-    : param ordering:  Optional order of experimental conditions in graphs.
-    : type ordering:  List of str
-    : param parameters:  Dictionary containing parameters.
-    : type parameters:  dict
-    : param act_variables:  Dictionary of variables to be analysed.
-    : type act_variables:  dict
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param input_folder:  Folder containing .csv file to be analysed.
-    : type input_folder:  str or Path
-    : raises RuntimeError:  Raises error in case the order list does not match data.
     """
+    Statistical tests and plotting functions for each variable of interest.
+
+    Parameters
+    ----------
+    settings : dict
+        Dictionary containing settings.
+    parameters : dict
+        Dictionary containing parameters.
+    act_variables : dict
+        Dictionary of variables to be analysed.
+    data : pandas.DataFrame
+        DataFrame containing trajectory parameters.
+    input_folder : str or Path
+        Folder containing .csv file to be analysed.
+
+    Raises
+    ------
+    RuntimeError
+        Raised if the conditions in the order list does not match the data.
+    """
+
 
     # Uncomment for subpopulation analysis
 
@@ -121,15 +130,15 @@ def run_stats(settings, parameters, act_variables, data, input_folder):
     # left = data.loc[data['slide']=='oeil_gauche']
     # Right eye only
     # right = data.loc[data['slide']=='oeil_droit']
-    # gfp_pos = data.loc[data['gfp']=="[ True]"]
-    # data = gfp_pos
+    gfp_pos = data.loc[data['gfp'] == "[ True]"]
+    data = gfp_pos
 
     if settings['ordering']:
         order = parameters['order'] # Optionally order by condition
         if len(order) != data.condition.nunique():
             raise RuntimeError(
                 'Length of order list does not match number of conditions')
-        if any(c not in data.condition.unique() for c in order):
+        if any(c not in list(data.condition.unique()) for c in order):
             raise RuntimeError(
                 'Item(s) in order list not found in conditions')
         if len(order) != len(set(order)):
@@ -198,24 +207,30 @@ def run_stats(settings, parameters, act_variables, data, input_folder):
     text_file.close()
 
 def run_variable(var, normal, test, data, dunn_b, input_folder, parameters):
-    """Call appropriate statistical test and plotting function for a variable.
+    """
+    Call appropriate statistical test and plotting function for a variable.
 
-    : param var:  Current variable.
-    : type var:  str
-    : param normal:  Wether the distribution of `var` in `data` is normal.
-    : type normal:  bool
-    : param test:  Statistical test to be applied.
-    : type test:  str
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param dunn_b:  Wether Dunn's test should be applied.
-    : type dunn_b:  bool
-    : param input_folder:  Folder where the files will be saved.
-    : type input_folder:  str or Path
-    : param parameters:  Dictionary containing parameters
-    : type parameters:  dict
-    : return:  List of results.
-    : rtype:  list
+    Parameters
+    ----------
+    var : str
+        Current variable.
+    normal : bool
+        Whether the distribution of `var` in `data` is normal.
+    test : str
+        Statistical test to be applied.
+    data : DataFrame
+        DataFrame containing trajectory parameters.
+    dunn_b : bool
+        Whether Dunn's test should be applied.
+    input_folder : str or Path
+        Folder where the files will be saved.
+    parameters : dict
+        Dictionary containing parameters
+
+    Returns
+    -------
+    list
+        List of results.
     """
     var_res = []
     var_res.append(f'{var.upper()}\n')
@@ -257,33 +272,46 @@ def run_variable(var, normal, test, data, dunn_b, input_folder, parameters):
     return var_res
 
 def ranksums(data:  pd.DataFrame, variable:  str) -> float:
-    """Two-sided Mann-Whitney U test
+    """
+    Two-sided Mann-Whitney U test.
 
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param variable:  Current variable.
-    : type variable:  str
-    : return:  p-value.
-    : rtype:  float
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DataFrame containing trajectory parameters.
+    variable : str
+        Current variable.
+
+    Returns
+    -------
+    float
+        p-value.
     """
 
     index = data.condition.unique()
     x = data.loc[data.condition == index[0], variable]
     y = data.loc[data.condition == index[1], variable]
     p = stats.mannwhitneyu(x, y, use_continuity=True, alternative='two-sided',
-                           nan_policy='omit')[1]
-
+                           nan_policy='omit')[1] # type: ignore
+                            # `nan_policy` isn't explicitely defined as an argument
     return p
 
 def kruskal(data:  pd.DataFrame, variable:  str) -> float:
-    """Kruskal-Wallis test.
+    """
+    Calculates the Kruskal-Wallis H-test for one nominal variable and one or more
+    numerical variables.
 
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param variable:  Current variable.
-    : type variable:  str
-    : return:  p-value.
-    : rtype:  float
+    Parameters
+    ----------
+    data : DataFrame
+        DataFrame containing trajectory parameters.
+    variable : str
+        Current variable.
+
+    Returns
+    -------
+    float
+        p-value.
     """
 
     list_of_arrays = []
@@ -295,14 +323,21 @@ def kruskal(data:  pd.DataFrame, variable:  str) -> float:
     return p
 
 def t_test(data:  pd.DataFrame, variable:  str) -> float:
-    """t-test.
+    """
+    Calculates the Kruskal-Wallis H-test for one nominal variable and one or more
+    numerical variables.
 
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param variable:  Current variable.
-    : type variable:  str
-    : return:  p-value.
-    : rtype:  float
+    Parameters
+    ----------
+    data : DataFrame
+        DataFrame containing trajectory parameters.
+    variable : str
+        Current variable.
+
+    Returns
+    -------
+    float
+        p-value.
     """
 
     list_of_arrays = []
@@ -314,14 +349,20 @@ def t_test(data:  pd.DataFrame, variable:  str) -> float:
     return p
 
 def dunn(data:  pd.DataFrame, variable:  str) -> str:
-    """Dunn's test.
+    """
+    Dunn's test.
 
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param variable:  Current variable.
-    : type variable:  str
-    : return:  Table of p-values.
-    : rtype:  str
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DataFrame containing trajectory parameters.
+    variable : str
+        Current variable.
+
+    Returns
+    -------
+    str
+        Table of p-values.
     """
 
     list_of_arrays = []
@@ -341,21 +382,24 @@ def dunn(data:  pd.DataFrame, variable:  str) -> str:
     return p.to_string()
 
 def boxplot(data, variable, input_folder, p, parameters):
-    """Box plot.
+    """
+    Bar plot.
 
-    Generate a box plot, with a notch at the median,
-    and saves it as a file under `extension_out`.
+    Generate a boxplot with a notch at the median,
+    and save it as a file under `extension_out`.
 
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param variable:  Current variable.
-    : type variable:  str
-    : param input_folder:  Folder where the file will be saved.
-    : type input_folder:  str or Path
-    : param p:  p-value.
-    : type p:  float
-    : param parameters:  Dictionary containing parameters.
-    : type parameters:  dict
+    Parameters
+    ----------
+    data : DataFrame
+        DataFrame containing trajectory parameters.
+    variable : str
+        Current variable.
+    input_folder : str or Path
+        Folder where the file will be saved.
+    p : float
+        p-value.
+    parameters : dict
+        Dictionary containing parameters.
     """
 
     sns.set_theme(style="ticks", palette=sns.color_palette("deep")) # 'crest'
@@ -373,23 +417,25 @@ def boxplot(data, variable, input_folder, p, parameters):
     plt.close()
 
 def barplot(data, variable, input_folder, p, parameters):
-    """Bar plot.
-
-    Generate a bar plot, with SEM as error bars,
-    and saves it as a file under `extension_out`.
-
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param variable:  Current variable.
-    : type variable:  str
-    : param input_folder:  Folder where the file will be saved.
-    : type input_folder:  str or Path
-    : param p:  p-value.
-    : type p:  float
-    : param parameters:  Dictionary containing parameters.
-    : type parameters:  dict
     """
+    Bar plot.
 
+    Generate a bar plot with the mean of `variable` as bar height,
+    and SEM as error bars, and save it as a file under `extension_out`.
+
+    Parameters
+    ----------
+    data : DataFrame
+        DataFrame containing trajectory parameters.
+    variable : str
+        Current variable.
+    input_folder : str or Path
+        Folder where the file will be saved.
+    p : float
+        p-value.
+    parameters : dict
+        Dictionary containing parameters.
+    """
     error = []
 
     for i in data['condition'].unique():
@@ -401,7 +447,7 @@ def barplot(data, variable, input_folder, p, parameters):
     data = data.dropna()
     bars = sns.barplot(data=data, y=variable, x='condition', estimator=mean,
                        errorbar=None, hue='condition', order=parameters['order'],
-                       error_kw={'elinewidth': 2, 'capsize': 4, 'capthick': 2})
+                       err_kws={'elinewidth': 2, 'capsize': 4, 'capthick': 2})
 
     # Can't pass a list to yerr directly since seaborn 13.0,
     # need to plot errorbars independently
@@ -425,14 +471,18 @@ def barplot(data, variable, input_folder, p, parameters):
     plt.close()
 
 def violinplot(data, variable, p):
-    """Violin plot.
+    """
+    Violin plot.
 
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param variable:  Current variable.
-    : type variable:  str
-    : param p:  p-value.
-    : type p:  float
+    Parameters
+    ----------
+    data : DataFrame
+        DataFrame containing trajectory parameters.
+    variable : str
+        Current variable.
+    p : float
+        p-value.
+
     """
 
     sns.violinplot(x=data['condition'], y=data[variable], inner='box', cut=0)
@@ -443,16 +493,20 @@ def violinplot(data, variable, p):
     plt.show()
 
 def normality(data:  pd.DataFrame, variable:  str) -> bool:
-    """Check for normality.
+    """
+    Check for normality.
 
-    Test wether or not a sample fits a normal distribution.
+    Parameters
+    ----------
+    data : DataFrame
+        DataFrame containing trajectory parameters.
+    variable : str
+        Current variable.
 
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param variable:  Current variable.
-    : type variable:  str
-    : return:  Wether the sample fits a normal distribution.
-    : rtype:  bool
+    Returns
+    -------
+    bool
+        True if the sample fits a normal distribution.
     """
 
     if len(data) >= 8:
@@ -465,17 +519,21 @@ def normality(data:  pd.DataFrame, variable:  str) -> bool:
         return False
 
 def means(data:  pd.DataFrame, variable:  str):
-    """Calculate distribution parameters.
-
-    Calculate the sample size, mean, median
+    """
+    Calculate the sample size, mean, median,
     and standard deviation of `variable` in `data`.
 
-    : param data:  DataFrame containing trajectory parameters.
-    : type data:  DataFrame
-    : param variable:  Current variable.
-    : type variable:  str
-    : return:  Sample size, mean, median, standard deviation.
-    : rtype:  float
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DataFrame containing trajectory parameters.
+    variable : str
+        Current variable.
+
+    Returns
+    -------
+    Tuple[float, float, float, float]
+        Sample size, mean, median, standard deviation.
     """
 
     subdata = data[variable]

@@ -4,14 +4,15 @@ import abc
 import warnings
 from pathlib import Path
 
-import imageio
 import nd2
+import imageio
 import numpy as np
 
 from .utils import Path_type
 
 try:
     import imagej
+    from jpype.types import JClass
 
     IJ_INSTALLED = True
 
@@ -22,19 +23,66 @@ except ImportError:
 class BaseReader(abc.ABC):
     """
     Abstract base class for video readers.
+
+    All derived classes should implement the `get_frames` method to return
+    the frames of the video as a 3D numpy array.
     """
 
     def __init__(self):
         self.name = 'Base reader'
 
     @abc.abstractmethod
-    def get_frames(self, file_path: Path_type) -> None:
+    def get_frames(self, file_path: Path_type) -> np.ndarray:
+        """
+        Extract the frames from the video.
+
+        Parameters
+        ----------
+        file_path : str or pathlib.Path
+            File path to the video.
+
+        Returns
+        -------
+        frames : np.ndarray
+            3D array of shape (number of frames, height, width) containing
+            the frames of the video.
+        """
         pass
 
-    def get_shape(self, frames: np.ndarray) -> tuple:
+    def get_shape(self, frames: np.ndarray) -> tuple[int, ...]:
+        """
+        Returns the shape of the frames.
+
+        Parameters
+        ----------
+        frames : np.ndarray
+            3D array of frames.
+
+        Returns
+        -------
+        shape : tuple
+            Shape of the frames.
+        """
         return frames.shape
 
-    def check_shape(self, shape: tuple, dims: int = 3) -> bool:
+    def check_shape(self, shape: tuple[int, ...], dims: int = 3) -> bool:
+        """
+        Check that the shape of the frames has the expected number of
+        dimensions.
+
+        Parameters
+        ----------
+        shape : tuple
+            Shape of the frames.
+        dims : int, optional
+            Expected number of dimensions, by default 3.
+
+        Returns
+        -------
+        bool
+            True if the frames have the expected number of dimensions, False
+            otherwise.
+        """
         if len(shape) == dims:
             return True
         else:
@@ -43,12 +91,37 @@ class BaseReader(abc.ABC):
             return False
 
     def return_frames(self, file_path: Path_type) -> np.ndarray:
-        frames = self.get_frames(file_path)
+        """
+        Check and extract frames from the video.
+
+        Parameters
+        ----------
+        file_path : str or pathlib.Path
+            File path to the video.
+
+        Returns
+        -------
+        frames : np.ndarray
+            Returns the frames of the video.
+        """
+
+        try:
+            frames = self.get_frames(file_path)
+        except FileNotFoundError:
+            warnings.warn(f'File {file_path} not found')
+            return np.empty(0)
+
         if isinstance(frames, np.ndarray):
             if self.check_shape(self.get_shape(frames)) is True:
                 return frames
+            else:
+                warnings.warn(f'Reading {Path(file_path).name} with {self.name}'
+                              f' did not return an array of correct shape')
+                return np.empty(0)
         else:
-            warnings.warn(f'Reader {self.name} did not return an array')
+            warnings.warn(f'Reading {Path(file_path).name} with {self.name}'
+                          f' did not return an array')
+            return np.empty(0)
 
 class ImageIOReader(BaseReader):
 
@@ -72,7 +145,7 @@ class BioFormatsReader(BaseReader):
         self.name = 'BioFormats reader'
         self.jvm_started = False
 
-    def start_JVM(self):
+    def start_JVM(self) -> JClass:
         self.jvm_started = True
         return imagej.init()
 
@@ -93,13 +166,18 @@ class BioFormatsReader(BaseReader):
         return frames
 
 def get_frames(file_path: Path_type) -> np.ndarray:
-    """Get frames from a file.
-    Reader selected based on file extension.
+    """Loads frames from file.
 
-    :param file_path: File path
-    :type file_path: Path_type
-    :return: 3D array of frames
-    :rtype: np.ndarray
+    Parameters
+    ----------
+    file_path : Path_type
+        File path.
+
+    Returns
+    -------
+    frames : ndarray
+        3D array of frames.
+
     """
 
     extension = Path(file_path).suffix
@@ -114,3 +192,5 @@ def get_frames(file_path: Path_type) -> np.ndarray:
         warnings.warn(f'Extension {extension} is not supported')
 
     return reader.return_frames(file_path)
+
+## TODO Assert float64 ?
