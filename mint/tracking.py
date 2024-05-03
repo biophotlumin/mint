@@ -9,21 +9,25 @@ import trackpy as tp
 import pandas as pd
 import numpy as np
 
-from .utils import print_pb, get_file_list, Path_type
 from pathlib import Path
 from joblib import Parallel, delayed
+
 from .input import get_frames
+from .denoising import filtering, filtering_p
+from .utils import print_pb, get_file_list, Path_type
+
+from .output import (trajectory_output,
+                     trajectory_separation,
+                     image_output,
+                     dict_dump)
+
 from .traj_calc import (MSD_calculation,
                         MSD_calculation_p,
                         MSD_filtering,
                         rejoining,
                         SNR_spot_estimation,
                         GFP_mask)
-from .denoising import filtering, filtering_p
-from .output import (trajectory_output,
-                     trajectory_separation,
-                     image_output,
-                     dict_dump)
+
 
 log_tracking = {
         'n_rejoined': 0,
@@ -34,7 +38,12 @@ log_tracking = {
         't_rej': [],
     }
 
-def tracking(input_folder: Path_type, parameters: dict, settings: dict, log: dict):
+def tracking(
+        input_folder: Path_type,
+        parameters: dict,
+        settings: dict,
+        log: dict
+        ) -> None:
 
     path_list, name_list = get_file_list(str(input_folder), parameters['extension_in'])
 
@@ -57,22 +66,36 @@ def tracking(input_folder: Path_type, parameters: dict, settings: dict, log: dic
     print_pb('\n', j+1, len(path_list))
     print('\n')
 
-def p_tracking(input_folder: Path_type, parameters: dict, settings: dict, log: dict):
+def p_tracking(
+        input_folder: Path_type,
+        parameters: dict,
+        settings: dict,
+        log: dict
+        ) -> None:
 
     path_list, name_list = get_file_list(str(input_folder), parameters['extension_in'])
 
-    track_gen = Parallel(n_jobs=os.cpu_count(), return_as='generator',
-                         batch_size='auto')(delayed(per_file)(path, name, j,
-                                                                  len(path_list),
-                                                                  parameters, settings,
-                                                                  log)
-                                            for (path, name, j) in
-                                            zip(path_list, name_list,
-                                                range(len(path_list))))
+    track_gen = Parallel(
+        n_jobs=os.cpu_count(),
+        return_as='generator',
+        batch_size='auto')(
+            delayed(
+                per_file)(
+                    path,
+                    name,
+                    j,
+                    len(path_list),
+                    parameters,
+                    settings,
+                    log) for (
+                        path,
+                        name,
+                        j) in
+                            zip(path_list,
+                            name_list,
+                            range(len(path_list))))
 
-    j = 1
-
-    for _ in track_gen:
+    for j, _ in enumerate(track_gen):
 
         # log_tracking['n_rejoined'] += log_traj['n_rejoined']
         # log_tracking['n_traj'] += log_traj['n_traj']
@@ -82,8 +105,6 @@ def p_tracking(input_folder: Path_type, parameters: dict, settings: dict, log: d
         # log_tracking['t_rej'].append(log_traj['t_rej'])
 
         print_pb(f'\tProcessed track', j, len(path_list))
-
-        j += 1
 
     log_tracking['msd_mean'] = np.mean(log_tracking['t_msd'])
     log_tracking['msd_std'] = np.std(log_tracking['t_msd'])
@@ -95,10 +116,18 @@ def p_tracking(input_folder: Path_type, parameters: dict, settings: dict, log: d
     dict_dump(log['output_folder'], log_tracking, 'log')
     print('\n')
 
-def per_file(path, name, j, j_max, parameters: dict, settings: dict, log: dict):
+def per_file(
+        path: Path_type,
+        name: str,
+        j: int,
+        j_max: int,
+        parameters: dict,
+        settings: dict,
+        log: dict
+        ) -> None:
 
     # Separate subfolder structure from root input folder
-    output_subfolder = path.replace(str(log['root_input_folder']), '')
+    output_subfolder = str(path).replace(str(log['root_input_folder']), '')
     # Merge subfolder structure with root output folder
     out_path = str(log['output_folder']) + output_subfolder
 
@@ -314,8 +343,7 @@ if __name__ == '__main__':
     log = {}
 
     start = time.time()
-    input_folder = Path(r"/media/lumin/DATA/DATA_DEVRIM/Batch 1/Condition 1/"
-                        r"CS6C/20231123_KG_Exp46_Transport_CS6C_pos1_000.nd2")
+    input_folder = Path(r"")
     tracking(input_folder, parameters, settings, log)
     end = time.time()
     duration = end - start

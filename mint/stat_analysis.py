@@ -61,7 +61,11 @@ statistical_tests = {'kruskal': 'Kruskal-Wallis ',
                      't_test': 't-',
                      }
 
-def statistical_analysis(settings: dict, parameters: dict, input_folder: Path_type):
+def statistical_analysis(
+        settings: dict,
+        parameters: dict,
+        input_folder: Path_type
+        ) -> None:
     """
     Scans through .csv files and runs them through statistical analysis.
 
@@ -90,7 +94,13 @@ def statistical_analysis(settings: dict, parameters: dict, input_folder: Path_ty
 
             run_stats(settings, parameters, act_variables, data, input_folder)
 
-def run_stats(settings, parameters, act_variables, data, input_folder):
+def run_stats(
+        settings: dict,
+        parameters: dict,
+        act_variables: dict,
+        data: pd.DataFrame,
+        input_folder: Path_type,
+        ) -> None:
     """
     Statistical tests and plotting functions for each variable of interest.
 
@@ -130,11 +140,13 @@ def run_stats(settings, parameters, act_variables, data, input_folder):
     # left = data.loc[data['slide']=='oeil_gauche']
     # Right eye only
     # right = data.loc[data['slide']=='oeil_droit']
-    gfp_pos = data.loc[data['gfp'] == "[ True]"]
-    data = gfp_pos
+    # gfp_pos = data.loc[data['gfp'] == "[ True]"]
+    # data = gfp_pos
 
     if settings['ordering']:
         order = parameters['order'] # Optionally order by condition
+        print(len(order))
+        print(data.condition.nunique())
         if len(order) != data.condition.nunique():
             raise RuntimeError(
                 'Length of order list does not match number of conditions')
@@ -206,7 +218,15 @@ def run_stats(settings, parameters, act_variables, data, input_folder):
     text_file.writelines(results)
     text_file.close()
 
-def run_variable(var, normal, test, data, dunn_b, input_folder, parameters):
+def run_variable(
+        var: str,
+        normal: bool,
+        test: str | None,
+        data: pd.DataFrame,
+        dunn_b: bool,
+        input_folder: Path_type,
+        parameters: dict,
+        ) -> list:
     """
     Call appropriate statistical test and plotting function for a variable.
 
@@ -271,7 +291,10 @@ def run_variable(var, normal, test, data, dunn_b, input_folder, parameters):
 
     return var_res
 
-def ranksums(data:  pd.DataFrame, variable:  str) -> float:
+def ranksums(
+        data:  pd.DataFrame,
+        variable:  str
+        ) -> float:
     """
     Two-sided Mann-Whitney U test.
 
@@ -296,7 +319,10 @@ def ranksums(data:  pd.DataFrame, variable:  str) -> float:
                             # `nan_policy` isn't explicitely defined as an argument
     return p
 
-def kruskal(data:  pd.DataFrame, variable:  str) -> float:
+def kruskal(
+        data: pd.DataFrame,
+        variable:  str
+        ) -> float:
     """
     Calculates the Kruskal-Wallis H-test for one nominal variable and one or more
     numerical variables.
@@ -322,7 +348,10 @@ def kruskal(data:  pd.DataFrame, variable:  str) -> float:
 
     return p
 
-def t_test(data:  pd.DataFrame, variable:  str) -> float:
+def t_test(
+        data:  pd.DataFrame,
+        variable:  str
+        ) -> float:
     """
     Calculates the Kruskal-Wallis H-test for one nominal variable and one or more
     numerical variables.
@@ -348,7 +377,10 @@ def t_test(data:  pd.DataFrame, variable:  str) -> float:
 
     return p
 
-def dunn(data:  pd.DataFrame, variable:  str) -> str:
+def dunn(
+        data:  pd.DataFrame,
+        variable:  str
+        ) -> str:
     """
     Dunn's test.
 
@@ -381,7 +413,13 @@ def dunn(data:  pd.DataFrame, variable:  str) -> str:
 
     return p.to_string()
 
-def boxplot(data, variable, input_folder, p, parameters):
+def boxplot(
+        data: pd.DataFrame,
+        variable: str,
+        input_folder: Path_type,
+        p: str,
+        parameters: dict,
+        ) -> None:
     """
     Bar plot.
 
@@ -396,7 +434,7 @@ def boxplot(data, variable, input_folder, p, parameters):
         Current variable.
     input_folder : str or Path
         Folder where the file will be saved.
-    p : float
+    p : str
         p-value.
     parameters : dict
         Dictionary containing parameters.
@@ -409,14 +447,20 @@ def boxplot(data, variable, input_folder, p, parameters):
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(stats_vars[variable])
-    plt.annotate((f'p-value :  {p}'), xy=(195, 310), xycoords='figure points')
+    plt.annotate((f'p-value : {p}'), xy=(195, 310), xycoords='figure points')
     plt.savefig(Path(input_folder).joinpath((f'Boxplot '
                                              f'{str(data["condition"].unique())} '
                                              f'{variable}.{parameters["extension_out"]}')),
                                              dpi=parameters["dpi"])
     plt.close()
 
-def barplot(data, variable, input_folder, p, parameters):
+def barplot(
+        data: pd.DataFrame,
+        variable: str,
+        input_folder: Path_type,
+        p: str,
+        parameters: dict,
+        ) -> None:
     """
     Bar plot.
 
@@ -431,7 +475,7 @@ def barplot(data, variable, input_folder, p, parameters):
         Current variable.
     input_folder : str or Path
         Folder where the file will be saved.
-    p : float
+    p : str
         p-value.
     parameters : dict
         Dictionary containing parameters.
@@ -439,8 +483,9 @@ def barplot(data, variable, input_folder, p, parameters):
     error = []
 
     for i in data['condition'].unique():
-        error.append(stats.sem(data[variable].loc[data['condition'] == i],
-                               nan_policy='omit') if len(data) > 3 else 0)
+        c_data = data[variable].loc[data['condition'] == i]
+        error.append(stats.sem(c_data, nan_policy='omit')
+                               if len(c_data) > 3 else 0)
 
     # Order isn't properly inferred from DataFrame for columns with missing values
     # since seaborn 13.0, need to pass order explicitly
@@ -470,7 +515,11 @@ def barplot(data, variable, input_folder, p, parameters):
                                             dpi=parameters["dpi"])
     plt.close()
 
-def violinplot(data, variable, p):
+def violinplot(
+        data: pd.DataFrame,
+        variable: str,
+        p: str,
+        ) -> None:
     """
     Violin plot.
 
@@ -480,7 +529,7 @@ def violinplot(data, variable, p):
         DataFrame containing trajectory parameters.
     variable : str
         Current variable.
-    p : float
+    p : str
         p-value.
 
     """
@@ -492,7 +541,10 @@ def violinplot(data, variable, p):
     plt.annotate(("p-value :  "+p), xy=(195, 310), xycoords='figure points')
     plt.show()
 
-def normality(data:  pd.DataFrame, variable:  str) -> bool:
+def normality(
+        data: pd.DataFrame,
+        variable: str,
+        ) -> bool:
     """
     Check for normality.
 
@@ -518,7 +570,10 @@ def normality(data:  pd.DataFrame, variable:  str) -> bool:
     else:
         return False
 
-def means(data:  pd.DataFrame, variable:  str):
+def means(
+        data: pd.DataFrame,
+        variable: str
+        ) -> tuple:
     """
     Calculate the sample size, mean, median,
     and standard deviation of `variable` in `data`.

@@ -32,7 +32,9 @@ class BaseReader(abc.ABC):
         self.name = 'Base reader'
 
     @abc.abstractmethod
-    def get_frames(self, file_path: Path_type) -> np.ndarray:
+    def get_frames(self,
+                   file_path: Path_type,
+                   ) -> np.ndarray:
         """
         Extract the frames from the video.
 
@@ -49,7 +51,9 @@ class BaseReader(abc.ABC):
         """
         pass
 
-    def get_shape(self, frames: np.ndarray) -> tuple[int, ...]:
+    def get_shape(self,
+                  frames: np.ndarray,
+                  ) -> tuple[int, ...]:
         """
         Returns the shape of the frames.
 
@@ -65,7 +69,10 @@ class BaseReader(abc.ABC):
         """
         return frames.shape
 
-    def check_shape(self, shape: tuple[int, ...], dims: int = 3) -> bool:
+    def check_shape(self,
+                    shape: tuple[int, ...],
+                    dims: int = 3,
+                    ) -> bool:
         """
         Check that the shape of the frames has the expected number of
         dimensions.
@@ -90,7 +97,9 @@ class BaseReader(abc.ABC):
                           f'does not match expected {dims}')
             return False
 
-    def return_frames(self, file_path: Path_type) -> np.ndarray:
+    def return_frames(self,
+                      file_path: Path_type,
+                      ) -> np.ndarray:
         """
         Check and extract frames from the video.
 
@@ -128,7 +137,9 @@ class ImageIOReader(BaseReader):
     def __init__(self):
         self.name = 'ImageIO reader'
 
-    def get_frames(self, file_path: Path_type) -> np.ndarray:
+    def get_frames(self,
+                   file_path: Path_type,
+                   ) -> np.ndarray:
         return imageio.volread(file_path)
 
 class ND2Reader(BaseReader):
@@ -136,7 +147,9 @@ class ND2Reader(BaseReader):
     def __init__(self):
         self.name = 'ND2 reader'
 
-    def get_frames(self, file_path: Path_type) -> np.ndarray:
+    def get_frames(self,
+                   file_path: Path_type,
+                   ) -> np.ndarray:
         return nd2.imread(file_path)
 
 class BioFormatsReader(BaseReader):
@@ -149,7 +162,9 @@ class BioFormatsReader(BaseReader):
         self.jvm_started = True
         return imagej.init()
 
-    def get_frames(self, file_path: Path_type) -> np.ndarray:
+    def get_frames(self,
+                   file_path: Path_type,
+                   ) -> np.ndarray:
 
         file_path = str(file_path)
 
@@ -165,8 +180,11 @@ class BioFormatsReader(BaseReader):
 
         return frames
 
-def get_frames(file_path: Path_type) -> np.ndarray:
-    """Loads frames from file.
+def get_frames(
+        file_path: Path_type,
+        ) -> np.ndarray:
+    """
+    Loads frames from file.
 
     Parameters
     ----------
@@ -177,7 +195,6 @@ def get_frames(file_path: Path_type) -> np.ndarray:
     -------
     frames : ndarray
         3D array of frames.
-
     """
 
     extension = Path(file_path).suffix

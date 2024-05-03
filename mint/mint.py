@@ -19,7 +19,7 @@ from pathlib import Path
 from .tracking import tracking, p_tracking
 from .data_extraction import data_extraction
 from .utils import  folder_structure_creation, load_params
-from .output import dict_dump, generate_report
+from .output import dict_dump
 from .stat_analysis import statistical_analysis
 
 def main():
@@ -102,15 +102,19 @@ def main():
                         default=os.getcwd(),
                         help='Path to data folder')
     parser.add_argument('-p', '--params',
-                        default='', help='Path to config file')
+                        default='',
+                        help='Path to config file')
     parser.add_argument('-l', '--locate',
-                        default=False, help='Locate and link particles',
+                        default=False,
+                        help='Locate and link particles',
                         action='store_true')
     parser.add_argument('-e', '--extract',
-                        default=False, help='Extract transport parameters',
+                        default=False,
+                        help='Extract transport parameters',
                         action='store_true')
     parser.add_argument('-s', '--stats',
-                        default=False, help='Statistical analysis',
+                        default=False,
+                        help='Statistical analysis',
                         action='store_true')
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
@@ -142,7 +146,7 @@ def main():
         if args.folder:
             input_folder = args.folder
             config = load_params(Path(input_folder).joinpath('config.yml'))
-            if config is not None:
+            if config:
                 settings = config['settings']
                 parameters = config['parameters']
             else:
@@ -206,9 +210,6 @@ def main():
     print(f'Total runtime : {f_duration}')
 
     dict_dump(log['output_folder'], log, 'log')
-
-    if True not in vars(args).values():
-        generate_report(log['output_folder'])
 
 if __name__ == '__main__':
     main()

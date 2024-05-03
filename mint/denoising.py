@@ -8,7 +8,7 @@ from joblib import Parallel, delayed
 
 def tophat(
     separation: int,
-    frame: np.ndarray
+    frame: np.ndarray,
     ) -> np.ndarray:
     """
     Applies top-hat transform to input image.
@@ -27,11 +27,14 @@ def tophat(
     np.ndarray
         2D array of filtered data.
     """
+
     kernelC = np.ones((separation, separation), dtype=int)
     return frame - cv2.erode(frame, kernelC)
 
-def lowpass() -> tuple[np.ndarray, np.ndarray]:
-    """Defines a pair of arrays for low pass filtering.
+def lowpass(
+    ) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Defines a pair of arrays for low pass filtering.
 
     Returns
     -------
@@ -55,8 +58,11 @@ def lowpass() -> tuple[np.ndarray, np.ndarray]:
 
     return array1, array2
 
-def wavelet(frame: np.ndarray) -> np.ndarray:
-    """Applies wavelet denoising to a single frame.
+def wavelet(
+        frame: np.ndarray,
+        ) -> np.ndarray:
+    """
+    Applies wavelet denoising to a single frame.
 
     Uses two lowpass filters and `scipy.signal.convolve2d` to remove background noise.
 
@@ -79,7 +85,11 @@ def wavelet(frame: np.ndarray) -> np.ndarray:
 
     return lc1 - lc2
 
-def filtering(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarray:
+def filtering(
+        frames: np.ndarray,
+        settings: dict,
+        parameters: dict,
+        ) -> np.ndarray:
     """
     Perform frame-by-frame filtering.
 
@@ -98,6 +108,9 @@ def filtering(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarra
         3D array of filtered video frames.
     """
 
+    if len(frames.shape) == 2:
+        frames = np.expand_dims(frames, axis=0)
+
     for i, frame in enumerate(frames):
         if settings['tophat']:
             frames[i] = tophat(parameters['separation'], frame)
@@ -107,7 +120,11 @@ def filtering(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarra
 
     return frames
 
-def array_filtering(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarray:
+def array_filtering(
+        frames: np.ndarray,
+        settings: dict,
+        parameters: dict,
+        ) -> np.ndarray:
     """
     Perform frame-by-frame filtering.
 
@@ -135,7 +152,11 @@ def array_filtering(frames: np.ndarray, settings: dict, parameters: dict) -> np.
 
     return frames
 
-def filtering_p(frames: np.ndarray, settings: dict, parameters: dict) -> np.ndarray:
+def filtering_p(
+        frames: np.ndarray,
+        settings: dict,
+        parameters: dict,
+        ) -> np.ndarray:
     """
     Perform frame-by-frame filtering.
 

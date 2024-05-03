@@ -8,21 +8,27 @@ import imageio
 import numpy as np
 import cvxpy as cp
 import pandas as pd
-import polars as pl
 
 from cvxpy.atoms.norm import norm
 from cvxpy.atoms.norm1 import norm1
 from trackpy.motion import msd
 from pathlib import Path
+from typing import cast
 
 from scipy import optimize
 from joblib import Parallel, delayed
 
+from .utils import Path_type
+
 pd.options.mode.chained_assignment = None
 
-def rejoining(tracks: pd.DataFrame, threshold_t: int,
-              threshold_r: int) -> tuple[pd.DataFrame, int]:
-    """Rejoins split trajectories.
+def rejoining(
+        tracks: pd.DataFrame,
+        threshold_t: int,
+        threshold_r: int,
+        ) -> tuple[pd.DataFrame, int]:
+    """
+    Rejoins split trajectories.
 
     Joins trajectories whose start and end points are within set
     spatial and temporal threshold of each other.
@@ -31,70 +37,20 @@ def rejoining(tracks: pd.DataFrame, threshold_t: int,
     rejoined trajectories will be considered as one for statistical purposes
     thus reducing oversampling.
 
-    :param tracks: DataFrame containing trajectories.
-    :type tracks: DataFrame
-    :param threshold_t: Temporal threshold, in number of frames.
-    :type threshold_t: int
-    :param threshold_r: Spatial threshold, in pixels.
-    :type threshold_r: int
-    :return: DataFrame containing rejoined trajectories.
-    :rtype: DataFrame
+    Parameters
+    ----------
+    tracks : DataFrame
+        DataFrame containing trajectories.
+    threshold_t : int
+        Temporal threshold, in number of frames.
+    threshold_r : int
+        Spatial threshold, in pixels.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame containing rejoined trajectories.
     """
-
-    df_start = pd.DataFrame()
-    df_end = pd.DataFrame()
-    n_rejoined = 0
-    temp_tracks = tracks.copy()
-
-    # Get first and last point of each trajectory
-    for item in set(tracks.particle):
-
-        subtrack = tracks[tracks.particle == item]
-        df_temp = subtrack[subtrack.frame == np.min(subtrack.frame)]
-        df_start = pd.concat((df_start, df_temp), ignore_index=True)
-
-        df_temp = subtrack[subtrack.frame == np.max(subtrack.frame)]
-        df_end = pd.concat((df_end, df_temp), ignore_index=True)
-
-    df_start = df_start.sort_values(by='frame', ascending=False)
-    df_end = df_end.sort_values(by='frame', ascending=False)
-
-    for linef in df_end.itertuples():
-        for lined in df_start.itertuples():
-            timed = lined.frame
-            timef = linef.frame
-            particle1 = linef.particle
-            particle2 = lined.particle
-
-            #Rejoins trajectories if they are within spatial and temporal range
-            if (timed > timef) and (timed - timef < threshold_t):
-                xd, yd = lined.x, lined.y
-                xf, yf = linef.x, linef.y
-                r = np.sqrt((xf-xd)**2 + (yf-yd)**2)
-                if r < threshold_r and particle1 != particle2:
-
-                    df_start.loc[df_start['particle'] == particle2,
-                                 'particle'] = particle1
-                    df_end.loc[df_end['particle'] == particle2,
-                               'particle'] = particle1
-                    temp_tracks.loc[temp_tracks['particle'] == particle2,
-                                    'particle'] = particle1
-                    df_start = df_start.loc[(df_start['frame'] != timed)
-                                            & (df_start['particle'] != particle1)]
-                    df_end = df_end.loc[(df_end['frame'] != timef)
-                                        & (df_end['particle'] != particle1)]
-                    n_rejoined += 1
-                    break
-
-    temp_tracks.rename(columns={'particle': 'rejoined_particle'}, inplace=True)
-    tracks = tracks.reset_index(drop=True)
-    temp_tracks = temp_tracks.reset_index(drop=True)
-    tracks = pd.concat([tracks, temp_tracks['rejoined_particle']], axis=1, join='inner')
-
-    return tracks, n_rejoined
-
-def rejoining_2(tracks: pd.DataFrame, threshold_t: int,
-              threshold_r: int) -> tuple[pd.DataFrame, int]:
 
     df_start = tracks.groupby(by="particle").agg(
         {'frame': 'min'}).sort_values(by='frame', ascending=False)
@@ -118,96 +74,49 @@ def rejoining_2(tracks: pd.DataFrame, threshold_t: int,
 
     n_rejoined = len(filtered)
 
-    merged = tracks.merge(filtered['particle_x'], left_on='rejoined_particle',
-                          right_on='particle_x', how='left')
-    merged = merged.drop('particle_x', axis=1)
+    tracks['rejoined_particle'] = tracks.particle
 
-    return merged, n_rejoined
+    merged_df = tracks.merge(filtered[['particle_y', 'particle_x']],
+                             left_on='rejoined_particle', right_on='particle_y',
+                             how='left')
+    merged_df.reset_index(drop=True, inplace=True)
+    tracks.reset_index(drop=True, inplace=True)
 
+    tracks['temp'] = merged_df['particle_x'].fillna(tracks['rejoined_particle'])
+    tracks = tracks.drop('rejoined_particle', axis=1)
+    tracks.rename(columns={'temp': 'rejoined_particle'}, inplace=True)
 
-def rejoining_polars(tracks: pl.DataFrame, threshold_t: int,
-              threshold_r: int) -> tuple[pl.DataFrame, int]:
-
-    if isinstance(tracks, pd.DataFrame):
-        tracks = pl.from_pandas(tracks)
-
-    end = tracks.group_by('particle').agg(pl.col('frame').max())
-    start = tracks.group_by('particle').agg(pl.col('frame').min())
-
-    end = tracks.join(end, on=['particle', 'frame'],
-                    how='inner').sort('frame', descending=True)
-    start = tracks.join(start, on=['particle', 'frame'],
-                    how='inner').sort('frame', descending=True)
-
-    joined = end.select([pl.col('frame'), pl.col('x'), pl.col('y'), pl.col('particle')]
-                        ).join(
-        start.select([pl.col('frame'), pl.col('x'), pl.col('y'), pl.col('particle')]),
-        on='frame', how='cross').with_columns(
-            (pl.col('frame_right') - pl.col('frame')).alias('tdist')
-    )
-
-    joined = joined.with_columns(((pl.col('x') - pl.col('x_right'))**2 + (pl.col('y')
-                                    - pl.col('y_right'))**2).sqrt().alias('rdist'))
-    joined = joined.filter((pl.col('tdist') < threshold_t) & (pl.col('tdist') > 0)
-                           & (pl.col('rdist') < threshold_r))
-    joined = joined.filter(pl.col('particle') != pl.col('particle_right'))
-    joined = joined.sort(['tdist', 'rdist'])
-    joined = joined.unique(subset='particle_right')
-
-    n_rejoined = joined.select(pl.len()).item()
-
-    tracks = tracks.with_columns(tracks.get_column('particle')
-                                 .alias('rejoined_particle'))
-
-    df_with = tracks.join(joined.select(['particle_right']), left_on='particle',
-                          right_on='particle_right', how='semi')
-
-    df_without = tracks.join(joined.select(['particle_right']), left_on='particle',
-                             right_on='particle_right', how='anti')
-
-    df_with = df_with.join(joined.select('particle'), left_on='rejoined_particle',
-                           right_on='particle', how='cross')
-
-    df_with = df_with.with_columns(df_with.get_column('particle_right')
-                                   .alias('rejoined_particle'))
-
-    df_with = df_with.drop('particle_right')
-
-    tracks = pl.concat([df_without, df_with], how='vertical')
-
-    # tracks = tracks.with_columns(
-    #     pl.when((pl.col('particle').is_in(joined.select('particle_right')))
-    #             & (joined.count() > 0))
-    #     .then(joined.select('particle'))
-    #     .otherwise(pl.col('particle'))
-    #     .alias('rejoined_particle')
-    # )
-
-    tracks = tracks.to_pandas()
+    tracks.rejoined_particle = tracks.rejoined_particle.astype(int)
 
     return tracks, n_rejoined
 
-def SNR_spot_estimation(frames: np.ndarray, tracks: pd.DataFrame,
-                        base_level: int) -> pd.DataFrame:
-    """Estimates SNR for each feature.
+def SNR_spot_estimation(
+        frames: np.ndarray,
+        tracks: pd.DataFrame,
+        base_level: int,
+        ) -> pd.DataFrame:
+    """
+    Estimates SNR for each feature.
 
-    Returns a DataFrame with a column containing the SNR and one column containing
-    the signal (as the integral of the 2D gaussian).
+    Parameters
+    ----------
+    frames : array_like
+        2D array of a given frame.
+    tracks : DataFrame
+        DataFrame containing trajectories.
+    base_level : int
+        Base level of the detector (419 for FND experiments).
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with added SNR column.
 
     SNR is defined as the height of the gaussian fit divided by the noise from
     the background + shot noise.
 
-    The signal is defined as : N = 2pi(F-Fo)*sigmaX*sigmaY (volume of 2D gaussian of
-    standard deviation sigmaX and sigmaY in both directions).
-
-    :param frames: 2D array of a given frame.
-    :type frames: NumPy array
-    :param tracks: DataFrame containing trajectories.
-    :type tracks: DataFrame
-    :param base_level: Base level of the detector (419 for FNDs experiment).
-    :type base_level: int
-    :return: DataFrame with added SNR column.
-    :rtype: DataFrame
+    The signal is defined as : N = 2pi(F-Fo)*sigmaX*sigmaY (volume of 2D gaussian
+    of standard deviation sigmaX and sigmaY in both directions).
     """
 
     _nb_frames, nb_rows, nb_columns = frames.shape[0], frames.shape[1], frames.shape[2]
@@ -215,14 +124,17 @@ def SNR_spot_estimation(frames: np.ndarray, tracks: pd.DataFrame,
 
     for line in tracks.itertuples():
 
-        Pixel_x = int(line.x)
-        Pixel_y = int(line.y)
-        N = 7 #Half the size in pixel of  the square in which the gaussian is calculated
+        Pixel_x = cast(int, line.x)
+        Pixel_y = cast(int, line.y)
+        N = 7 # Half the size in pixel of the square in which the gaussian is calculated
 
-        if (Pixel_x > 7 and Pixel_y > 7
-            and Pixel_x < nb_columns-7 and Pixel_y < nb_rows-7):
-            data = (frames[line.frame, Pixel_y-N:Pixel_y+N, Pixel_x-N:Pixel_x+N]
-                    - base_level)
+        if (Pixel_x > 7
+            and Pixel_y > 7
+            and Pixel_x < nb_columns-7
+            and Pixel_y < nb_rows-7):
+            data = frames[cast(int, line.frame),
+                          int(Pixel_y-N):int(Pixel_y+N),
+                          int(Pixel_x-N):int(Pixel_x+N - base_level)]
             params = _fit_spot_by_gaussian(data)
             feet, height, width_x, width_y = (params[0], params[1][0],
                                               params[1][3], params[1][4])
@@ -264,23 +176,34 @@ def SNR_spot_estimation(frames: np.ndarray, tracks: pd.DataFrame,
     tracks = tracks.merge(df, on=['particle', 'frame'], how='left')
     return tracks
 
-def acceleration_minimization_norm1(measure, sigma0, px, nn=0):
-    """Experimental noise reduction algorithm.
+def acceleration_minimization_norm1(
+        measure: np.ndarray,
+        sigma0: int,
+        px: float,
+        nn: int = 0,
+        ) -> np.ndarray:
+    """
+    Experimental noise reduction algorithm.
 
-    :param measure: Measured data as x and y coordinates.
-    :type measure: array (n, 2)
-    :param sigma0: Standard deviation of localisation in nm.
-    :type sigma0: int
-    :param px: Pixel size in µm.
-    :type px: float
-    :param nn: Number of data points not taken into account
-        at the extremities of the solution.
-        For some methods, the extreme values are less reliable.
-    :type nn: int, optional
-    :return: Filtered solution with minimization of the norm 1 of the acceleration with
-        difference between measured data and solution
-        inferior or equal to the theoretical noise.
-    :rtype: array (n-2*nn, 2)
+    Parameters
+    ----------
+    measure : array (n, 2)
+        Measured data as x and y coordinates.
+    sigma0 : int
+        Standard deviation of localisation in nm.
+    px : float
+        Pixel size in µm.
+    nn : int, optional
+        Number of data points not taken into account
+        at the extremities of the solution. For some methods,
+        the extreme values are less reliable.
+
+    Returns
+    -------
+    solution : array (n-2*nn, 2)
+        Filtered solution with minimization of the norm 1 of the acceleration with
+        difference between measured data and solution inferior or equal to the
+        theoretical noise.
     """
 
     measure = px*measure
@@ -291,7 +214,7 @@ def acceleration_minimization_norm1(measure, sigma0, px, nn=0):
                             +norm1(variable[2:, 1]+variable[:-2, 1]
                                             - 2*variable[1:-1, 1]))
     constraints = [norm(variable - measure, 'fro')**2 <= n*sigma0**2*10**-6]
-    prob = cp.Problem(objective, constraints)
+    prob = cp.Problem(objective, constraints) #type: ignore
 
     prob.solve(solver='MOSEK', verbose=False) # Alternatively, 'GUROBI', 'MOSEK', 'SCS'
 
@@ -301,17 +224,29 @@ def acceleration_minimization_norm1(measure, sigma0, px, nn=0):
     else:
         return solution[nn:n-nn]
 
-def minimization(subdata: pd.DataFrame, px: float, sigma: int) -> pd.DataFrame:
-    """Prepares data for minimization.
-
-    :param subdata: DataFrame containing x and y coordinates.
-    :type subdata: DataFrame
-    :param parameters: Dictionary containing the pixel size under the `'px'` key
-        and the precision of localisation under the `'sigma'` key.
-    :type parameters: dict
-    :return: DataFrame containing denoised x and y coordinates.
-    :rtype: DataFrame
+def minimization(
+        subdata: pd.DataFrame,
+        px: float,
+        sigma: int,
+        ) -> pd.DataFrame:
     """
+    Handles data for minimization.
+
+    Parameters
+    ----------
+    subdata : DataFrame
+        DataFrame containing x and y coordinates.
+    px : float
+        Pixel size, in microns.
+    sigma : int
+        Estimated precision of localisation, in nm.
+
+    Returns
+    -------
+    subdata : DataFrame
+        DataFrame containing denoised x and y coordinates.
+    """
+
 
     #Convert coordinates to µm
 
@@ -340,19 +275,24 @@ def minimization(subdata: pd.DataFrame, px: float, sigma: int) -> pd.DataFrame:
 
 #Filtering functions
 
-def SNR_threshold(tracks: pd.DataFrame) -> pd.DataFrame:
-    """Filters trajectories based on their Signal to Noise Ratio.
+def SNR_threshold(
+        tracks: pd.DataFrame,
+        ) -> pd.DataFrame:
+    """
+    Filters trajectories based on their signal to noise ratio.
 
-    Returns a DataFrame without trajectories for which the average SNR
-    is below threshold.
+    Parameters
+    ----------
+    tracks : DataFrame
+        DataFrame containing trajectories.
 
-    :param tracks: DataFrame containing trajectories.
-    :type tracks: DataFrame
-    :return: DataFrame containing filtered trajectories.
-    :rtype: DataFrame
+    Returns
+    -------
+    DataFrame
+        DataFrame containing filtered trajectories.
     """
 
-    threshold = 2 # To implement as an optional filter
+    threshold = 2 # TODO Implement as an optional filter
 
     df = pd.DataFrame()
     for item in set(tracks.particle):
@@ -363,13 +303,26 @@ def SNR_threshold(tracks: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-def _gaussian(feet, height, center_x, center_y, width_x, width_y):
-    """Returns a gaussian function with the given parameters.
+def _gaussian(
+        feet: float,
+        height: float,
+        center_x: float,
+        center_y: float,
+        width_x: float,
+        width_y: float,
+        ):
+    """
+    Returns a 2D Gaussian function with the given parameters.
 
-    :param feet, height, center_x, center_y, width_x, width_y: Gaussian parameters.
-    :type feet, height, center_x, center_y, width_x, width_y: float
-    :return: Gaussian function.
-    :rtype: func
+    Parameters
+    ----------
+    feet, height, center_x, center_y, width_x, width_y : float
+        Gaussian parameters.
+
+    Returns
+    -------
+    gaussian : func
+        A 2D Gaussian function.
     """
 
     width_x = float(width_x)
@@ -377,14 +330,23 @@ def _gaussian(feet, height, center_x, center_y, width_x, width_y):
     return lambda x, y: feet + height*np.exp(
                 -(((center_x-x)/width_x)**2+((center_y-y)/width_y)**2)/2)
 
-def _spot_moments(data):
-    """Calculates the moments of a 2D gaussian.
+def _spot_moments(
+        data: np.ndarray,
+        ):
+    """
+    Calculates the moments of a 2D gaussian.
 
-    :param data: 2D array of a given frame.
-    :type data: NumPy array
-    :return: Gaussian parameters. `feet` is calculated by
-    averaging pixels on the edge of 'data'.
-    :rtype: float
+    Parameters
+    ----------
+    data : array_like
+        2D array of a given frame.
+
+    Returns
+    -------
+    feet, height, center_x, center_y, width_x, width_y : float
+        Gaussian parameters. `feet` is calculated by
+        averaging pixels on the edge of `data`.
+
     """
 
     nbx = data.shape[0]
@@ -402,15 +364,21 @@ def _spot_moments(data):
     height = data.max()
     return feet, height, x, y, width_x, width_y
 
-def _fit_spot_by_gaussian(data):
-    """Fits a spot by a 2D gaussian.
+def _fit_spot_by_gaussian(
+        data: np.ndarray,
+        ) -> tuple[float, np.ndarray]:
+    """
+    Fits a spot by a 2D gaussian.
 
-    Returns the gaussian fit parameters of a 2D distribution.
+    Parameters
+    ----------
+    data : array_like
+        2D array of a given frame.
 
-    :param data: 2D array of a given frame.
-    :type data: NumPy array
-    :return: Gaussian fit parameters.
-    :rtype: int
+    Returns
+    -------
+    tuple of float
+        Gaussian fit parameters (feet, height, center_x, center_y, width_x, width_y).
     """
 
     parameters = _spot_moments(data)
@@ -424,22 +392,32 @@ def _fit_spot_by_gaussian(data):
 
     return feet, p
 
-def MSD_per_traj(tracks: pd.DataFrame, traj: int, px: float, dt: float) -> pd.DataFrame:
-    """_summary_
-
-    _extended_summary_
-
-    :param tracks: _description_
-    :type tracks: _type_
-    :param item: _description_
-    :type item: _type_
-    :param px: _description_
-    :type px: _type_
-    :param dt: _description_
-    :type dt: _type_
-    :return: _description_
-    :rtype: _type_
+def MSD_per_traj(
+        tracks: pd.DataFrame,
+        traj: int,
+        px: float,
+        dt: float,
+        ) -> pd.DataFrame:
     """
+    Calculate the Mean Square Displacement (MSD) per trajectory.
+
+    Parameters
+    ----------
+    tracks : pd.DataFrame
+        DataFrame containing trajectories.
+    traj : int
+        The trajectory ID to calculate MSD for.
+    px : float
+        Pixel size, in microns.
+    dt : float
+        Sampling period, in seconds.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with an extra column for the maximum MSD.
+    """
+
     subtracks = tracks[tracks.particle == traj].copy()
     df2 = msd(subtracks, px, (1/dt), max_lagtime=len(subtracks))
     max_msd = [df2.msd.max()]*len(subtracks)
@@ -447,17 +425,27 @@ def MSD_per_traj(tracks: pd.DataFrame, traj: int, px: float, dt: float) -> pd.Da
 
     return subtracks
 
-def MSD_calculation(tracks: pd.DataFrame, px: float, dt: float) -> pd.DataFrame:
-    """Calculates the maximum Mean Square Displacement of a trajectory.
+def MSD_calculation(
+        tracks: pd.DataFrame,
+        px: float,
+        dt: float,
+        ) -> pd.DataFrame:
+    """
+    Calculates the maximum Mean Square Displacement of trajectories.
 
-    :param tracks: DataFrame containing trajectories.
-    :type tracks: DataFrame
-    :param px: Pixel size, in microns.
-    :type px: float
-    :param dt: Sampling period, in seconds.
-    :type dt: float
-    :return: DataFrame with an extra column for maximum MSD.
-    :rtype: DataFrame
+    Parameters
+    ----------
+    tracks : DataFrame
+        DataFrame containing trajectories.
+    px : float
+        Pixel size, in microns.
+    dt : float
+        Sampling period, in seconds.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with an extra column for maximum MSD.
     """
 
     df = pd.DataFrame()
@@ -467,19 +455,28 @@ def MSD_calculation(tracks: pd.DataFrame, px: float, dt: float) -> pd.DataFrame:
             df = pd.concat((df, subtracks))
     return df
 
-def MSD_calculation_p(tracks: pd.DataFrame, px: float, dt: float) -> pd.DataFrame:
-    """Calculates the maximum Mean Square Displacement of a trajectory.
-
+def MSD_calculation_p(
+        tracks: pd.DataFrame,
+        px: float,
+        dt: float,
+        ) -> pd.DataFrame:
+    """
+    Calculate the maximum Mean Square Displacement of trajectories.
     Parallelized with `joblib`.
 
-    :param tracks: DataFrame containing trajectories.
-    :type tracks: DataFrame
-    :param px: Pixel size, in microns.
-    :type px: float
-    :param dt: Sampling period, in seconds.
-    :type dt: float
-    :return: DataFrame with an extra column for maximum MSD.
-    :rtype: DataFrame
+    Parameters
+    ----------
+    tracks : DataFrame
+        DataFrame containing trajectories.
+    px : float
+        Pixel size in microns.
+    dt : float
+        Sampling period in seconds.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with an extra column for maximum MSD.
     """
 
     df = pd.DataFrame()
@@ -488,24 +485,31 @@ def MSD_calculation_p(tracks: pd.DataFrame, px: float, dt: float) -> pd.DataFram
                                                     (tracks, traj, px, dt)
                                                       for traj in set(tracks.particle))
     for subtracks in MSD_generator:
+        subtracks = cast(pd.DataFrame, subtracks) # For typing purposes
         if len(subtracks) > 1:
             df = pd.concat((df, subtracks))
 
     return df
 
-def MSD_filtering(tracks: pd.DataFrame, threshold: int,
-                  highpass: bool = True) -> pd.DataFrame:
-    """Filters trajectories based on their Mean Square Displacement.
+def MSD_filtering(
+        tracks: pd.DataFrame,
+        threshold: int,
+        highpass: bool = True,
+        ) -> pd.DataFrame:
+    """
+    Filter trajectories based on Mean Square Displacement (MSD).
 
-    Returns a DataFrame containing trajectories whose calculated MSD
-    is above a set threshold.
+    Parameters
+    ----------
+    tracks : DataFrame
+        DataFrame containing unfiltered trajectories.
+    threshold : int
+        MSD threshold.
 
-    :param tracks: DataFrame containing unfiltered trajectories.
-    :type tracks: DataFrame
-    :param threshold: MSD threshold.
-    :type threshold: int
-    :return: DataFrame of filtered trajectories.
-    :rtype: DataFrame
+    Returns
+    -------
+    DataFrame
+        DataFrame of filtered trajectories.
     """
 
     df = pd.DataFrame()
@@ -523,32 +527,56 @@ def MSD_filtering(tracks: pd.DataFrame, threshold: int,
     return df
 
 def f(x, a, b, c, d):
-    """Third-degree polynom.
+    """
+    Calculates a third-degree polynomial.
 
-    :param x,a,b,c,d: Polynom parameters.
-    :type x,a,b,c,d: float
-    :return: Polynom.
-    :rtype: float
+    Parameters
+    ----------
+    x : float
+        Polynomial variable.
+    a, b, c, d : float
+        Polynomial coefficients.
+
+    Returns
+    -------
+    float
+        Polynomial value.
     """
     return a*x**3+b*x**2+c*x+d
 
-def polynomial_fit(data: pd.DataFrame, len_cutoff: int, threshold: float):
-    """Checks wether a trajectory fits a third-degree polynom.
+def polynomial_fit(
+        data: pd.DataFrame,
+        len_cutoff: int,
+        threshold: float,
+        ) -> bool | str:
+    """
+    Checks whether a trajectory fits a third-degree polynom.
 
-    Calculates how much a trajectory deviates from a third-degree polynom,
-    returns `True` if that deviation is below a given threshold.
+    Calculates the deviation of a trajectory from a third-degree polynom,
+    and returns a boolean array where True indicates that the deviation is
+    below the given threshold.
 
-    :param data: DataFrame containing x and y coordinates.
-    :type data: DataFrame
-    :param parameters: Dictionary with the threshold under the `'threshold_poly3'` key.
-    :type parameters: dict
-    :return: `True` if the deviation is below the threshold,
-        `False` if it is greater or equal.
-    :rtype: Boolean.
+    Parameters
+    ----------
+    data : DataFrame
+        DataFrame containing x and y coordinates.
+    len_cutoff : int
+        Minimum amount of points in the trajectory.
+        Effectively equivalent to stub filtering.
+    threshold : float
+        Deviation from the third-degree polynom above which the trajectory
+        is rejected.
+
+    Returns
+    -------
+    bool or str
+        Returns `True` if the trajectory fits a third-degree polynom,
+        `False` it it doesn't, and 'len' if the trajectory rejected because of length.
     """
 
     # x = data.x
     # y = data.y
+
     # Fewer trajectories are rejected if they are rotated first
     rot = rotate_single_track(data)
     x = rot.x_rotated
@@ -573,14 +601,23 @@ def polynomial_fit(data: pd.DataFrame, len_cutoff: int, threshold: float):
     else:
         return 'len'
 
-def rotate_single_track(data: pd.DataFrame) -> pd.DataFrame:
-    """Rotates trajectories horizontally.
-
-    :param data: DataFrame containing x and y coordinates.
-    :type data: DataFrame
-    :return: DataFrame containing rotated x and y coordinates.
-    :rtype: DataFrame
+def rotate_single_track(
+        data: pd.DataFrame,
+        ) -> pd.DataFrame:
     """
+    Rotate trajectories horizontally.
+
+    Parameters
+    ----------
+    data : DataFrame
+        DataFrame containing x and y coordinates.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame containing rotated x and y coordinates.
+    """
+
     coords = data.loc[:, ['x', 'y']].values
     coords = coords - coords[0, :]
 
@@ -601,19 +638,33 @@ def rotate_single_track(data: pd.DataFrame) -> pd.DataFrame:
 
 ## Experimental
 
-def prec(N):
-    """Experimental fit of the precision of localisation.
+def prec(
+        N: float,
+        ) -> float:
+    """
+    Experimental fit of the precision of localisation.
 
-    :param N: Integrated photon count.
-    :type N: float
+    Parameters
+    ----------
+    N : float
+        Integrated photon count.
+
+    Returns
+    -------
+    float
+        Estimated precision of localization.
     """
 
     return(30+(600/(np.sqrt(N))))
 
-def acc_min_norm1_pointwise_adaptative_error(measure, Signal,
-                                                               Noise_function, nn=0,
-                                                               Solver='SCS'):
+def acc_min_norm1_pointwise_adaptative_error(measure,
+                                             Signal,
+                                             Noise_function,
+                                             nn=0,
+                                             Solver='SCS'):
     """
+    EXPERIMENTAL
+
     Parameters
     ----------
     measure : array (n, 2)
@@ -654,7 +705,7 @@ def acc_min_norm1_pointwise_adaptative_error(measure, Signal,
     Constrained = cp.multiply(Weights, variable - measure)
 
     constraints = [norm(Constrained, 'fro')**2 <= 2*n]
-    prob = cp.Problem(objective, constraints)
+    prob = cp.Problem(objective, constraints) # type: ignore
 
     prob.solve(solver=Solver, max_iters=100000)
     solution = variable.value
@@ -663,15 +714,26 @@ def acc_min_norm1_pointwise_adaptative_error(measure, Signal,
     else:
         return solution[nn:n-nn]
 
-def point_minimization(subdata, px):
-    """Prepares data for pointwise minimization.
+def point_minimization(
+        subdata: pd.DataFrame,
+        px: float,
+        ) -> pd.DataFrame:
+    """
+    EXPERIMENTAL
 
-    :param subdata: DataFrame containing x and y coordinates.
-    :type subdata: DataFrame
-    :param parameters: Dictionary containing the pixel size under the `'px'` key.
-    :type parameters: dict
-    :return: DataFrame containing denoised x and y coordinates.
-    :rtype: DataFrame
+    Prepare data for pointwise minimization.
+
+    Parameters
+    ----------
+    subdata : DataFrame
+        DataFrame containing x and y coordinates.
+    px : float
+        Pixel size, in microns.
+
+    Returns
+    -------
+    subdata : DataFrame
+        DataFrame containing denoised x and y coordinates.
     """
 
     #Convert coordinates to µm
@@ -711,7 +773,31 @@ def point_minimization(subdata, px):
 
     return subdata
 
-def GFP_mask(path, name, trajectories):
+def GFP_mask(
+        path: Path_type,
+        name: str,
+        trajectories: pd.DataFrame,
+        ) -> pd.DataFrame:
+    """
+    EXPERIMENTAL
+
+    Loads a matching GFP image for each movie, and calculates which points of each
+    trajectories are inside GFP-positive areas.
+
+    Parameters
+    ----------
+    path : Path_type
+        The path to the GFP image.
+    name : str
+        The name of the file.
+    trajectories : pd.DataFrame
+        The DataFrame containing trajectories.
+
+    Returns
+    -------
+    pd.DataFrame
+        The DataFrame containing trajectories with the GFP column added.
+    """
 
     folder = Path(path).parent
     img_name = name[:-7]+'GFP.tif'
@@ -762,7 +848,23 @@ def GFP_mask(path, name, trajectories):
 
     return df
 
-def longest_streak(lst: list) -> int:
+def longest_streak(
+        lst: list,
+        ) -> int:
+    """
+    Calculates the longest streak of consecutive elements in the input list.
+
+    Parameters
+    ----------
+    lst : list
+        A list of elements to find the longest streak in.
+
+    Returns
+    -------
+    int
+        The length of the longest streak of consecutive elements in the input list.
+    """
+
     max_streak = 0
     current_streak = 0
     current_element = None

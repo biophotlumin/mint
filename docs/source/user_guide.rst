@@ -3,15 +3,14 @@ User guide
 ********************
 
 .. contents:: :backlinks: None
-
-
-All parameters and settings are specified in a single ``config.yml`` file.
-It (or copies of it) can be edited to change the behavior of the program.
  
 
 **Input**
 ===============================
 
+
+All parameters and settings are specified in a single ``config.yml`` file.
+This file can be moved and renamed.
 
 ``input_folder`` is the absolute path to the folder containing videos to analyse.
 Proper folder structure is detailed in `Statistical analysis`_.
@@ -30,11 +29,11 @@ You can use the ``test_locate`` function to optimize feature findind parameters.
 ===============================
 
 
-* **extension_in** : File format of the videos (as its extension).
+* **extension_in** : File format of the videos (as its extension, without period).
 
 * **parallel** : ``joblib``-based parallelization. Depending on the number of avaible cores, it can dramatically speed up calculation.
 
-* **parallel_tracking** : Experimental. Parallelizes the entire tracking process. Reading files from disk and RAM can become bottlenecks.
+* **parallel_tracking** : Experimental. Parallelizes the entire tracking process. Reading files from disk and available memory can become bottlenecks.
 
 
 **Preprocessing**
@@ -102,9 +101,9 @@ Please refer to their own documentation for more details on each parameter.
 This part of the script calculates transport parameters from extracted trajectories.
 
 
-* **r_conf_cut** : Cutoff level for confinement ratio above which a point is considered in a GO phase.
-* **px** : Pixel size in µm.
-* **dt** : Sampling period, in seconds, as in the amount of time between two frames.
+* **r_conf_cut** : Cutoff level for confinement ratio above which a point is considered in a GO phase. See the ``rconf`` notebook for more details.
+* **px** : Pixel size, in µm.
+* **dt** : Sampling period, in seconds.
 * **min_thr_prec** : Minimum theoretical precision, in nm.
 * **sliding_window** : Size, in frames, of the sliding window along which the confinement ratio is calculated.
 * **polynomial_fit** (optional) : Filters trajectories based on how well they fit to a 3rd degree polynom.
@@ -118,7 +117,9 @@ This part of the script calculates transport parameters from extracted trajector
 
 * **antero_retro** (optional) : Separates transport parameters into anterograde and retrograde categories. Note : this is highly dependent on our original experimental setup and will most likely not work elsewhere. 
 
-* **conf_list** (optional) : Saves the confinement ratio of each point into a .csv file that contain a list of points for each trajectory. Can be used to determine ``r_conf_cut``.
+* **conf_list** (optional) : Saves the confinement ratio of each point into a .csv file that contain a list of points for each trajectory. Can be used to set ``r_conf_cut``.
+
+* **theta** (optional) : Calculates the orientation of particles based on the variation of their intensity. Only applies to nanoparticles with non-isotropic emission.
 
 |
 
@@ -134,7 +135,6 @@ This part of the script calculates transport parameters from extracted trajector
   * **order** : List of experimental conditions.
 * **extension_out** : File format under which graphs will be saved. Can be anything ``matplotlib`` supports.
 * **dpi** (optional if ``extension_out`` is vectorial) : DPI of the saved graphs for non-vectorial file formats.
-* **clean_up** (optional) : Wether or not to delete individual graph files once they've been included in the experiment report.
 
 |
 
@@ -144,24 +144,26 @@ This part of the script calculates transport parameters from extracted trajector
 **Output**
 --------------
 
-The main output of the feature finding phase consists of two .csv files : 
+The main output of the feature finding phase consists of two .csv files per video, placed in folders matching the hierarchy of the input : 
 
 
 * ``filename``.csv : Raw trackpy output containing coordinates of each trajectory.
 * ``filename`` _rejoined.csv : Rejoined and filtered trajectories.
 
-Optionally, the script will also generate : 
+Optionally, the script can also generate : 
 
 
 * A plot of each individual trajectory.
 * A .txt files containing the coordinates of each individual trajectory.
-* Plots of all trajectories found per film.
+* Plots of all trajectories found per video.
 
-The data extraction phase will also generate two .csv files : 
+The data extraction phase will also generate two .csv files, placed in a separate folder : 
 
 
-* ``Per phase parameters.csv`` : Transport parameters calculated for each phase of each trajectory.
-* ``Trajectory average parameters.csv`` : Transport parameters averaged from phases of each trajectory.
+* ``phase_parameters.csv`` : Transport parameters calculated for each phase of each trajectory.
+* ``trajectory_parameters.csv`` : Transport parameters averaged from phases of each trajectory.
+
+Optionally, this folder will also contain a ``Confinement ratio.csv`` file.
 
 The statistical analysis phase will generate several files : 
 
@@ -170,15 +172,13 @@ The statistical analysis phase will generate several files :
 * **Boxplots** for each transport parameters.
 * A single .txt file with the p-values for each transport parameters as well as some other statistics.
 
-Additionally, several dictionaries are dumped as .txt files : 
+Additionally, several dictionaries are dumped as .yml files : 
 
 
-* ``log.txt`` contains some information about the run.
-* ``parameters.txt`` lists the parameters that were used.
-* ``settings.txt`` lists the settings that were used.
-* ``var.txt`` lists the variables statistically tested.
-
-In the case of a full run, the script will also generate a complete experiment report into a .pdf file.
+* ``log.yml`` contains some information about the run.
+* ``parameters.yml`` lists the parameters that were used.
+* ``settings.yml`` lists the settings that were used.
+* ``vars.yml`` lists the variables statistically tested.
 
 |
 
@@ -189,11 +189,13 @@ The following transport parameters are extracted and analyzed from each trajecto
 
 
 * **Pausing time** : Time, in seconds, that the particle spent in STOP phases.
-* **Pausing frequency** : Frequency at which the particle paused, in number of events per minute.
+* **Pausing frequency** : Frequency of STOP phases, in number of events per minute.
+* **Duration** : Duration of the trajectory, in seconds.
 * **Curvilign velocity** : Also known as segmental velocity, the speed of the particle in µm/s.
 * **Processivity** : Time, in seconds, that the particle spent in GO phases.
 * **Run length** : Length, in µm, travelled during GO phases.
-* **Diagonal size** : Overall length of the trajectory.
+* **Diagonal length** : Distance between the first and last points of the trajectory.
+* **Curvilign length** : Sum of all run lengths.
 * **Fraction of time paused** : Fraction of the time that the particle spent paused.
 * 
   **Fraction of moving particles** : Ratio of moving particles to non-moving particles. 
@@ -208,14 +210,23 @@ If the antero_retro setting is enabled :
 
 
 * Some of the parameters will be duplicated for anterograde and retrograde transport.
-* **Directionality** : ratio of retrograde to anterograde transport. 1 means a purely retrograde transport, 0 a purely anterograde transport.
+* **Directionality** : Ratio of retrograde to anterograde transport. 1 means a purely retrograde transport, 0 a purely anterograde transport.
+* **Switch** : Amount of directionality reversals, i.e. the number of STOP phases in between GO phases of opposite directionality.
+* **Switch A to R** : Reversals from anterograde to retrograde.
+* **Switch R to A** : Reversals from retrograde to anterograde.
+* **Normalized switch** : Amount of reversals normalized to the duration of the trajectory.
+* **Pausing time switch** : Pausing time between GO phases of opposite directionality.
+* **Pausing time antero** : Pausing time between anterograde GO phases.
+* **Pausing time retro** : Pausing time between retrograde GO phases.
+
 
 Additionally : 
 
 
 * **Intensity** : Average integrated brightness of the feature over the course of the trajectory. Separated between GO and STOP phases.
-* **Variance** : Standard deviation of the intensity. Similarly separated between GO and STOP phases.
+* **Variance** : Average standard deviation of the intensity. Similarly separated between GO and STOP phases.
 * **Number of stops** : Total number of pauses within a trajectory.
+* **Theta** : Variation of the angle of the nanoparticle.
 * Phase-specific parameters :
 
   * **Phase code** : 2 signifies a GO phase, 0 a STOP phase.

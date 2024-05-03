@@ -1,25 +1,22 @@
 """Functions used to output calculation results into files.
 """
-import os
-import sys
-import scs
 import yaml
-
 import numpy as np
 import pandas as pd
-import trackpy as tp
 import matplotlib.pyplot as plt
 
-from fpdf import FPDF
-from io import StringIO
-from datetime import datetime
 from pathlib import Path, PosixPath
-from cvxpy.version import version as cvxpy_version
 
+from .utils import Path_type
 
 plt.switch_backend('agg')
 
-def trajectory_output(output_file_path, name, process, output):
+def trajectory_output(
+        output_file_path: Path_type,
+        name: str,
+        process: str,
+        output: pd.DataFrame,
+        ) -> None:
     """
     Write trajectories into a .csv file.
 
@@ -39,7 +36,13 @@ def trajectory_output(output_file_path, name, process, output):
     filecsv = Path(str(output_file_path)).joinpath(name+process+".csv")
     output.to_csv(filecsv, sep='\t')
 
-def image_output(output_file_path, name, frames, trajectory, item):
+def image_output(
+        output_file_path: Path_type,
+        name: str,
+        frames: np.ndarray,
+        trajectory: pd.DataFrame,
+        item: int | bool,
+        ) -> None:
     """
     Plot trajectories onto the first frame of a file.
 
@@ -49,14 +52,13 @@ def image_output(output_file_path, name, frames, trajectory, item):
         Output file path.
     name : str
         Name of the file currently being processed.
-    frames : str
+    frames : array_like
         Frames of the file currently being processed.
     trajectory : DataFrame
         DataFrame containing the trajectory to be plotted.
     item : int or bool
         Number of the trajectory to be plotted. Pass False to plot all
         trajectories.
-
     """
 
     # Initialize plot
@@ -89,7 +91,13 @@ def image_output(output_file_path, name, frames, trajectory, item):
     plt.savefig(filepng, dpi=300)
     plt.close()
 
-def trajectory_separation(output_file_path, name, trajectory, settings, sub):
+def trajectory_separation(
+        output_file_path: Path_type,
+        name: str,
+        trajectory: int,
+        settings: dict,
+        sub: pd.DataFrame,
+        ) -> None:
     """
     Separates individual trajectories and writes them into .txt files.
 
@@ -105,7 +113,6 @@ def trajectory_separation(output_file_path, name, trajectory, settings, sub):
         Dictionary containing settings.
     sub : DataFrame
         Subset of the DataFrame containing the trajectory.
-
     """
 
     file = Path(str(output_file_path)).joinpath(name+"-"+str(trajectory)+".txt")
@@ -126,7 +133,11 @@ def trajectory_separation(output_file_path, name, trajectory, settings, sub):
 
     sub.to_csv(file, sep='\t', index=False)
 
-def dict_dump_legacy(path, dict, file_name):
+def dict_dump_legacy(
+        path: Path_type,
+        dict_: dict,
+        file_name: str,
+        ) -> None:
     """
     Dump a dictionary into a text file.
 
@@ -138,14 +149,16 @@ def dict_dump_legacy(path, dict, file_name):
         Dictionary to dump.
     file_name : str
         Name of the text file.
-
     """
 
     with open(Path(path).joinpath(str(file_name)+".txt"), 'a') as dict_txt:
-        for k, v in dict.items():
+        for k, v in dict_.items():
             dict_txt.write(f'{str(k)} : {str(v)}\n')
 
-def dict_load_legacy(input_folder, dict_: str) -> dict:
+def dict_load_legacy(
+        input_folder: Path_type,
+        dict_: str,
+        ) -> dict:
     """
     Load a dictionary from a text file.
 
@@ -160,12 +173,11 @@ def dict_load_legacy(input_folder, dict_: str) -> dict:
     -------
     loaded_dict : dict
         Loaded dictionary.
-
     """
 
     loaded_dict = {}
 
-    with open(input_folder.joinpath(f'{str(dict_)}.txt')) as f:
+    with open(Path(input_folder).joinpath(f'{str(dict_)}.txt')) as f:
         lines = f.readlines()
         for line in lines:
             line = line.strip('\n')
@@ -174,7 +186,12 @@ def dict_load_legacy(input_folder, dict_: str) -> dict:
 
     return loaded_dict
 
-def dict_dump(path, data: dict, file_name: str, overwrite: bool=False):
+def dict_dump(
+        path,
+        data: dict,
+        file_name: str,
+        overwrite: bool=False,
+        ) -> None:
     """
     Dump a dictionary to a YAML file.
 
@@ -214,7 +231,10 @@ def dict_dump(path, data: dict, file_name: str, overwrite: bool=False):
         with open(file_path, 'w') as f: # Otherwise create the file
             yaml.dump(data, f)
 
-def dict_load(path, name: str):
+def dict_load(
+        path: Path_type,
+        name: str,
+        ) -> dict:
     """
     Loads a YAML file from the specified path and returns the contents as a dictionary.
 
@@ -232,340 +252,3 @@ def dict_load(path, name: str):
     """
     return yaml.safe_load(open(Path(path).joinpath(f'{name}.yml')))
 
-# Functions generating PDF reports through FPDF
-# Code is a bit messy and likely to break, but works for now
-# (as long as there is no space in the name of the conditons)
-
-def ind_page(pdf, list_var, input_folder, order, parameters, settings, n_cond):
-    """
-    Generate individual PDF page.
-
-    Parameters
-    ----------
-    pdf : FPDF instance
-        PDF to which the page is appended.
-    list_var : list of str
-        Variable-specific results.
-    input_folder : str or Path
-        Folder where plots are located.
-    order : list of str
-        Order of experimental conditions.
-    parameters : dict
-        Dictionary containing parameters.
-    settings : dict
-        Dictionary containing settings.
-    n_cond : int
-        Number of experimental conditions.
-
-    """
-
-    pdf.set_font('Helvetica', 'B', size=13)
-    pdf.cell(0, None, list_var[0].strip('\n').replace('_', ' '), align='C')
-    pdf.set_font('Helvetica', size=10)
-    pdf.ln(5)
-    top_of_page = pdf.get_y()
-
-    for path, subfolder, files in os.walk(input_folder): # Embed plots side by side
-        for name in files:
-            if name == 'Barplot '+str(order).replace(',', '')+'\
-                  '+list_var[0].lower().strip('\n')+'.'+str(parameters['extension_out']).strip("'"):
-                file_path = os.path.join(path, name)
-                pdf.image(file_path, w=pdf.epw/2)
-                if settings['clean_up'] is True:
-                    os.remove(file_path)
-            elif name == 'Boxplot '+str(order).replace(',', '')+'\
-                  '+list_var[0].lower().strip('\n')+'.'+str(parameters['extension_out']).strip("'"):
-                file_path = os.path.join(path, name)
-                pdf.image(file_path, w=pdf.epw/2, x=(pdf.epw/2)+15, y=top_of_page)
-                if settings['clean_up'] is True:
-                    os.remove(file_path)
-    pdf.ln(5)
-
-    # Check wether or not a Dunn's test is included in the results
-    if list_var[3] == '\n':
-        dunn = 6
-    else:
-        dunn = 0
-
-    line_height = pdf.font_size * 2.5
-    pdf.cell(0, None, list_var[1].strip('\n'),
-             new_y="LAST", new_x="LEFT")
-    pdf.cell(0, None, list_var[2].strip('\n'),
-             new_y="TOP", new_x="RIGHT", align='R')
-    pdf.ln(5)
-    pdf.cell(0, None, list_var[3+dunn].strip('\n'),
-             new_y="LAST", new_x="LEFT")
-    pdf.cell(0, None, list_var[4+dunn].strip('\n'),
-             new_y="TOP", new_x="RIGHT", align='R')
-    pdf.ln(5)
-    pdf.cell(0, None, list_var[5+dunn].strip('\n'),
-             new_y="LAST", new_x="LEFT")
-    pdf.cell(0, None, list_var[6+dunn].strip('\n'),
-             new_y="TOP", new_x="RIGHT", align='R')
-    pdf.ln(10)
-
-    top_of_ind_table = pdf.get_y()
-    col_width = 20
-
-    if dunn == 6: # Write Dunn's test table
-        t_sring = str()
-        for i in range(4, (4+n_cond+1), 1):
-            t_sring = t_sring + (list_var[i])
-
-        string_io = StringIO(t_sring)
-
-        df = pd.read_csv(string_io, sep=r'\s+')
-
-        data = []
-
-        for i, v in enumerate(df.iloc[0].items()):
-            data.append([x for x in df.iloc[i].items()])
-
-        pdf.set_font('Helvetica', size=8)
-        line_height = pdf.font_size * 2.5
-
-        pdf.multi_cell(col_width, line_height, str("Dunn's test"), border=1, align='C',
-                        new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size)
-
-        for lb in df.columns:
-            pdf.multi_cell(col_width, line_height, str(lb), border=1, align='C',
-                        new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size)
-
-        pdf.ln()
-        for i, row in enumerate(data):
-            pdf.multi_cell(col_width, line_height, str(df.index.values[i]),
-                           border=1, align='C', new_x="RIGHT", new_y="TOP",
-                              max_line_height=pdf.font_size)
-            for datum in row:
-                pdf.multi_cell(col_width, line_height, str(round(datum[1], 6)),
-                               border=1, align='C', new_x="RIGHT", new_y="TOP",
-                                  max_line_height=pdf.font_size)
-            pdf.ln(line_height)
-        # end_of_ind_table = pdf.get_y()
-        dunn += 1
-
-    string2 = str()
-    for i in range(7+dunn, (7+dunn+n_cond+3), 1):
-        string2 = string2 + (list_var[i])
-
-    tt2 = StringIO(string2)
-
-    df2 = pd.read_csv(tt2, sep=r'\s+')
-
-    df2 = df2.drop([0])
-    df2 = df2.drop(['deviation'], axis=1)
-    df2 = df2.rename(columns={'Sample': 'Condition', 'size': 'Sample size',
-                              'Standard': 'Standard deviation'})
-    df2 = df2.round(decimals=6)
-
-    pdf.set_xy(-110, top_of_ind_table)
-
-    for lb in df2.columns: # Sample distribution parameters
-        pdf.multi_cell(col_width, line_height, str(lb), border=1, align='C',
-                    new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size)
-    pdf.ln(line_height)
-    pdf.set_xy(-110, pdf.get_y())
-
-
-    for index, value in df2.iterrows():
-        for v in value:
-            pdf.multi_cell(col_width, line_height, str(v),
-                           border=1, new_x="RIGHT", new_y="TOP",
-                           max_line_height=pdf.font_size, align='C')
-        pdf.ln(line_height)
-        pdf.set_xy(-110, pdf.get_y())
-
-    pdf.ln(5)
-
-def generate_report(input_folder):
-    """
-    Generate an experiment report.
-
-    Parameters
-    ----------
-    input_folder : str or Path
-        Folder containing plots and statistical test results.
-
-    """
-
-    print('Generating report...\r', end='')
-
-    input_folder = Path(input_folder)
-
-    # Load dictionaries
-
-    log = dict_load(input_folder, 'log')
-    parameters = dict_load(input_folder, 'parameters')
-    settings = dict_load(input_folder, 'settings')
-    vars = dict_load(input_folder, 'vars')
-
-    if settings['ordering'] is True:
-        order = parameters['order']
-    else:
-        order = log['raw_order']
-
-    # Only relevant calculation parameters and settings are kept in the report,
-    # the complete dicts can still be found in parameters.txt and settings.txt
-
-    disp_params = parameters.copy()
-    disp_settings = settings.copy()
-
-    for k in ['dpi', 'extension_out', 'order', 'extension_in']:
-        disp_params.pop(k)
-
-    if settings['stub_filtering'] is False:
-        disp_params.pop('stub_filtering')
-
-    if settings['MSD'] is False:
-        disp_params.pop('msd')
-
-    if settings['rejoining'] is False:
-        for k in ['threshold_t', 'threshold_r']:
-            disp_params.pop(k)
-
-    if settings['SNR_estimation'] is False:
-        disp_params.pop('base_level')
-
-    if settings['polynomial_fit'] is False:
-        for k in ['len_cutoff', 'threshold_poly3']:
-            disp_params.pop(k)
-
-    if settings['minimization'] is False:
-        disp_params.pop('sigma')
-
-    for k in ['ordering', 'clean_up']:
-        disp_settings.pop(k)
-
-    # order = ast.literal_eval(str(order))
-
-    n_cond = len(order)
-
-    start_time_date = str(log['identifier'])[-15:]
-    start_date = f'{start_time_date[0:4]}/{start_time_date[4:6]}/{start_time_date[6:8]}'
-    start_time = f'{start_time_date[9:11]}h{start_time_date[11:13]}'
-
-    # Main page
-
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font('Helvetica', 'B', size=18)
-    pdf.cell(0, 10, "M.I.N.T analysis report", align='C')
-    pdf.ln()
-    pdf.set_font('Helvetica', size=12)
-    pdf.cell(0, 10, (f"Python version : {sys.version} | "
-                     "Conda environment : {sys.executable.split('/')[-3]}"), align='C')
-    pdf.ln()
-    pdf.cell(0, 10, (f"Trackpy version {tp.__version__}"
-                     f" | NumPy version {np.__version__}"
-                     f" | CVXPY version {cvxpy_version}"
-                     f" | SCS version {scs.__version__}"), align='C')
-    pdf.ln()
-    pdf.cell(0, 10, f"Input folder :  {log['input_folder']}", align='C')
-    pdf.ln()
-    pdf.cell(0, 10, (f"Started : {start_date} at {start_time}"
-                     f" | Report generated : "
-                     f"{str(datetime.now().strftime('%Y/%m/%d at %Hh%M'))}"
-                     f" | Duration : {log['duration']}"), align='C')
-    pdf.ln(15)
-    pdf.set_font('Helvetica', 'B', size=12)
-    pdf.cell(45, 10, 'Parameters', align='C')
-    pdf.cell(60, 10, 'Settings', align='C')
-    pdf.ln(10)
-    pdf.set_font('Helvetica', size=8)
-    line_height = pdf.font_size * 2.5
-    top_of_table = pdf.get_y()
-
-    # Building tables
-
-    for k, v in disp_params.items():
-        pdf.multi_cell(30, line_height, f'{k}', border=1,
-                new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size, align='C')
-        pdf.multi_cell(15, line_height, f'{v}', border=1,
-                new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size, align='C')
-        pdf.ln(line_height)
-
-    pdf.set_xy(-150, top_of_table)
-    for k, v in disp_settings.items():
-        pdf.multi_cell(35, line_height, f'{k}', border=1,
-                new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size, align='C')
-        pdf.multi_cell(15, line_height, 'Yes' if v else 'No', border=1,
-                new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size, align='C')
-        pdf.ln(line_height)
-        pdf.set_xy(-150, pdf.get_y())
-
-    # Additional logging
-
-    pdf.ln()
-    pdf.set_font('Helvetica', size=10)
-    pdf.set_xy(112, top_of_table)
-    pdf.cell(None, None, f"Number of files analyzed : {log['n_files']}",
-             align='L', new_y="NEXT", new_x="LEFT")
-    pdf.cell(None, None, f"Number of files retained in tracking: {log['n_a_file']}",
-             align='L', new_y="NEXT", new_x="LEFT")
-    pdf.cell(None, None, f"Number of files retained in analysis: {log['n_t_file']}",
-             align='L', new_y="NEXT", new_x="LEFT")
-    pdf.cell(None, None, f"Number of trajectories found : {log['n_traj']}",
-             align='L', new_y="NEXT", new_x="LEFT")
-    pdf.cell(None, None, f"Number of trajectories rejoined : {str(log['n_rejoined'])}",
-             align='L', new_y="NEXT", new_x="LEFT")
-    pdf.cell(None, None, (f"Number of trajectories rejected by polynomial fit : "
-                          f"{log['r_poly']}"),
-             align='L', new_y="NEXT", new_x="LEFT")
-    pdf.cell(None, None, (f"Number of trajectories rejected by abnormal speed : "
-                          f"{log['r_speed']}"),
-             align='L', new_y="NEXT", new_x="LEFT")
-    pdf.cell(None, None, (f"Number of trajectories retained for analysis : "
-                          f"{log['n_a_traj']}"),
-             align='L', new_y="NEXT", new_x="LEFT")
-    pdf.cell(None, None, f"Number of conditions : {n_cond}",
-             align='L', new_y="NEXT", new_x="LEFT")
-
-    for i in order:
-        sub_x = pdf.get_x()
-        pdf.ln(5)
-        pdf.set_xy(sub_x, pdf.get_y())
-        pdf.cell(None, None, (f"Number of animals analyzed for condition {i} : "
-                              f"{log['n_a_animal_'+i]}"), align='L',
-                              new_y="NEXT", new_x="LEFT")
-        pdf.cell(None, None, (f"Number of files analyzed for condition {i} : "
-                              f"{log['n_a_file_'+i]}"), align='L',
-                              new_y="NEXT", new_x="LEFT")
-        pdf.cell(None, None, (f"Number of trajectories analyzed for condition {i} : "
-                              f"{log['n_a_traj_'+i]}"), align='L',
-                              new_y="NEXT", new_x="LEFT")
-
-    pdf.add_page()
-
-    pdf.set_font('Helvetica', size=10)
-    page_break = 0
-    list_var = []
-
-    stats_path = Path(input_folder).joinpath('Statistical test results.txt')
-
-    # Looping over statistical variables for subsequent pages
-
-    with open(stats_path) as f:
-        lines = f.readlines()
-        for line in lines:
-            lt = (line.lower().strip('\n'))
-            if lt in vars:
-                if list_var:
-                    if page_break >= 2: # Maximum of two variables per page
-                        pdf.add_page()
-                        page_break = 0
-                    ind_page(pdf, list_var, input_folder, order,
-                             parameters, settings, n_cond)
-                    page_break += 1
-                list_var = []
-                list_var.append(line.strip(''))
-            else:
-                list_var.append(line.strip(''))
-        ind_page(pdf, list_var, input_folder, order, parameters, settings, n_cond)
-
-    pdf_path = Path(input_folder).joinpath(
-        str(datetime.now().strftime('%Y%m%d_%H%M%S'))+'_Experiment_report.pdf')
-    pdf.output(str(pdf_path))
-    print('Generating report... Done\r')
-
-if __name__ == '__main__':
-    generate_report(r'')

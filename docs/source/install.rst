@@ -3,18 +3,31 @@ Install & run
 
 If you are starting from scratch, we recommend installing `Anaconda <https://docs.anaconda.com/anaconda/install/>`_.
 
-Then, download the latest release and extract it into a dedicated folder.
+MINT has been tested with Python 3.10, 3.11 and 3.12.
 
-You can create a dedicated environment with ``conda create --name mint python=3.10``, 
-and activate it with ``conda activate mint``.
+Then, download the latest release and extract it into a dedicated folder, or clone the repo with : 
 
-You can then install dependencies with ``pip install -r requirements.txt``.
+.. code:: console
 
-If you have trouble installing ``cvxpy`` with ``pip``, please use ``conda``.
+    $ git clone https://github.com/biophotlumin/mint.git
+    $ cd mint
 
-If ``requirements.txt`` does not install dependencies properly, you can also install them individually with ``pip`` or ``conda``.
+Then create a dedicated environment with : 
 
-You can check installed packages and their versions in the current environment with ``conda list``.
+
+.. code:: console
+
+    $ conda create --name mint python=3.10
+    $ conda activate mint
+
+Then install MINT with :
+
+.. code:: console
+
+    $ pip install -e .[all]
+
+If you have trouble installing ``cvxpy`` with ``pip``, try using ``conda``.
+
 
 **CLI**
 ^^^^^^^^^^^

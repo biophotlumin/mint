@@ -56,8 +56,8 @@ class BaseParameter(abc.ABC):
         Indicates whether to calculate the parameter in GO or STOP phases
 
     :meta private:
-
     """
+
     def __init__(self, antero_retro: str='', go_stop: str=''):
         self.results = []
         self.name = 'Base parameter'
@@ -94,7 +94,8 @@ class BaseParameter(abc.ABC):
         self.append_to_results(self.calculate_results(data, **kwargs))
 
 class Intensity(BaseParameter):
-    """Mean intensity
+    """
+    Mean intensity
     """
 
     def __init__(self, go_stop: str='', **kwargs):
@@ -108,7 +109,8 @@ class Intensity(BaseParameter):
         return np.mean(data.intensity)
 
 class Variance(BaseParameter):
-    """Mean variance
+    """
+    Mean variance
     """
 
     def __init__(self, go_stop: str='', **kwargs):
@@ -122,7 +124,8 @@ class Variance(BaseParameter):
         return np.mean(data.variance)
 
 class DiagonalLength(BaseParameter):
-    """Diagonal length, calculated as the distance between the first and last points.
+    """
+    Diagonal length, calculated as the distance between the first and last points.
     """
 
     def __init__(self, **kwargs):
@@ -143,7 +146,8 @@ class DiagonalLength(BaseParameter):
         return np.sqrt(delta_x**2+delta_y**2)
 
 class CurvilignLength(BaseParameter):
-    """Curvilign length, calculated as the sum of run lengths.
+    """
+    Curvilign length, calculated as the sum of run lengths.
     If `absolute` is True, retrograde run lengths are added as absolute values,
     reflecting the total travelled length of the trajectory.
     If `absolute` is False, retrograde run lengths are subtracted from the sum,
@@ -164,7 +168,8 @@ class CurvilignLength(BaseParameter):
         return np.abs(np.sum(rl))
 
 class PausingFrequency(BaseParameter):
-    """Pausing frequency, expressed as the number of stops per minute.
+    """
+    Pausing frequency, expressed as the number of stops per minute.
     """
 
     def __init__(self, **kwargs):
@@ -181,7 +186,8 @@ class PausingFrequency(BaseParameter):
         return 60*n_stop/trajectory_time
 
 class Duration(BaseParameter):
-    """Duration, in seconds.
+    """
+    Duration, in seconds.
     """
 
     def __init__(self, **kwargs):
@@ -193,7 +199,8 @@ class Duration(BaseParameter):
         return np.sum(data.phase_duration)
 
 class PausingTime(BaseParameter):
-    """Time spent in STOP phases.
+    """
+    Time spent in STOP phases.
     """
 
     def __init__(self, **kwargs):
@@ -208,7 +215,8 @@ class PausingTime(BaseParameter):
             return np.mean(data.phase_duration)
 
 class FractionMoving(BaseParameter):
-    """Fraction of moving particles.
+    """
+    Fraction of moving particles.
     If `msd` is False, the  total amount of particles is the number of features
     found in the first frame of the video.
     If `msd` is True, the total amount of particles is the number of trajectories
@@ -239,7 +247,8 @@ class FractionMoving(BaseParameter):
         return fraction
 
 class RunLength(BaseParameter):
-    """Mean distance traveled in GO phases.
+    """
+    Mean distance traveled in GO phases.
     """
 
     def __init__(self, antero_retro='', **kwargs):
@@ -253,7 +262,8 @@ class RunLength(BaseParameter):
         return np.mean(data.run_length)
 
 class Processivity(BaseParameter):
-    """Mean duration of GO phases.
+    """
+    Mean duration of GO phases.
     """
 
     def __init__(self, antero_retro='', **kwargs):
@@ -267,7 +277,8 @@ class Processivity(BaseParameter):
         return np.mean(data.phase_duration)
 
 class FractionPaused(BaseParameter):
-    """Fraction of time in STOP phases.
+    """
+    Fraction of time in STOP phases.
     """
 
     def __init__(self, **kwargs):
@@ -284,7 +295,8 @@ class FractionPaused(BaseParameter):
             return time_paused/total_time
 
 class Directionality(BaseParameter):
-    """Fraction of anterograde or retrograde transport.
+    """
+    Fraction of anterograde or retrograde transport.
     """
 
     def __init__(self, antero_retro='', **kwargs):
@@ -311,7 +323,8 @@ class Directionality(BaseParameter):
             return np.abs(distance_direction)/np.abs(distance)
 
 class CurvilignVelocity(BaseParameter):
-    """Average curvilign velocity.
+    """
+    Average curvilign velocity.
     """
 
     def __init__(self, antero_retro='', **kwargs):
@@ -325,7 +338,8 @@ class CurvilignVelocity(BaseParameter):
         return np.mean(data.curvilign_velocity)
 
 class Switch(BaseParameter):
-    """Reversals of directionality and related measurements.
+    """
+    Reversals of directionality and related measurements.
     """
 
     def __init__(self, **kwargs):
@@ -403,7 +417,8 @@ class Switch(BaseParameter):
         return self.switch
 
 class Theta(BaseParameter):
-    """EXPERIMENTAL : Standard deviation of the theta angle.
+    """
+    EXPERIMENTAL : Standard deviation of the theta angle.
     """
 
     def __init__(self, go_stop='', **kwargs):
@@ -416,7 +431,8 @@ class Theta(BaseParameter):
         return np.mean(data.theta_std)
 
 class GFPMask(BaseParameter):
-    """EXPERIMENTAL : Only retains trajectories located within a GFP mask.
+    """
+    EXPERIMENTAL : Only retains trajectories located within a GFP mask.
     """
 
     def __init__(self, **kwargs):
@@ -427,7 +443,11 @@ class GFPMask(BaseParameter):
     def calculate_results(self, data):
         return data.gfp.unique()
 
-def inst_velocity(x: np.ndarray, y: np.ndarray, dt: float) -> np.ndarray:
+def inst_velocity(
+        x: np.ndarray,
+        y: np.ndarray,
+        dt: float,
+        ) -> np.ndarray:
     """
     Calculates instantaneous velocity.
 
@@ -446,7 +466,6 @@ def inst_velocity(x: np.ndarray, y: np.ndarray, dt: float) -> np.ndarray:
         Array of point by point instantaneous velocity.
     """
 
-
     size = len(x)
     v_inst = np.zeros(size)
     # Instantaneous speed of the first point calculated from the first segment
@@ -460,9 +479,11 @@ def inst_velocity(x: np.ndarray, y: np.ndarray, dt: float) -> np.ndarray:
 
     return v_inst
 
-def confinement(x: np.ndarray | pd.Series,
-                y: np.ndarray | pd.Series,
-                sw: int) -> list:
+def confinement(
+        x: np.ndarray | pd.Series,
+        y: np.ndarray | pd.Series,
+        sw: int,
+        ) -> list:
     """
     Calculate point-by-point confinement ratio.
 
@@ -479,7 +500,6 @@ def confinement(x: np.ndarray | pd.Series,
     -------
     list
         List of point-by-point confinement ratio.
-
     """
 
     r_conf = []
@@ -523,7 +543,41 @@ def confinement(x: np.ndarray | pd.Series,
         pass
     return r_conf
 
-def per_phase(data, trajectory, settings, parameters, condition, slide, name, animal):
+def per_phase(
+        data: pd.DataFrame,
+        trajectory: int,
+        settings: dict,
+        parameters: dict,
+        condition: str,
+        slide: str,
+        name: str,
+        animal: str,
+        ) -> pd.DataFrame | str | None: # TODO Fix returns for logging
+    """
+    Per phase calculations of transport parameters for a single trajectory.
+
+    Parameters
+    ----------
+    data : DataFrame
+        DataFrame containing trajectories.
+    trajectory : int
+        Number of the trajectory currently being processed.
+    settings : dict
+        Dictionary containing calculation settings.
+    parameters : dict
+        Dictionary containing calculation parameters.
+    condition, slide, name, animal : str
+        Hierarchical levels of the input folder.
+        `condition` shoud match the experimental condition.
+
+    Returns
+    -------
+    DataFrame
+        A DataFrame containing the calculated parameters.
+        Returns an empty string if the trajectory was rejected because it was too short.
+        Returns None if the trajectory was rejected because it deviated too much
+        from the polynomial fit.
+    """
 
     dt = parameters['dt']
     sw = parameters['sliding_window']
@@ -674,6 +728,7 @@ def per_phase(data, trajectory, settings, parameters, condition, slide, name, an
             # else:
             #     curvilign_velocity = sign * curvilign_velocity
             #     vectorial_velocity = sign * vectorial_velocity
+
             if ((x[stop-1] - x[start]) > 0):
                 curvilign_velocity = 1 * curvilign_velocity
                 vectorial_velocity = 1 * vectorial_velocity
@@ -722,7 +777,35 @@ def per_phase(data, trajectory, settings, parameters, condition, slide, name, an
 
     return traj_data
 
-def phase_calculations(parameters, data, settings, condition, slide, name, animal):
+def phase_calculations(
+        parameters: dict,
+        data: pd.DataFrame,
+        settings: dict,
+        condition: str,
+        slide: str,
+        name: str,
+        animal: str,
+        ) -> pd.DataFrame:
+    """
+    Wrapper for phase calculations.
+
+    Parameters
+    ----------
+    parameters : dict
+        Dictionary containing calculation parameters.
+    data : DataFrame
+        DataFrame containing trajectories.
+    settings : dict
+        Dictionary containing calculation settings.
+    condition, slide, name, animal : str
+        Hierarchical levels of the input folder.
+        `condition` shoud match the experimental condition.
+
+    Returns
+    -------
+    DataFrame
+        A DataFrame containing the calculated parameters.
+    """
 
     f_phase_parameters = pd.DataFrame()
 
@@ -740,9 +823,38 @@ def phase_calculations(parameters, data, settings, condition, slide, name, anima
         else:
             log_analysis['r_poly'] += 1
             continue
+
     return f_phase_parameters
 
-def p_phase_calculations(parameters, data, settings, condition, slide, name, animal):
+def p_phase_calculations(
+        parameters: dict,
+        data: pd.DataFrame,
+        settings: dict,
+        condition: str,
+        slide: str,
+        name: str,
+        animal: str,
+        ) -> pd.DataFrame:
+    """
+    Wrapper for phase calculations, parallelized with `joblib`.
+
+    Parameters
+    ----------
+    parameters : dict
+        Dictionary containing calculation parameters.
+    data : DataFrame
+        DataFrame containing trajectories.
+    settings : dict
+        Dictionary containing calculation settings.
+    condition, slide, name, animal : str
+        Hierarchical levels of the input folder.
+        `condition` shoud match the experimental condition.
+
+    Returns
+    -------
+    DataFrame
+        A DataFrame containing the calculated parameters.
+    """
 
     f_phase_parameters = pd.DataFrame()
 
@@ -764,15 +876,24 @@ def p_phase_calculations(parameters, data, settings, condition, slide, name, ani
 
     return f_phase_parameters
 
-def trajectory_calculations(phase_parameters, parameters, settings):
-    """Calculates per trajectory variables of interest.
+def trajectory_calculations(
+        phase_parameters: pd.DataFrame,
+        settings: dict,
+        ) -> pd.DataFrame:
+    """
+    Calculates per trajectory variables of interest.
 
-    :param phase_parameters: DataFrame containing per phase variables of interest.
-    :type phase_parameters: DataFrame
-    :param settings: Dictionary containing calculation settings
-    :type parameters: dict
-    :return: DataFrame containing per trajectory variables of interest
-    :rtype: DataFrame
+    Parameters
+    ----------
+    phase_parameters : DataFrame
+        DataFrame containing per phase variables of interest.
+    settings : dict
+        Dictionary containing calculation settings
+
+    Returns
+    -------
+    DataFrame
+        DataFrame containing per trajectory variables of interest
     """
 
     trajectory_list = []
@@ -998,15 +1119,22 @@ def trajectory_calculations(phase_parameters, parameters, settings):
 
     return trajectory_parameters
 
-def data_extraction(input_folder: Path_type, parameters: dict, settings: dict):
-    """Extracts transport parameters from trajectories contained in a folder.
+def data_extraction(
+        input_folder: Path_type,
+        parameters: dict,
+        settings: dict,
+        ) -> None:
+    """
+    Extracts transport parameters from trajectories.
 
-    :param input_folder: Path to a folder of .csv files containing trajectories.
-    :type input_folder: str or Path
-    :param parameters: Dictionary containing calculation parameters
-    :type parameters: dict
-    :param settings: Dictionary containing calculation settings
-    :type settings: dict
+    Parameters
+    ----------
+    input_folder : str or Path
+        Path to a folder of .csv files containing trajectories.
+    parameters : dict
+        Dictionary containing calculation parameters.
+    settings : dict
+        Dictionary containing calculation settings.
     """
 
     output_folder, identifier = folder_structure_creation(input_folder)[0:2]
@@ -1067,7 +1195,7 @@ def data_extraction(input_folder: Path_type, parameters: dict, settings: dict):
     print('\n')
 
     trajectory_parameters = trajectory_calculations(phase_parameters,
-                                                    parameters, settings)
+                                                    settings)
 
     # Write results to .csv files
     trajectory_parameters.sort_values(by=['file', 'trajectory'], inplace=True)
@@ -1118,8 +1246,7 @@ if __name__ == '__main__':
     }
 
     start = time.time()
-    input_folder = Path(r"/media/lumin/DATA/"
-                        r"DATA_DEVRIM Results - 20240104_165320/DATA_DEVRIM")
+    input_folder = Path(r"")
     data_extraction(input_folder, parameters, settings)
     end = time.time()
     duration = end - start
