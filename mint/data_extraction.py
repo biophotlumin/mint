@@ -1,4 +1,6 @@
-"""Functions used to extract transport parameters from trajectories."""
+"""
+Functions used to extract transport parameters from trajectories
+"""
 
 #Imports
 import os
@@ -12,19 +14,13 @@ import pandas as pd
 from joblib import Parallel, delayed
 from scipy.signal import savgol_filter
 
-from .output import dict_dump
 from .traj_calc import minimization, polynomial_fit
 from .utils import (csv_sniffer,
                     folder_structure_creation,
                     print_pb,
-                    Path_type)
-
-log_analysis = {
-    'r_poly': 0,
-    'r_len': 0,
-    'r_speed': 0,
-    't_filt': [],
-}
+                    Path_type,
+                    logger)
+# from .output import image_output
 
 list_r_conf = []
 
@@ -611,7 +607,7 @@ def per_phase(
         filt_start = time.time()
         subdata = minimization(subdata, parameters['px'], parameters['sigma'])
         filt_time = time.time() - filt_start
-        log_analysis['t_filt'].append(filt_time)
+        logger.log('t_filt', filt_time, 'append')
 
     x = subdata.x
     x = x.dropna()
@@ -818,10 +814,10 @@ def phase_calculations(
             f_phase_parameters.reset_index(inplace=True, drop=True)
             f_phase_parameters = pd.concat((f_phase_parameters, traj_data))
         elif isinstance(traj_data, str):
-            log_analysis['r_len'] += 1
+            logger.log('r_len', 1, 'add')
             continue
         else:
-            log_analysis['r_poly'] += 1
+            logger.log('r_poly', 1, 'add')
             continue
 
     return f_phase_parameters
@@ -868,10 +864,10 @@ def p_phase_calculations(
             f_phase_parameters.reset_index(inplace=True, drop=True)
             f_phase_parameters = pd.concat((f_phase_parameters, traj))
         elif isinstance(traj, str):
-            log_analysis['r_len'] += 1
+            logger.log('r_len', 1, 'add')
             continue
         else:
-            log_analysis['r_poly'] += 1
+            logger.log('r_poly', 1, 'add')
             continue
 
     return f_phase_parameters
@@ -1204,18 +1200,18 @@ def data_extraction(
                           inplace=True)
     phase_parameters.to_csv(phase_parameters_output, sep='\t')
 
-    log_analysis['n_t_file'] = trajectory_parameters.file.nunique()
-    log_analysis['filt_mean'] = (np.mean(log_analysis['t_filt'])
-                                if len(log_analysis['t_filt']) > 0 else 0)
-    log_analysis['filt_std'] = (np.std(log_analysis['t_filt'])
-                                if len(log_analysis['t_filt']) > 0 else 0)
+
+    logger.log('n_t_file', trajectory_parameters.file.nunique(), 'add')
+    logger.log('filt_mean', (np.mean(logger.get('t_filt'))
+                            if len(logger.get('t_filt')) > 0 else 0), 'add')
+    logger.log('filt_std', (np.std(logger.get('t_filt'))
+                            if len(logger.get('t_filt')) > 0 else 0), 'add')
 
     if settings['conf_list']:
         df_r_conf = pd.DataFrame({'r_conf': list_r_conf})
         df_r_conf.to_csv(Path(output_folder)
                          .joinpath(f'{identifier[11:26]}_Confinement ratio.csv'))
 
-    dict_dump(Path(output_folder).parent, log_analysis, 'log')
     print('\n')
 
 

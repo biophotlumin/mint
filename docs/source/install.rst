@@ -14,7 +14,6 @@ Then, download the latest release and extract it into a dedicated folder, or clo
 
 Then create a dedicated environment with : 
 
-
 .. code:: console
 
     $ conda create --name mint python=3.10
@@ -24,16 +23,44 @@ Then install MINT with :
 
 .. code:: console
 
-    $ pip install -e .[all]
+    $ pip install .
+
+You can also install optional dependencies by passing one of the following as : 
+
+.. code:: console
+
+    $ pip install .[optional]
+
+``notebook``
+    Jupyter dependencies to use interactive notebooks.
+
+``bioformats``
+    ImageJ interface to read Bio-Formats extensions.
+
+``gui``
+    GUI dependencies.
+
+``solvers``
+    CVXPY and associated solvers for experimental trajectory denoising.
+
+``all``
+    All of the above.
 
 If you have trouble installing ``cvxpy`` with ``pip``, try using ``conda``.
 
+For development, you can install in editable mode :
+
+.. code:: console
+
+    $ pip install -e .[optional]
 
 **CLI**
 ^^^^^^^^^^^
 You can run MINT with :
 
-``python mint.py -f <input_folder> -p <path/to/file> -l -e -s``
+.. code:: console
+
+    $ mint -f <input_folder> -p <path/to/file> -l -e -s
 
 ``-f, --folder``
     Optional. Path to raw data folder.
@@ -50,20 +77,18 @@ You can run MINT with :
 ``-s, --stats``
     Optional. Run statistical analysis.
 
-If ``--folder`` isn't specified, the script defaults to the path listed in ``mint.py``. 
-If that path is empty too, it then defaults to the current working directory.
+Ideally, the input folder should be specified in the config file (see the `user guide <user_guide.html>`_).
 
-If ``--params`` isn't specified, the script defaults to the dictionaries listed in ``mint.py``.
+If the config file does not contain an input path and ``--folder`` isn't specified, the script will default to the current workind directory.
+
+If only ``--folder`` is specified, the script will look for a config file in that folder. Otherwise, it will fall back to default parameters.
 
 When running ``--extract`` without ``--locate`` first, the input folder must contain the results of a previous ``--locate`` run.
 
 Similarly, when running ``--stats`` without ``--extract`` first, the input folder must contain the results of a previous ``--extract`` run.
 
-If neither ``--locate``, ``--extract`` or ``--stats`` are used, the script will go through a full run and generate an experiment report.
+If neither ``--locate``, ``--extract`` or ``--stats`` are specified, the script will go through a full run.
 
-Alternatively, you can directly edit and run ``mint.py``.
-
-|
 |
 
 For the sake of reproducibility, you can download the ``paper`` branch from the repo, then 

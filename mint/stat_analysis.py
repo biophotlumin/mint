@@ -1,10 +1,10 @@
-"""Functions used for the statistical analysis of extracted transport parameters.
+"""
+Functions used for the statistical analysis of extracted transport parameters.
 """
 
 # Imports
 import os
 from pathlib import Path
-from statistics import mean
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,8 +13,7 @@ import scikit_posthocs as sp
 import seaborn as sns
 from scipy import stats
 
-from .output import dict_dump
-from .utils import Path_type, csv_sniffer
+from .utils import Path_type, csv_sniffer, dict_dump
 
 plt.switch_backend('agg')
 
@@ -140,13 +139,13 @@ def run_stats(
     # left = data.loc[data['slide']=='oeil_gauche']
     # Right eye only
     # right = data.loc[data['slide']=='oeil_droit']
-    # gfp_pos = data.loc[data['gfp'] == "[ True]"]
-    # data = gfp_pos
+    if settings['gfp']:
+        gfp_pos = data.loc[data['gfp'] == "[ True]"]
+        data = gfp_pos
 
     if settings['ordering']:
         order = parameters['order'] # Optionally order by condition
-        print(len(order))
-        print(data.condition.nunique())
+
         if len(order) != data.condition.nunique():
             raise RuntimeError(
                 'Length of order list does not match number of conditions')
@@ -263,7 +262,8 @@ def run_variable(
     if test:
         p_value = eval(test)(data, var)
         var_res.append(f'p-value of {statistical_tests[test]}test for '
-                       f'{var} is {str(round(p_value, 6))}\n')
+                       # Formatted to disable scientific notation
+                       f'{var} is {p_value:.10f}\n')
     else:
         p_value = 1
 
@@ -403,7 +403,7 @@ def dunn(
         list_of_arrays.append(data.loc[data.condition == index, variable])
         conditions_list.append(index)
 
-    p = sp.posthoc_dunn(list_of_arrays)
+    p = sp.posthoc_dunn(list_of_arrays, p_adjust='fdr_bh')
 
     index = []
     for i in range(len(list_of_arrays)):  # Rename DataFrame with analysed conditions
@@ -489,8 +489,9 @@ def barplot(
 
     # Order isn't properly inferred from DataFrame for columns with missing values
     # since seaborn 13.0, need to pass order explicitly
-    data = data.dropna()
-    bars = sns.barplot(data=data, y=variable, x='condition', estimator=mean,
+
+    data = data.dropna(subset=variable)
+    bars = sns.barplot(data=data, y=variable, x='condition', estimator=np.mean,
                        errorbar=None, hue='condition', order=parameters['order'],
                        err_kws={'elinewidth': 2, 'capsize': 4, 'capthick': 2})
 
@@ -561,7 +562,7 @@ def normality(
         True if the sample fits a normal distribution.
     """
 
-    if len(data) >= 8:
+    if len(data[variable]) >= 8:
         p = stats.normaltest(a=data[variable], nan_policy='omit')[1]
         if p > 0.05:
             return True

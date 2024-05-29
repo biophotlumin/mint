@@ -1,3 +1,7 @@
+"""
+Functions used to read different video formats.
+"""
+
 #Imports
 
 import abc
@@ -152,33 +156,34 @@ class ND2Reader(BaseReader):
                    ) -> np.ndarray:
         return nd2.imread(file_path)
 
-class BioFormatsReader(BaseReader):
+if IJ_INSTALLED:
+    class BioFormatsReader(BaseReader):
 
-    def __init__(self):
-        self.name = 'BioFormats reader'
-        self.jvm_started = False
+        def __init__(self):
+            self.name = 'BioFormats reader'
+            self.jvm_started = False
 
-    def start_JVM(self) -> JClass:
-        self.jvm_started = True
-        return imagej.init()
+        def start_JVM(self) -> JClass:
+            self.jvm_started = True
+            return imagej.init()
 
-    def get_frames(self,
-                   file_path: Path_type,
-                   ) -> np.ndarray:
+        def get_frames(self,
+                    file_path: Path_type,
+                    ) -> np.ndarray:
 
-        file_path = str(file_path)
+            file_path = str(file_path)
 
-        if self.jvm_started is False:
-            ij = self.start_JVM()
-        jimage = ij.io().open(file_path)
-        frames = ij.py.from_java(jimage)
+            if self.jvm_started is False:
+                ij = self.start_JVM()
+            jimage = ij.io().open(file_path)
+            frames = ij.py.from_java(jimage)
 
-        try:
-            frames.shape
-        except AttributeError:
-            warnings.warn(f'Extension {file_path.split(".")[-1]} is not supported')
+            try:
+                frames.shape
+            except AttributeError:
+                warnings.warn(f'Extension {file_path.split(".")[-1]} is not supported')
 
-        return frames
+            return frames
 
 def get_frames(
         file_path: Path_type,
@@ -209,5 +214,3 @@ def get_frames(
         warnings.warn(f'Extension {extension} is not supported')
 
     return reader.return_frames(file_path)
-
-## TODO Assert float64 ?

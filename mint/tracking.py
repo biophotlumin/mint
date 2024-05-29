@@ -1,4 +1,5 @@
-"""Main tracking function.
+"""
+Main tracking function.
 """
 
 # Imports
@@ -14,12 +15,11 @@ from joblib import Parallel, delayed
 
 from .input import get_frames
 from .denoising import filtering, filtering_p
-from .utils import print_pb, get_file_list, Path_type
+from .utils import print_pb, get_file_list, Path_type, logger
 
 from .output import (trajectory_output,
                      trajectory_separation,
-                     image_output,
-                     dict_dump)
+                     image_output,)
 
 from .traj_calc import (MSD_calculation,
                         MSD_calculation_p,
@@ -28,16 +28,6 @@ from .traj_calc import (MSD_calculation,
                         SNR_spot_estimation,
                         GFP_mask)
 
-
-log_tracking = {
-        'n_rejoined': 0,
-        'n_traj': 0,
-        'n_files': 0,
-        't_filt': [],
-        't_msd': [],
-        't_rej': [],
-    }
-
 def tracking(
         input_folder: Path_type,
         parameters: dict,
@@ -45,7 +35,8 @@ def tracking(
         log: dict
         ) -> None:
 
-    path_list, name_list = get_file_list(str(input_folder), parameters['extension_in'])
+    path_list, name_list = get_file_list(str(input_folder),
+                                         f'.{parameters["extension_in"]}')
 
     for (path, name, j) in zip(path_list, name_list,  # Looping over file path list
                                [j for j in range(len(path_list))]):
@@ -55,14 +46,13 @@ def tracking(
         raise Exception(f"No files found matching extension "
                         f"{parameters['extension_in']}")
 
-    log_tracking['msd_mean'] = np.mean(log_tracking['t_msd'])
-    log_tracking['msd_std'] = np.std(log_tracking['t_msd'])
-    log_tracking['filt_mean'] = np.mean(log_tracking['t_filt'])
-    log_tracking['filt_std'] = np.std(log_tracking['t_filt'])
-    log_tracking['rej_mean'] = np.mean(log_tracking['t_rej'])
-    log_tracking['rej_std'] = np.std(log_tracking['t_rej'])
+    logger.log('msd_mean', np.mean(logger.get('t_msd')), 'add')
+    logger.log('msd_std', np.std(logger.get('t_msd')), 'add')
+    logger.log('filt_mean', np.mean(logger.get('t_filt')), 'add')
+    logger.log('filt_std', np.std(logger.get('t_filt')), 'add')
+    logger.log('rej_mean', np.mean(logger.get('t_rej')), 'add')
+    logger.log('rej_std', np.std(logger.get('t_rej')), 'add')
 
-    dict_dump(log['output_folder'], log_tracking, 'log')
     print_pb('\n', j+1, len(path_list))
     print('\n')
 
@@ -73,7 +63,8 @@ def p_tracking(
         log: dict
         ) -> None:
 
-    path_list, name_list = get_file_list(str(input_folder), parameters['extension_in'])
+    path_list, name_list = get_file_list(str(input_folder),
+                                         f'.{parameters["extension_in"]}')
 
     track_gen = Parallel(
         n_jobs=os.cpu_count(),
@@ -97,23 +88,15 @@ def p_tracking(
 
     for j, _ in enumerate(track_gen):
 
-        # log_tracking['n_rejoined'] += log_traj['n_rejoined']
-        # log_tracking['n_traj'] += log_traj['n_traj']
-        # log_tracking['n_files'] += log_traj['n_files']
-        # log_tracking['t_filt'].append(log_traj['t_filt'])
-        # log_tracking['t_msd'].append(log_traj['t_msd'])
-        # log_tracking['t_rej'].append(log_traj['t_rej'])
-
         print_pb(f'\tProcessed track', j, len(path_list))
 
-    log_tracking['msd_mean'] = np.mean(log_tracking['t_msd'])
-    log_tracking['msd_std'] = np.std(log_tracking['t_msd'])
-    log_tracking['filt_mean'] = np.mean(log_tracking['t_filt'])
-    log_tracking['filt_std'] = np.std(log_tracking['t_filt'])
-    log_tracking['rej_mean'] = np.mean(log_tracking['t_rej'])
-    log_tracking['rej_std'] = np.std(log_tracking['t_rej'])
+    logger.log('msd_mean', np.mean(logger.get('t_msd')), 'add')
+    logger.log('msd_std', np.std(logger.get('t_msd')), 'add')
+    logger.log('filt_mean', np.mean(logger.get('t_filt')), 'add')
+    logger.log('filt_std', np.std(logger.get('t_filt')), 'add')
+    logger.log('rej_mean', np.mean(logger.get('t_rej')), 'add')
+    logger.log('rej_std', np.std(logger.get('t_rej')), 'add')
 
-    dict_dump(log['output_folder'], log_tracking, 'log')
     print('\n')
 
 def per_file(
@@ -155,7 +138,7 @@ def per_file(
     processed_frames = filt_func(processed_frames, settings, parameters)
 
     filt_time = time.time() - filt_start
-    log_tracking['t_filt'].append(filt_time)
+    logger.log('t_filt', filt_time, 'append')
 
     # Localizing particles and finding trajectories
 
@@ -200,7 +183,7 @@ def per_file(
                                             parameters['dt'])
     trajectory_output(out_path, name, "", raw_trajectory)
     msd_time = time.time() - msd_start
-    log_tracking['t_msd'].append(msd_time)
+    logger.log('t_msd', msd_time, 'append')
 
     # Optional trajectory processing
     if settings['MSD']:
@@ -221,8 +204,9 @@ def per_file(
                                                         parameters['threshold_t'],
                                                         parameters['threshold_r'])
         rej_time = time.time() - rej_start
-        log_tracking['t_rej'].append(rej_time)
-        log_tracking['n_rejoined'] += n_rejoined
+        logger.log('t_rej', rej_time, 'append')
+        logger.log('n_rejoined', n_rejoined, 'add')
+
     else:
         processed_trajectory['rejoined_particle'] = processed_trajectory['particle']
 
@@ -256,7 +240,8 @@ def per_file(
     processed_trajectory = pd.concat([processed_trajectory, n_static],
                                         axis=1, join='inner')
 
-    processed_trajectory = GFP_mask(path, name, processed_trajectory)
+    if settings['gfp']:
+        processed_trajectory = GFP_mask(path, name, processed_trajectory)
 
     # Dumping rejoined trajectories into csv file
     trajectory_output(out_path, name, "_rejoined", processed_trajectory)
@@ -292,7 +277,7 @@ def per_file(
                             processed_trajectory,
                             False)
 
-    log_tracking['n_traj'] += processed_trajectory.rejoined_particle.nunique()
+    logger.log('n_traj', processed_trajectory.rejoined_particle.nunique(), 'add')
 
     del frames
 

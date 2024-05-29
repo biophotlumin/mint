@@ -58,4 +58,6 @@ settings:
   conf_list: False
   # Stats
   ordering: False
-  clean_up: False
+  #
+  parallel_tracking: False
+  gfp: False

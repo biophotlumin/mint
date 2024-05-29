@@ -3,7 +3,7 @@ User guide
 ********************
 
 .. contents:: :backlinks: None
- 
+
 
 **Input**
 ===============================
@@ -21,8 +21,6 @@ Other file types supported by Bio-Formats can be read through ``imagej``, albeit
 
 Default parameters are provided in ``config.yml`` but are very much experiment-dependent.
 Expect some trial and error before obtaining satisfactory results. 
-
-You can use the ``test_locate`` function to optimize feature findind parameters.
 
 
 **Parameters and settings**
@@ -200,11 +198,13 @@ The following transport parameters are extracted and analyzed from each trajecto
 * 
   **Fraction of moving particles** : Ratio of moving particles to non-moving particles. 
 
-    It is estimated by diving the number of trajectories analyzed for each file by the number of features found on the first frame of a film. 
+.. note::
 
-    It does not take into account trajectories that were filtered out before analysis, or features that might appear after the first frame. 
+  It is estimated by diving the number of trajectories analyzed for each file by the number of features found on the first frame of a film. 
 
-    It is therefore not an absolute measure of the fraction of moving particles, and should only be used for relative comparison between experimental conditions.
+  It does not take into account trajectories that were filtered out before analysis, or features that might appear after the first frame. 
+
+  It is therefore not an absolute measure of the fraction of moving particles, and should only be used for relative comparison between experimental conditions.
 
 If the antero_retro setting is enabled : 
 

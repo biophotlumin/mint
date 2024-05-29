@@ -18,8 +18,7 @@ import argparse
 from pathlib import Path
 from .tracking import tracking, p_tracking
 from .data_extraction import data_extraction
-from .utils import  folder_structure_creation, load_params
-from .output import dict_dump
+from .utils import  folder_structure_creation, load_params, dict_dump, logger
 from .stat_analysis import statistical_analysis
 
 def main():
@@ -157,21 +156,22 @@ def main():
     start = time.time()
 
     #Output folder initialization
-    log = {}
-    log['input_folder'] = input_folder
-    (log['output_folder'],
-     log['identifier'],
-     log['root_input_folder']
+    (output_folder,
+     identifier,
+     root_input_folder
      ) = folder_structure_creation(input_folder)
 
-    os.makedirs(log['output_folder'])
+    logger.log('output_folder', output_folder, 'add')
+    logger.log('identifier', identifier, 'add')
+    logger.log('root_input_folder', root_input_folder, 'add')
 
-    dict_dump(log['output_folder'], parameters, 'parameters')
-    dict_dump(log['output_folder'], settings, 'settings')
-    dict_dump(log['output_folder'], log, 'log')
+    os.makedirs(output_folder)
+
+    dict_dump(output_folder, parameters, 'parameters')
+    dict_dump(output_folder, settings, 'settings')
 
     print(f'\nAnalyzing {input_folder.name}\n')
-    print(f'Results stored in {Path(log["output_folder"].name)}')
+    print(f'Results stored in {Path(output_folder.name)}')
 
     if settings['parallel_tracking']:
         tracker = p_tracking
@@ -179,37 +179,36 @@ def main():
         tracker = tracking
 
     if args.locate:
-        tracker(input_folder, parameters, settings, log)
+        tracker(input_folder, parameters, settings, logger.logged)
     if args.extract:
         if args.locate:
-            data_extraction(Path(log['output_folder']).joinpath(input_folder.name),
+            data_extraction(Path(output_folder).joinpath(input_folder.name),
                             parameters, settings)
         else:
             data_extraction(input_folder, parameters, settings)
     if args.stats:
         if args.extract:
-            statistical_analysis(settings, parameters, Path(log['output_folder']))
+            statistical_analysis(settings, parameters, Path(output_folder))
         else:
             # Rerunning stats overwrites previous results for now
-            shutil.rmtree(log['output_folder'])
-            log['output_folder'] = input_folder
+            shutil.rmtree(output_folder)
+            output_folder = input_folder
             statistical_analysis(settings, parameters, input_folder)
 
     if True not in vars(args).values():
-        tracker(input_folder, parameters, settings, log)
-        data_extraction(Path(log['output_folder']).joinpath(input_folder.name),
+        tracker(input_folder, parameters, settings, logger.logged)
+        data_extraction(Path(output_folder).joinpath(input_folder.name),
                         parameters, settings)
-        statistical_analysis(settings, parameters, log['output_folder'])
+        statistical_analysis(settings, parameters, output_folder)
 
     end = time.time()
 
     duration = end - start
-    log['duration_s'] = duration
     f_duration = f'{int(duration//3600)}h{int((duration%3600)/60):02d}'
-    log['duration'] = f_duration
     print(f'Total runtime : {f_duration}')
-
-    dict_dump(log['output_folder'], log, 'log')
+    logger.log('duration', duration, 'append')
+    logger.log('f_duration', f_duration, 'append')
+    logger.dump(output_folder)
 
 if __name__ == '__main__':
     main()

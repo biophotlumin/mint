@@ -1,4 +1,5 @@
-"""Module containing trajectory processing and filtering functions.
+"""
+Trajectory processing and filtering functions.
 """
 #Imports
 
@@ -6,11 +7,11 @@ import os
 import math
 import imageio
 import numpy as np
-import cvxpy as cp
+# import cvxpy as cp
 import pandas as pd
 
-from cvxpy.atoms.norm import norm
-from cvxpy.atoms.norm1 import norm1
+# from cvxpy.atoms.norm import norm
+# from cvxpy.atoms.norm1 import norm1
 from trackpy.motion import msd
 from pathlib import Path
 from typing import cast
@@ -19,6 +20,15 @@ from scipy import optimize
 from joblib import Parallel, delayed
 
 from .utils import Path_type
+
+try:
+    import cvxpy as cp
+except ImportError:
+    CVXPY_INSTALLED = False
+else:
+    CVXPY_INSTALLED = True
+    from cvxpy.atoms.norm import norm
+    from cvxpy.atoms.norm1 import norm1
 
 pd.options.mode.chained_assignment = None
 
@@ -208,6 +218,10 @@ def acceleration_minimization_norm1(
 
     measure = px*measure
     n = len(measure)
+    if not CVXPY_INSTALLED:
+        print("CVXPY is not installed. Skipping minimization.")
+        return measure
+
     variable = cp.Variable((n, 2))
     objective = cp.Minimize(norm1(variable[2:, 0]+variable[:-2, 0]
                                            - 2*variable[1:-1, 0])
@@ -219,6 +233,7 @@ def acceleration_minimization_norm1(
     prob.solve(solver='MOSEK', verbose=False) # Alternatively, 'GUROBI', 'MOSEK', 'SCS'
 
     solution = variable.value
+
     if nn == 0:
         return solution
     else:
@@ -693,6 +708,10 @@ def acc_min_norm1_pointwise_adaptative_error(measure,
     """
 
     n = len(measure)
+    if not CVXPY_INSTALLED:
+        print("CVXPY is not installed. Skipping minimization.")
+        return measure
+
     variable = cp.Variable((n, 2))
     objective = cp.Minimize(norm1(variable[2:, 0] +
                                            variable[:-2, 0] - 2*variable[1:-1, 0]) +
@@ -810,7 +829,7 @@ def GFP_mask(
         print(f'File not found : {img_name}')
         return trajectories
 
-    threshold = 120
+    threshold = 110
     mask = img
     mask[mask >= threshold] = 4096
     mask[mask < threshold] = 0
@@ -841,10 +860,8 @@ def GFP_mask(
         streak = [streak]*len(traj)
         streak = pd.DataFrame(streak, columns=['streak_df'])
         streak_list.extend(streak)
+        traj['streak_df'] = streak.values
         df = pd.concat((df, traj))
-
-    # trajectories['ratio'] = ratio_list
-    # trajectories['streak'] = streak_list
 
     return df
 

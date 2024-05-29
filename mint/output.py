@@ -1,11 +1,12 @@
-"""Functions used to output calculation results into files.
 """
-import yaml
+Functions used to output calculation results into files.
+"""
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from pathlib import Path, PosixPath
+from pathlib import Path
 
 from .utils import Path_type
 
@@ -132,123 +133,3 @@ def trajectory_separation(
         sub = sub.rename(columns={"mass": "Signal"})
 
     sub.to_csv(file, sep='\t', index=False)
-
-def dict_dump_legacy(
-        path: Path_type,
-        dict_: dict,
-        file_name: str,
-        ) -> None:
-    """
-    Dump a dictionary into a text file.
-
-    Parameters
-    ----------
-    path : str or Path
-        Folder where the dictionary will be saved.
-    dict : dict
-        Dictionary to dump.
-    file_name : str
-        Name of the text file.
-    """
-
-    with open(Path(path).joinpath(str(file_name)+".txt"), 'a') as dict_txt:
-        for k, v in dict_.items():
-            dict_txt.write(f'{str(k)} : {str(v)}\n')
-
-def dict_load_legacy(
-        input_folder: Path_type,
-        dict_: str,
-        ) -> dict:
-    """
-    Load a dictionary from a text file.
-
-    Parameters
-    ----------
-    input_folder : str or Path
-        Folder where the dictionary is located.
-    dict_ : str
-        Name of text file to be loaded.
-
-    Returns
-    -------
-    loaded_dict : dict
-        Loaded dictionary.
-    """
-
-    loaded_dict = {}
-
-    with open(Path(input_folder).joinpath(f'{str(dict_)}.txt')) as f:
-        lines = f.readlines()
-        for line in lines:
-            line = line.strip('\n')
-            k, v = line.split(' : ')
-            loaded_dict[k] = v
-
-    return loaded_dict
-
-def dict_dump(
-        path,
-        data: dict,
-        file_name: str,
-        overwrite: bool=False,
-        ) -> None:
-    """
-    Dump a dictionary to a YAML file.
-
-    Parameters
-    ----------
-    path : str or Path
-        Path to the folder where the YAML file will be saved.
-    data : dict
-        Dictionary to dump.
-    file_name : str
-        Name of the YAML file.
-    overwrite : bool, optional (default=False)
-        Overwrite existing file if True, otherwise update the preexisting
-        dictionary.
-
-    """
-
-    data = data.copy() # Just in case the dict has to be modified
-
-    for k, v in data.items(): # YAML doesn't like PosixPath, convert to string
-        if isinstance(v, PosixPath):
-            data[k] = str(data[k])
-        elif isinstance(v, np.floating):
-            data[k] = float(data[k])
-
-    file_path = Path(path).joinpath(f'{file_name}.yml')
-    if file_path.is_file(): # Check for existing file
-        if overwrite is True:
-            with open(file_path, 'w') as f: # Overwrite if required
-                yaml.dump(data, f)
-        else:
-            old_dict = yaml.safe_load(open(file_path))
-            old_dict.update(data) # Otherwise update the preexisting dict
-            with open(file_path, 'w') as f:
-                yaml.dump(old_dict, f)
-    else:
-        with open(file_path, 'w') as f: # Otherwise create the file
-            yaml.dump(data, f)
-
-def dict_load(
-        path: Path_type,
-        name: str,
-        ) -> dict:
-    """
-    Loads a YAML file from the specified path and returns the contents as a dictionary.
-
-    Parameters
-    ----------
-    path : str
-        The path to the directory containing the YAML file.
-    name : str
-        The name of the YAML file (without the extension).
-
-    Returns
-    -------
-    dict
-        The contents of the YAML file as a dictionary.
-    """
-    return yaml.safe_load(open(Path(path).joinpath(f'{name}.yml')))
-

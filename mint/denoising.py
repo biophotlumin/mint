@@ -1,4 +1,6 @@
-"""Functions used to reduce noise on individual video frames."""
+"""
+Functions used to reduce noise on individual video frames.
+"""
 
 import os
 import cv2

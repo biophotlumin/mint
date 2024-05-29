@@ -1,4 +1,5 @@
-"""Module regrouping several small utility functions.
+"""
+Module regrouping several small utility functions.
 """
 
 #Imports
@@ -7,6 +8,7 @@ import os
 import yaml
 import shutil
 import warnings
+import numpy as np
 
 from datetime import datetime
 from pathlib import Path, PosixPath, WindowsPath
@@ -117,7 +119,7 @@ def print_pb(
 
 def get_file_list(
         input_folder: Path_type,
-        extension: str,
+        extension: str | list,
         ) -> tuple[list, list]:
     """
     Build lists of file paths and names to loop over.
@@ -136,26 +138,13 @@ def get_file_list(
     list
         List of file names.
     """
-# TODO Add support for multiple extensions ?
-# TODO Replace with glob
-    path_list = []
-    name_list = []
 
-    if str(input_folder).endswith(f'.{extension}'): # TODO Change to Path suffix ?
-        path_list.append(Path(input_folder))
-        name_list.append(Path(input_folder).name)
+    paths = (p for p in Path(input_folder).glob("**/*") if p.suffix in
+             (set(extension) if isinstance(extension, list) else set([extension])))
+    paths = [(str(path), path.name) for path in paths]
+    parents, names = zip(*paths)
 
-    else:
-        for path, subfolder, files in os.walk(input_folder):
-                for name in files:
-                    if name.endswith(f'.{extension}') is False:
-                        continue
-
-                    file_path = os.path.join(path, name)
-                    path_list.append(file_path)
-                    name_list.append(name)
-
-    return path_list, name_list
+    return parents, names
 
 def load_params(
         path: Path_type,
@@ -184,3 +173,94 @@ def load_params(
         return {}
 
     return config
+
+def dict_dump(
+        path,
+        data: dict,
+        file_name: str,
+        overwrite: bool=False,
+        ) -> None:
+    """
+    Dump a dictionary to a YAML file.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the folder where the YAML file will be saved.
+    data : dict
+        Dictionary to dump.
+    file_name : str
+        Name of the YAML file.
+    overwrite : bool, optional (default=False)
+        Overwrite existing file if True, otherwise update the preexisting
+        dictionary.
+
+    """
+
+    data = data.copy() # Just in case the dict has to be modified
+
+    for k, v in data.items(): # YAML doesn't like PosixPath, convert to string
+        if isinstance(v, PosixPath):
+            data[k] = str(data[k])
+        elif isinstance(v, np.floating):
+            data[k] = float(data[k])
+
+    file_path = Path(path).joinpath(f'{file_name}.yml')
+    if file_path.is_file(): # Check for existing file
+        if overwrite is True:
+            with open(file_path, 'w') as f: # Overwrite if required
+                yaml.dump(data, f)
+        else:
+            old_dict = yaml.safe_load(open(file_path))
+            old_dict.update(data) # Otherwise update the preexisting dict
+            with open(file_path, 'w') as f:
+                yaml.dump(old_dict, f)
+    else:
+        with open(file_path, 'w') as f: # Otherwise create the file
+            yaml.dump(data, f)
+
+def dict_load(
+        path: Path_type,
+        name: str,
+        ) -> dict:
+    """
+    Loads a YAML file from the specified path and returns the contents as a dictionary.
+
+    Parameters
+    ----------
+    path : str
+        The path to the directory containing the YAML file.
+    name : str
+        The name of the YAML file (without the extension).
+
+    Returns
+    -------
+    dict
+        The contents of the YAML file as a dictionary.
+    """
+    return yaml.safe_load(open(Path(path).joinpath(f'{name}.yml')))
+
+class Logger():
+    def __init__(self):
+        self.logged = {}
+
+    def log(self, k, v, type):
+        if k not in self.logged.keys():
+            if type == 'append':
+                self.logged[k] = [v]
+            else:
+                self.logged[k] = v
+
+        elif type == 'add':
+            self.logged[k] += v
+        elif type == 'append':
+            self.logged[k].append(v)
+
+    def dump(self, path):
+        dict_dump(path=path, data=self.logged, file_name='log2')
+
+    def get(self, k):
+        return self.logged.get(k, [])
+
+# global logger
+logger = Logger()

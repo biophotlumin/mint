@@ -9,7 +9,7 @@ Sources
 Grimaud *et al.*
 ACS Nano 2022, 16, 12, 20470–20487
 
-Publication Date:December 2, 2022
+Publication Date : December 2, 2022
 
 https://doi.org/10.1021/acsnano.2c06799
 
@@ -39,13 +39,6 @@ ISSN 0021-9797,
 
 https://doi.org/10.1006/jcis.1996.0217.
 (https://www.sciencedirect.com/science/article/pii/S0021979796902179)
-
-
-
-**Data extraction**
-^^^^^^^^^^^^^^^^^^^
-
-
 
 
 **Statistical analysis**
