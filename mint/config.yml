@@ -1,58 +1,63 @@
+input_folder: 
+
 parameters:
-  extension_in: tif 
+  extension_in: nd2 
   #trackpy.batch
-  diameter:  9
-  minmass:  300
+  diameter: 7
+  minmass:  40
   separation: 12
   #trackpy.link
   search_range: 6
   memory: 5
   adaptive_stop: 5
   adaptive_step: 0.9
-  stub_filtering: 3 # Minimum length of trajectories in points
+  stub_filtering: 3 # Minimum length of trajectories, in points
   #trackpy.motion.msd
-  msd: 9 # Threshold for MSD filtering
-  #SNR estimation
-  base_level: 0 #Base level for SNR estimation
-  #Rejoining
-  threshold_t: 10 # Temporal threshold for trajectory rejoining in frames
-  threshold_r: 40 # Spatial threshold for trajectory rejoining in pixels
-  #Data Extraction
-  r_conf_cut :  0.64 # Confinement ratio cutoff between GO and STOP phases
-  px :  0.173 # Pixel size in µm
-  dt :  0.05 # Time interaval between frames in s
-  min_thr_prec :  50 # Minimum theoretical precision in nm
-  sliding_window: 3 # Sliding windows for confinement ratio calculation
-  sigma: 129 # Estimated precision of localization
-  len_cutoff: 30 # Number of points
-  threshold_poly3: 1.4 # Deviation from third-degree polynom
-  #Stats
-  order: [WT,HET,HOM] # Order of conditions in tables and graph
+  msd: 3 # Threshold for MSD filtering
+  # SNR estimation
+  base_level: 0 # Base level for SNR estimation
+  # Rejoining
+  threshold_t: 10 # Temporal threshold for trajectory rejoining, in frames
+  threshold_r: 40 # Spatial threshold for trajectory rejoining, in pixels
+  # Data Extraction
+  r_conf_cut :  0.817 # Confinement ratio cutoff between GO and STOP phases
+  px :  0.11 # Pixel size, in µm
+  dt :  0.05 # Time interaval between frames, in s
+  min_thr_prec :  50 # Minimum theoretical precision, in nm
+  sliding_window: 3 # Sliding window for confinement ratio calculation
+  sigma: 129 # Estimated precision of localization, in nm
+  len_cutoff: 10 # Number of points
+  threshold_poly3: 1 # Deviation from third-degree polynom
+  # Stats
+  order: [Condition 1,Condition 2,Condition 3] # Order of conditions in tables and graphs
   extension_out: svg # File extension of saved graphs
-  dpi: 300 # DPI of saved graphs if theyre not vectorial
+  dpi: 300 # DPI of saved graphs if they're not vectorial
 
 
-#Optional image and trajectory processing
+# Optional image and trajectory processing
 
 settings: 
-  #Denoising
+  parallel: True
+  # Denoising
   tophat: True
-  wavelet: False
-  #Processing
+  wavelet: True
+  # Processing
   stub_filtering: False
   MSD: True
   rejoining: True
-  SNR_estimation: True
-  #Outputs
+  SNR_estimation: False
+  # Outputs
   individual_images: False
   individual_txt: False
   group_image: True
-  #Data Extraction
+  # Data Extraction
   polynomial_fit: True
-  minimization: True
-  theta: True
+  minimization: False
+  theta: False
   antero_retro: True
-  conf_list: True
-  #Stats
+  conf_list: False
+  # Stats
   ordering: False
-  clean_up: False
+  #
+  parallel_tracking: False
+  gfp: False

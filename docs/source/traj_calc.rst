@@ -1,7 +1,7 @@
 traj\_calc module
 =================
 
-.. automodule:: traj_calc
+.. automodule:: mint.traj_calc
    :members:
    :undoc-members:
    :show-inheritance:

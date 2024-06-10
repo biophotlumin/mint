@@ -1,7 +1,7 @@
 denoising module
 ================
 
-.. automodule:: denoising
+.. automodule:: mint.denoising
    :members:
    :undoc-members:
    :show-inheritance:

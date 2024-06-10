@@ -1,7 +1,7 @@
-utils module
-============
+input module
+=============
 
-.. automodule:: mint.utils
+.. automodule:: mint.input
    :members:
    :undoc-members:
    :show-inheritance:

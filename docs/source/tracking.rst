@@ -1,7 +1,7 @@
 tracking module
 ===============
 
-.. automodule:: tracking
+.. automodule:: mint.tracking
    :members:
    :undoc-members:
    :show-inheritance:
