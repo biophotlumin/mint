@@ -51,6 +51,8 @@ Two preprocessing filters can be applied to the videos before going through trac
 This part is handled by `\trackpy <https://github.com/soft-matter/trackpy>`_. 
 Please refer to their own documentation for more details on each parameter.
 
+You can use the ``test_locate`` notebook to find optimal feature finding parameters.
+
 
 * 
   **Feature finding** :
