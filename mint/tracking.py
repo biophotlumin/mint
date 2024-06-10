@@ -52,6 +52,9 @@ def tracking(
     logger.log('filt_std', np.std(logger.get('t_filt')), 'add')
     logger.log('rej_mean', np.mean(logger.get('t_rej')), 'add')
     logger.log('rej_std', np.std(logger.get('t_rej')), 'add')
+    logger.delete('t_msd')
+    logger.delete('t_filt')
+    logger.delete('t_rej')
 
     print_pb('\n', j+1, len(path_list))
     print('\n')
@@ -96,6 +99,9 @@ def p_tracking(
     logger.log('filt_std', np.std(logger.get('t_filt')), 'add')
     logger.log('rej_mean', np.mean(logger.get('t_rej')), 'add')
     logger.log('rej_std', np.std(logger.get('t_rej')), 'add')
+    logger.delete('t_msd')
+    logger.delete('t_filt')
+    logger.delete('t_rej')
 
     print('\n')
 

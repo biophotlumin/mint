@@ -54,6 +54,14 @@ For development, you can install in editable mode :
 
     $ pip install -e .[optional]
 
+You can then install :
+
+``docs``
+    Sphinx and other dependencies to build docs.
+
+``dev``
+    All of the above, including ``docs``.
+
 **CLI**
 ^^^^^^^^^^^
 You can run MINT with :
@@ -79,7 +87,7 @@ You can run MINT with :
 
 Ideally, the input folder should be specified in the config file (see the `user guide <user_guide.html>`_).
 
-If the config file does not contain an input path and ``--folder`` isn't specified, the script will default to the current workind directory.
+If the config file does not contain an input path and ``--folder`` isn't specified, the script will default to the current working directory.
 
 If only ``--folder`` is specified, the script will look for a config file in that folder. Otherwise, it will fall back to default parameters.
 

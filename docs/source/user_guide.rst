@@ -27,11 +27,9 @@ Expect some trial and error before obtaining satisfactory results.
 ===============================
 
 
-* **extension_in** : File format of the videos (as its extension, without period).
+* **extension_in** : File format of the videos (as its extension, without leading period).
 
 * **parallel** : ``joblib``-based parallelization. Depending on the number of avaible cores, it can dramatically speed up calculation.
-
-* **parallel_tracking** : Experimental. Parallelizes the entire tracking process. Reading files from disk and available memory can become bottlenecks.
 
 
 **Preprocessing**
@@ -113,7 +111,11 @@ This part of the script calculates transport parameters from extracted trajector
 
   * **sigma** : Estimated noise, as the standard deviation of the precision of localization, in nm.
 
-* **antero_retro** (optional) : Separates transport parameters into anterograde and retrograde categories. Note : this is highly dependent on our original experimental setup and will most likely not work elsewhere. 
+* **antero_retro** (optional) : Separates transport parameters into anterograde and retrograde categories.
+
+.. note:: 
+  
+  This is highly dependent on our original experimental setup and might not work elsewhere. 
 
 * **conf_list** (optional) : Saves the confinement ratio of each point into a .csv file that contain a list of points for each trajectory. Can be used to set ``r_conf_cut``.
 
@@ -133,6 +135,14 @@ This part of the script calculates transport parameters from extracted trajector
   * **order** : List of experimental conditions.
 * **extension_out** : File format under which graphs will be saved. Can be anything ``matplotlib`` supports.
 * **dpi** (optional if ``extension_out`` is vectorial) : DPI of the saved graphs for non-vectorial file formats.
+
+|
+
+**Experimental**
+-----------------
+
+* **parallel_tracking** : Parallelizes the entire tracking process. Reading files from disk and available memory can become bottlenecks.
+* **gfp** : Loads a separate image to select trajectories found in GFP+ neurons.
 
 |
 
@@ -173,7 +183,7 @@ The statistical analysis phase will generate several files :
 Additionally, several dictionaries are dumped as .yml files : 
 
 
-* ``log.yml`` contains some information about the run.
+* ``log.yml`` contains information about the run.
 * ``parameters.yml`` lists the parameters that were used.
 * ``settings.yml`` lists the settings that were used.
 * ``vars.yml`` lists the variables statistically tested.
@@ -243,7 +253,8 @@ This part of the script statistically compares transport parameters between each
 The script first checks for normality of distribution for each parameter. It then applies appropriate statistical tests : 
 
 * If there are two experimental conditions and the distribution is normal, a Student's t-test is applied. If it is not normal, a ranksums test is applied.
-* If there are more than two experimental conditions, a Kruskal-Wallis test is applied. Then, a post-hoc Dunn's test is applied to check for pair-wise differences.
+* If there are more than two experimental conditions, a Kruskal-Wallis test is applied. Then, a post-hoc Dunn's test is applied to check for pair-wise differences. The false discovery rate (FDR) is corrected by the Benjamini–Hochberg procedure.
+
 
 Barplots and boxplots are generated for each parameter as well.
 

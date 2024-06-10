@@ -548,7 +548,7 @@ def per_phase(
         slide: str,
         name: str,
         animal: str,
-        ) -> pd.DataFrame | str | None: # TODO Fix returns for logging
+        ) -> pd.DataFrame | str | None:
     """
     Per phase calculations of transport parameters for a single trajectory.
 
@@ -607,7 +607,7 @@ def per_phase(
         filt_start = time.time()
         subdata = minimization(subdata, parameters['px'], parameters['sigma'])
         filt_time = time.time() - filt_start
-        logger.log('t_filt', filt_time, 'append')
+        logger.log('min_t_filt', filt_time, 'append')
 
     x = subdata.x
     x = x.dropna()
@@ -1202,10 +1202,11 @@ def data_extraction(
 
 
     logger.log('n_t_file', trajectory_parameters.file.nunique(), 'add')
-    logger.log('filt_mean', (np.mean(logger.get('t_filt'))
-                            if len(logger.get('t_filt')) > 0 else 0), 'add')
-    logger.log('filt_std', (np.std(logger.get('t_filt'))
-                            if len(logger.get('t_filt')) > 0 else 0), 'add')
+    logger.log('min_filt_mean', (np.mean(logger.get('min_t_filt'))
+                            if len(logger.get('min_t_filt')) > 0 else 0), 'add')
+    logger.log('min_filt_std', (np.std(logger.get('min_t_filt'))
+                            if len(logger.get('min_t_filt')) > 0 else 0), 'add')
+    logger.delete('min_t_filt')
 
     if settings['conf_list']:
         df_r_conf = pd.DataFrame({'r_conf': list_r_conf})

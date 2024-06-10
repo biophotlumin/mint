@@ -214,4 +214,3 @@ if __name__ == '__main__':
     main()
 
 # TODO GUI
-# TODO osqp and qdldl wheels not existing for Python-3.12

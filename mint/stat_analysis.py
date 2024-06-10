@@ -13,7 +13,7 @@ import scikit_posthocs as sp
 import seaborn as sns
 from scipy import stats
 
-from .utils import Path_type, csv_sniffer, dict_dump
+from .utils import Path_type, csv_sniffer, dict_dump, logger
 
 plt.switch_backend('agg')
 
@@ -139,6 +139,7 @@ def run_stats(
     # left = data.loc[data['slide']=='oeil_gauche']
     # Right eye only
     # right = data.loc[data['slide']=='oeil_droit']
+
     if settings['gfp']:
         gfp_pos = data.loc[data['gfp'] == "[ True]"]
         data = gfp_pos
@@ -160,20 +161,17 @@ def run_stats(
         data.condition_sorted = data.condition_sorted.cat.set_categories(order)
         data.sort_values(['condition_sorted'], inplace=True)
 
-    log_stats = {}
-
-    log_stats['n_a_animal'] = data.animal.nunique()
-    log_stats['n_a_file'] = data.file.nunique()
-    log_stats['n_a_traj'] = data.trajectory.nunique()
-    log_stats['raw_order'] = [x for x in data.condition.unique()]
+    logger.log('n_a_animal', data.animal.nunique(), 'add')
+    logger.log('n_a_file', data.file.nunique(), 'add')
+    logger.log('n_a_traj', data.trajectory.nunique(), 'add')
+    logger.log('raw_order', [x for x in data.condition.unique()], 'add')
 
     for condition in data.condition.unique():
         subdata = data[data.condition == condition]
-        log_stats[f'n_a_animal_{condition}'] = subdata.animal.nunique()
-        log_stats[f'n_a_file_{condition}'] = subdata.file.nunique()
-        log_stats[f'n_a_traj_{condition}'] = subdata.trajectory.nunique()
+        logger.log(f'n_a_animal_{condition}', subdata.animal.nunique(), 'add')
+        logger.log(f'n_a_file_{condition}', subdata.file.nunique(), 'add')
+        logger.log(f'n_a_traj_{condition}', subdata.trajectory.nunique(), 'add')
 
-    dict_dump(input_folder, log_stats, 'log')
     dict_dump(input_folder, stats_vars, 'vars')
 
     if settings['antero_retro']:
@@ -270,6 +268,7 @@ def run_variable(
     if dunn_b:
         var_res.append('\n'+dunn(data, var)+'\n\n')
 
+    # Use f'{p_value:.10f} to display the exact p-value
     boxplot(data, var, input_folder, str(round(p_value, 6)), parameters)
     barplot(data, var, input_folder, str(round(p_value, 6)), parameters)
 
@@ -324,8 +323,7 @@ def kruskal(
         variable:  str
         ) -> float:
     """
-    Calculates the Kruskal-Wallis H-test for one nominal variable and one or more
-    numerical variables.
+    Compute the Kruskal-Wallis H-test for independent samples.
 
     Parameters
     ----------
@@ -353,8 +351,7 @@ def t_test(
         variable:  str
         ) -> float:
     """
-    Calculates the Kruskal-Wallis H-test for one nominal variable and one or more
-    numerical variables.
+    Calculates the T-test for the means of two independent samples.
 
     Parameters
     ----------
@@ -505,7 +502,9 @@ def barplot(
     y_coordinates = [bar[0].get_height() for bar in bars]
     plt.errorbar(x_coordinates, y_coordinates, yerr=error, elinewidth=2, capsize=4,
                  capthick=2, fmt='None', ecolor='black')
-
+    # Uncomment to tilt long labels
+    # plt.xticks(rotation=25)
+    # plt.subplots_adjust(bottom=0.20)
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(stats_vars[variable])

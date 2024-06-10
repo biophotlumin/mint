@@ -139,8 +139,13 @@ def get_file_list(
         List of file names.
     """
 
-    paths = (p for p in Path(input_folder).glob("**/*") if p.suffix in
-             (set(extension) if isinstance(extension, list) else set([extension])))
+    if isinstance(extension, str):
+        extension = [extension]
+
+    extension = ['.' + ex if not ex.startswith('.') else ex for ex in extension]
+
+    paths = (p for p in Path(input_folder).glob("**/*")
+             if p.suffix in set(extension))
     paths = [(str(path), path.name) for path in paths]
     parents, names = zip(*paths)
 
@@ -257,10 +262,12 @@ class Logger():
             self.logged[k].append(v)
 
     def dump(self, path):
-        dict_dump(path=path, data=self.logged, file_name='log2')
+        dict_dump(path=path, data=self.logged, file_name='log')
 
     def get(self, k):
         return self.logged.get(k, [])
 
-# global logger
+    def delete(self, k):
+        del self.logged[k]
+
 logger = Logger()
