@@ -3,8 +3,8 @@
     This Python script performs automated analysis of videos, including tracking,
     data analysis and statistical tests.
 
-    Please refer to https: //github.com/biophotlumin/mint and
-    https: //lumin-mint.readthedocs.io/en/latest/ for more information.
+    Please refer to https://github.com/biophotlumin/mint and
+    https://lumin-mint.readthedocs.io/en/latest/ for more information.
 """
 
 #Imports modules
