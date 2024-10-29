@@ -14,8 +14,14 @@ from pathlib import Path
 from joblib import Parallel, delayed
 
 from .input import get_frames
-from .denoising import filtering, filtering_p
-from .utils import print_pb, get_file_list, Path_type, logger
+
+from .denoising import (filtering,
+                        filtering_p)
+
+from .utils import (print_pb,
+                    get_file_list,
+                    Path_type,
+                    logger)
 
 from .output import (trajectory_output,
                      trajectory_separation,

@@ -711,26 +711,26 @@ def per_phase(
                                     +(y[stop-1]-y[start])**2))/(dt*phase_length))
 
         if settings['antero_retro']:
-            # # Check wether trajectory belongs to the right or left eye
-            # if slide == "oeil_droit":
-            #     sign = 1
-            # else:
-            #     sign = -1
-
-            # # Change the sign of the velocity accordingly
-            # if ((x[stop-1]-x[start]) > 0):
-            #     curvilign_velocity = -sign * curvilign_velocity
-            #     vectorial_velocity = -sign * vectorial_velocity
-            # else:
-            #     curvilign_velocity = sign * curvilign_velocity
-            #     vectorial_velocity = sign * vectorial_velocity
-
-            if ((x[stop-1] - x[start]) > 0):
-                curvilign_velocity = 1 * curvilign_velocity
-                vectorial_velocity = 1 * vectorial_velocity
+            # Check wether trajectory belongs to the right or left eye
+            if slide == "DROIT":
+                sign = 1
             else:
-                curvilign_velocity = -1 * curvilign_velocity
-                vectorial_velocity = -1 * vectorial_velocity
+                sign = -1
+
+            # Change the sign of the velocity accordingly
+            if ((x[stop-1]-x[start]) > 0):
+                curvilign_velocity = -sign * curvilign_velocity
+                vectorial_velocity = -sign * vectorial_velocity
+            else:
+                curvilign_velocity = sign * curvilign_velocity
+                vectorial_velocity = sign * vectorial_velocity
+
+            # if ((x[stop-1] - x[start]) > 0):
+            #     curvilign_velocity = 1 * curvilign_velocity
+            #     vectorial_velocity = 1 * vectorial_velocity
+            # else:
+            #     curvilign_velocity = -1 * curvilign_velocity
+            #     vectorial_velocity = -1 * vectorial_velocity
 
         if (phase[start] == 0):
             phase_sign = 0

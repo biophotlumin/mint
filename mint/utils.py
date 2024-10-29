@@ -142,14 +142,23 @@ def get_file_list(
     if isinstance(extension, str):
         extension = [extension]
 
+    if input_folder.endswith(tuple(extension)):
+        return [str(input_folder)], [Path(input_folder).name]
+
     extension = ['.' + ex if not ex.startswith('.') else ex for ex in extension]
 
     paths = (p for p in Path(input_folder).glob("**/*")
              if p.suffix in set(extension))
     paths = [(str(path), path.name) for path in paths]
-    parents, names = zip(*paths)
 
-    return parents, names
+    if len(paths) == 0:
+        warnings.warn(f'No files matching extension {extension}'
+                      f'found in specified folder')
+        return [], []
+
+    paths, names = zip(*paths)
+
+    return paths, names
 
 def load_params(
         path: Path_type,
@@ -268,6 +277,7 @@ class Logger():
         return self.logged.get(k, [])
 
     def delete(self, k):
-        del self.logged[k]
+        if k in self.logged.keys():
+            del self.logged[k]
 
 logger = Logger()
