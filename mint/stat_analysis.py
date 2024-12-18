@@ -33,8 +33,8 @@ stats_vars = { # Variables of interest as keys, labels as values
         'fraction_paused': 'Fraction of time paused',
         'directionality': 'Ratio of retrograde to anterograde transport',
         'switch': 'Directionality reversal',
-        'variance_go': 'Variance of intensity in GO phases',
-        'variance_stop': 'Variance of intensity in STOP phases',
+        # 'variance_go': 'Variance of intensity in GO phases',
+        # 'variance_stop': 'Variance of intensity in STOP phases',
         'duration': 'Trajectory duration (s)',
         'curvilign_length': 'Curvilign length (µm)',
         'switch_a_to_r': 'Anterograde to retrograde reversal',
@@ -51,7 +51,7 @@ stats_vars = { # Variables of interest as keys, labels as values
         'pausing_time_switch': 'Pausing time in bidirectional motion (s)',
         # Must be kept last in the dict !
         'fraction_moving': 'Fraction of moving particles',
-        # 'fraction_moving_msd': 'Fraction of moving particles (MSD)'
+        'fraction_moving_msd': 'Fraction of moving particles (MSD)'
 
 }
 # Function names as keys, label as values (with a trailing space)

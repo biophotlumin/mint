@@ -712,7 +712,8 @@ def per_phase(
 
         if settings['antero_retro']:
             # Check wether trajectory belongs to the right or left eye
-            if slide == "DROIT":
+
+            if slide == "oeil_droit":
                 sign = 1
             else:
                 sign = -1

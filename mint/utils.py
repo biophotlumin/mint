@@ -219,13 +219,15 @@ def dict_dump(
         elif isinstance(v, np.floating):
             data[k] = float(data[k])
 
-    file_path = Path(path).joinpath(f'{file_name}.yml')
+    if  not file_name.endswith(('.yml', '.yaml')):
+        file_path = Path(path).joinpath(f'{file_name}.yml')
+
     if file_path.is_file(): # Check for existing file
         if overwrite is True:
             with open(file_path, 'w') as f: # Overwrite if required
                 yaml.dump(data, f)
         else:
-            old_dict = yaml.safe_load(open(file_path))
+            old_dict: dict = yaml.safe_load(open(file_path))
             old_dict.update(data) # Otherwise update the preexisting dict
             with open(file_path, 'w') as f:
                 yaml.dump(old_dict, f)
@@ -271,7 +273,11 @@ class Logger():
             self.logged[k].append(v)
 
     def dump(self, path):
-        dict_dump(path=path, data=self.logged, file_name='log')
+        dict_dump(
+                path=path,
+                data=self.logged,
+                file_name='log'
+                )
 
     def get(self, k):
         return self.logged.get(k, [])

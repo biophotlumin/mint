@@ -7,14 +7,11 @@ import os
 import math
 import imageio
 import numpy as np
-# import cvxpy as cp
 import pandas as pd
 
-# from cvxpy.atoms.norm import norm
-# from cvxpy.atoms.norm1 import norm1
-from trackpy.motion import msd
-from pathlib import Path
 from typing import cast
+from pathlib import Path
+from trackpy.motion import msd
 
 from scipy import optimize
 from joblib import Parallel, delayed
