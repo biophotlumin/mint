@@ -3,10 +3,128 @@ Functions used to reduce noise on individual video frames.
 """
 
 import os
+import abc
 import cv2
 import numpy as np
 from scipy import signal
 from joblib import Parallel, delayed
+
+class BaseProcessor(abc.ABC):
+    """
+    Abstract base class for
+
+    Parameters
+    ----------
+    antero_retro : str, optional
+
+
+    Attributes
+    ----------
+    results : list
+        List of calculated parameter values for each trajectory
+
+    :meta private:
+    """
+
+    def __init__(self):
+
+        self.name = 'Base processor'
+        self.id = 'base'
+        self.parallel = True
+        self.required = {
+            'required_param': 'required_type'
+            }
+
+    def check_params(self,
+                     kwargs: dict
+                     ) -> None:
+
+        required = self.required
+
+        missing_args = [arg for arg in required.keys() if arg not in kwargs.keys()]
+
+        if missing_args:
+            raise RuntimeError(f'Arg(s) {missing_args} required')
+
+        for arg in required.keys():
+            if not isinstance(kwargs[arg], required[arg]):
+                raise RuntimeError(f'Expected arg {arg} of type {type(required[arg])} '
+                                   f'for function {self.name}, '
+                                   f'got type {type(kwargs[arg])} instead.')
+
+    @abc.abstractmethod
+    def single_frame(self,
+                     frame: np.ndarray,
+                     kwargs: dict,
+                     ) -> np.ndarray:
+        pass
+
+    def process_frames(self,
+                       kwargs: dict,
+                       frames: np.ndarray,
+                       ) -> np.ndarray:
+        self.check_params(kwargs)
+
+        if kwargs['parallel']:
+            generator = Parallel(
+                n_jobs=os.cpu_count(),
+                return_as='generator'
+                )(
+                    delayed(self.single_frame)
+                    (frame, kwargs)
+                    for frame in frames
+                    )
+
+        for i, frame in enumerate(generator):
+            frames[i] = frame
+
+        else:
+            for i, frame in enumerate(frames):
+                frames[i] =  self.single_frame(frame, kwargs)
+        return frames
+
+class TopHatFilter(BaseProcessor):
+
+    def __init__(self):
+        super().__init__()
+        self.name = 'Tophat filter'
+        self.id = 'tophat'
+        self.parallel = True
+        self.required = {
+            'separation': int,
+        }
+
+    def tophat(self,
+        separation: int,
+        frame: np.ndarray,
+        ) -> np.ndarray:
+        """
+        Applies top-hat transform to input image.
+
+        Top-hat filtering with `cv2.MORPH_TOPHAT`. Removes artifacts.
+
+        Parameters
+        ----------
+        separation : int
+            Minimum distance (in pixels) between features.
+        frame : np.ndarray
+            2D array of unfiltered data.
+
+        Returns
+        -------
+        np.ndarray
+            2D array of filtered data.
+        """
+
+        kernelC = np.ones((separation, separation), dtype=int)
+        return frame - cv2.erode(frame, kernelC)
+
+    def single_frame(self,
+                     frame: np.ndarray,
+                     kwargs: dict,
+                     ) -> np.ndarray:
+
+        return self.tophat(kwargs['separation'], frame)
 
 def tophat(
     separation: int,
@@ -184,7 +302,7 @@ def filtering_p(
                                                     (parameters['separation'], frame)
                                                     for frame in frames)
         for i, frame in enumerate(tophat_gen):
-            frames[i] = frame
+            frames[i] = frame#.astype('float64')
 
     if settings['wavelet']:
 
@@ -192,6 +310,6 @@ def filtering_p(
                                return_as='generator')(delayed(wavelet)(frame)
                                                        for frame in frames)
         for i, frame in enumerate(wavelet_gen):
-            frames[i] = frame
+            frames[i] = frame#.astype('float64')
 
     return frames

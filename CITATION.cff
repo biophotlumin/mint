@@ -1,8 +1,20 @@
-cff-version: 1.1.0
-message: "If you use this software, please cite it as below."
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: mint
+message: 'If you use this software, please cite it as below.'
+type: software
 authors:
   - family-names: Grimaud
     given-names: Baptiste
-title: mint
+  - family-names: Haziza
+    given-names: Simon
+  - given-names: Feriel
+    family-names: Terras
+  - given-names: François
+    family-names: Marquier
+  - given-names: François
+    family-names: Treussart
 version: v0.2.0
-date-released: 2023-03-02
+date-released: '2023-03-02'

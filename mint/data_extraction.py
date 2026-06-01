@@ -235,12 +235,26 @@ class FractionMoving(BaseParameter):
     def calculate_results(self, data, n_trajectories):
         if self.msd is False:
             n_ref = data['n_particles'].unique()
-            n_ref = n_ref[0] + n_trajectories
+            # n_ref = n_ref[0] + n_trajectories
+            n_ref = n_ref[0]
         else:
             n_ref = data['n_static'].unique()[0]
 
         fraction = n_trajectories/n_ref
         return fraction
+
+class NTrajectories(BaseParameter):
+    """
+    Number of trajectories.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.name = 'Number of trajectories'
+        self.column_name = 'n_traj'
+
+    def calculate_results(self, data, n_trajectories):
+        return n_trajectories
 
 class RunLength(BaseParameter):
     """
@@ -412,6 +426,63 @@ class Switch(BaseParameter):
 
         return self.switch
 
+class SwitchVectorial(BaseParameter):
+    """
+    Reversals of directionality and related measurements.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.name = 'Vectorial switch'
+        self.column_name = 'vectorial_switch'
+        self.switch_v = [] # Overall number of reversals
+        self.switch_v_normal = [] # Normalized number of reversals
+        self.switch_v_var_STOP = [] # Variance of signal intensity in STOP phases
+        self.pausing_time_switch_v = [] # Pausing time between inverse phases
+        self.temp_save_angles = [] # TODO Delete
+
+    def check_index(self, p_data, index):
+        if p_data.iloc[0].phase == 0:
+            index = index[1:]
+        if p_data.iloc[-1].phase == 0:
+            index = index[:-1]
+        return index
+
+    def calculate_results(self, data, duration):
+        switch = 0
+        switch_var_STOP = []
+        pausing_time_switch = []
+
+        for p in set(data.trajectory): # Switch back to non-rejoined trajectories
+            p_data = data.loc[data.trajectory == p]
+            p_data.sort_values('phase_number', inplace=True)
+            p_data.reset_index(inplace=True, drop=True)
+            zero_phases = p_data.index[p_data['phase'] == 0]
+            zero_phases = self.check_index(p_data, zero_phases)
+
+            for phase in zero_phases:
+                first_phase = p_data.iloc[phase-1]
+                stop_phase = p_data.iloc[phase]
+                second_phase = p_data.iloc[phase+1]
+                vec_first_phase = first_phase['vector']
+                vec_sec_phase = second_phase['vector']
+                angle = angle_between_vectors(vec_first_phase, vec_sec_phase)
+                self.temp_save_angles.append(angle)
+
+                if angle >= 135:
+                    switch += 1
+                    switch_var_STOP.append(stop_phase.variance)
+                    pausing_time_switch.append(stop_phase.phase_duration)
+
+        self.switch_v.append(switch)
+        self.switch_v_normal.append(switch/duration)
+
+        self.switch_v_var_STOP.append(np.mean(switch_var_STOP)
+                                    if len(switch_var_STOP) > 0 else 0)
+        self.pausing_time_switch_v.append(np.mean(pausing_time_switch)
+                                        if len(pausing_time_switch) > 0 else 0)
+        return self.switch_v
+
 class Theta(BaseParameter):
     """
     EXPERIMENTAL : Standard deviation of the theta angle.
@@ -539,6 +610,35 @@ def confinement(
         pass
     return r_conf
 
+def angle_between_vectors(
+        u: list,
+        v: list
+        ) -> float:
+    """
+    Calculate angle between two vectors.
+
+    Parameters
+    ----------
+    u : list
+        2D vector
+    y : list
+        2D vector
+
+    Returns
+    -------
+    float
+        Angle in degrees.
+    """
+
+    u = np.array(u)
+    v = np.array(v)
+    cos_theta = np.dot(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
+    angle_rad = np.arccos(cos_theta)
+    # angle_tan = np.math.atan2(np.linalg.det([u, v]), np.dot(u, v))
+    angle_deg = np.degrees(angle_rad)
+
+    return angle_deg
+
 def per_phase(
         data: pd.DataFrame,
         trajectory: int,
@@ -622,7 +722,7 @@ def per_phase(
 
     r_conf = confinement(x, y, sw) # Separate trajectory into phases
 
-    if settings['conf_list']:
+    if settings['conf_list'] and condition == 'FND-PEG4-RVG29C': # TODO Delete
         list_r_conf.append(r_conf)
 
     # Switch from pixels to µm
@@ -710,6 +810,8 @@ def per_phase(
         vectorial_velocity = np.abs((np.sqrt((x[stop-1]-x[start])**2
                                     +(y[stop-1]-y[start])**2))/(dt*phase_length))
 
+        vector = [(x[stop-1]-x[start]), (y[stop-1]-y[start])]
+
         if settings['antero_retro']:
             # Check wether trajectory belongs to the right or left eye
 
@@ -718,7 +820,7 @@ def per_phase(
             else:
                 sign = -1
 
-            # Change the sign of the velocity accordingly
+            # Change the sign of the velocity accordingly # TODO Adapt
             if ((x[stop-1]-x[start]) > 0):
                 curvilign_velocity = -sign * curvilign_velocity
                 vectorial_velocity = -sign * vectorial_velocity
@@ -741,7 +843,8 @@ def per_phase(
         run_length = curvilign_velocity*phase_duration
         curv_length = curvilign_velocity*dt
 
-        data_dict = {'trajectory': trajectory,
+        data_dict = {
+                    'trajectory': trajectory,
                     'phase': phase_sign,
                     'phase_number': phase_number,
                     'phase_length': phase_length,
@@ -764,6 +867,7 @@ def per_phase(
                     'n_particles': data.n_particles.unique()[0],
                     'n_static': data.n_static.unique()[0],
                     'gfp': gfp,
+                    'vector': vector,
                     }
 
         if settings['theta']:
@@ -912,12 +1016,14 @@ def trajectory_calculations(
     pausing_time = PausingTime()
     diag_length = DiagonalLength()
     fraction_paused = FractionPaused()
+    n_traj = NTrajectories()
     moving_particles = FractionMoving(msd=False)
     moving_particles_msd = FractionMoving(msd=True)
     duration = Duration()
     curv_length = CurvilignLength()
     pausing_time = PausingTime()
     gfp = GFPMask()
+    switch_v = SwitchVectorial()
 
     if settings['antero_retro']:
 
@@ -1005,11 +1111,18 @@ def trajectory_calculations(
             # Pausing time
             pausing_time.update_results(data=data_STOP)
 
+            # Number of trajectories
+            n_traj.update_results(data=data,
+                                  n_trajectories=n_trajectories
+                                  )
+
             # Ratio of moving particles
             moving_particles.update_results(data=data,
-                                            n_trajectories=n_trajectories)
+                                            n_trajectories=n_trajectories
+                                            )
             moving_particles_msd.update_results(data=data,
-                                                n_trajectories=n_trajectories)
+                                                n_trajectories=n_trajectories
+                                                )
 
             # Fraction of time paused
             fraction_paused.update_results(data=data,
@@ -1055,6 +1168,10 @@ def trajectory_calculations(
                 theta_std_STOP.update_results(data_STOP)
 
             gfp.update_results(data=data)
+            switch_v.update_results(data=data,
+                                    duration=duration.get_last_result())
+            # df_angles = pd.DataFrame(switch_v.temp_save_angles, columns=['angles'])
+            # df_angles.to_csv(r'/home/lumin/Documents/angles.csv')
 
     data_dict = {'condition': condition,
                 'animal': animal,
@@ -1068,6 +1185,7 @@ def trajectory_calculations(
                 'pausing_frequency': pausing_frequency.results,
                 'fraction_paused': fraction_paused.results,
                 'n_stop': pausing_frequency.n_stop,
+                'n_traj': n_traj.results,
                 'fraction_moving': moving_particles.results,
                 'fraction_moving_msd': moving_particles_msd.results,
                 'intensity_go': intensity_GO.results,
@@ -1075,6 +1193,10 @@ def trajectory_calculations(
                 'variance_go': variance_GO.results,
                 'variance_stop': variance_STOP.results,
                 'gfp': gfp.results,
+                'switch_v': switch_v.switch_v,
+                'switch_v_normal': switch_v.switch_v_normal,
+                'switch_v_var_stop': switch_v.switch_v_var_STOP,
+                'pausing_time_switch_v': switch_v.pausing_time_switch_v,
                 }
 
     if settings['antero_retro']:
@@ -1134,7 +1256,7 @@ def data_extraction(
         Dictionary containing calculation settings.
     """
 
-    output_folder, identifier = folder_structure_creation(input_folder)[0:2]
+    output_folder, identifier = folder_structure_creation(input_folder)[0:2] # TODO
 
     # Guard against os.walk running on an empty folder,
     # if the input folder is placed at the root of a drive
@@ -1179,7 +1301,7 @@ def data_extraction(
         if settings['parallel']:
             calc_func = phase_calculations
         else:
-            calc_func = phase_calculations
+            calc_func = phase_calculations # TODO
         phase_parameters = pd.concat((phase_parameters, calc_func(parameters, data,
                                     settings, condition, slide, str(Path(path).name),
                                     animal)))

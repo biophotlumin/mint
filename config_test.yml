@@ -1,4 +1,6 @@
-input_folder: ''
+# Config test de MINT sur un échantillon de données ZF
+
+input_folder: '/media/lumin/DATA/Demo_BioProbe'
 
 parameters:
   extension_in: tif 
@@ -58,6 +60,6 @@ settings:
   conf_list: False
   # Stats
   ordering: True
-  #
+  # Experimental
   parallel_tracking: False
   gfp: False

@@ -517,7 +517,7 @@ def MSD_filtering(
         DataFrame containing unfiltered trajectories.
     threshold : int
         MSD threshold.
-
+# TODO Doc highpass
     Returns
     -------
     DataFrame
@@ -609,7 +609,7 @@ def polynomial_fit(
         if (deviation < threshold):
             return True
         else:
-            return False
+            return False ## TODO
     else:
         return 'len'
 

@@ -1,10 +1,12 @@
-input_folder: '/media/lumin/DATA/Demo_BioProbe'
+# Config pour manip infections SINV sur ZF
+
+input_folder: '/media/lumin/DATA/ZF_SINV_KTP'
 
 parameters:
   extension_in: tif 
   #trackpy.batch
   diameter: 9
-  minmass:  300
+  minmass:  150
   separation: 12
   #trackpy.link
   search_range: 6
@@ -29,7 +31,7 @@ parameters:
   len_cutoff: 30 # Number of points
   threshold_poly3: 1.4 # Deviation from third-degree polynom
   # Stats
-  order: [WT,HET,HOM] # Order of conditions in tables and graphs
+  order: [NKTP,NKTP_SINV] # Order of conditions in tables and graphs
   extension_out: svg # File extension of saved graphs
   dpi: 300 # DPI of saved graphs if they're not vectorial
 
@@ -40,7 +42,7 @@ settings:
   parallel: True
   # Denoising
   tophat: True
-  wavelet: False
+  wavelet: True
   # Processing
   stub_filtering: False
   MSD: True
@@ -58,6 +60,6 @@ settings:
   conf_list: False
   # Stats
   ordering: True
-  # Experimental
+  #
   parallel_tracking: False
   gfp: False

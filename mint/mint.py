@@ -16,10 +16,18 @@ import time
 import argparse
 
 from pathlib import Path
+
 from .tracking import tracking, p_tracking
 from .data_extraction import data_extraction
-from .utils import  folder_structure_creation, load_params, dict_dump, logger
 from .stat_analysis import statistical_analysis
+from .utils import (folder_structure_creation,
+                    create_config_file,
+                    print_title,
+                    load_params,
+                    dict_dump,
+                    logger,
+                    ver,
+                    )
 
 def main():
 
@@ -91,8 +99,6 @@ def main():
     ##
     ##
 
-    #Define root input folder
-
     input_folder = r''
 
     parser = argparse.ArgumentParser(prog='M.I.N.T',
@@ -115,24 +121,23 @@ def main():
                         default=False,
                         help='Statistical analysis',
                         action='store_true')
+    parser.add_argument('-c', '--config',
+                        default=None,
+                        const=os.getcwd(),
+                        help='Generate default config file',
+                        action='store_const')
+    parser.add_argument('-v', '--version',
+                        action='version',
+                        version=f'M.I.N.T version {ver}')
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
-    print('\n')
-    print(' ######################################################################### ')
-    print(' ######################################################################### ')
-    print('\n')
-    print('                    ███╗   ███╗   ██╗   ███╗  ██╗████████╗                 ')
-    print('                    ████╗ ████║   ██║   ████╗ ██║╚══██╔══╝                 ')
-    print('                    ██╔████╔██║   ██║   ██╔██╗██║   ██║                    ')
-    print('                    ██║╚██╔╝██║   ██║   ██║╚████║   ██║                    ')
-    print('                    ██║ ╚═╝ ██║██╗██║██╗██║ ╚███║██╗██║                    ')
-    print('                    ╚═╝     ╚═╝╚═╝╚═╝╚═╝╚═╝  ╚══╝╚═╝╚═╝                    ')
-    print('\n')
-    print('                                   v0.3.0                                  ')
-    print('\n')
-    print(' ######################################################################### ')
-    print(' ######################################################################### ')
+    if args.config:
+        cwd = create_config_file(args.config)
+        print(f'Created config file in {cwd}')
+        return
+
+    print_title()
 
     if args.params:
         config = load_params(args.params)
@@ -214,3 +219,5 @@ if __name__ == '__main__':
     main()
 
 # TODO GUI
+# TODO Check parameters and settings during startup
+# TODO Remove folder arg

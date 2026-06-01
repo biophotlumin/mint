@@ -214,3 +214,6 @@ def get_frames(
         warnings.warn(f'Extension {extension} is not supported')
 
     return reader.return_frames(file_path)
+
+# TODO Case for opening 2D images ?
+# TODO Redundant warning for incorrect shape

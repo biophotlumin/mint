@@ -11,9 +11,14 @@ import warnings
 import numpy as np
 
 from datetime import datetime
+from setuptools.config.setupcfg import read_configuration
+
 from pathlib import Path, PosixPath, WindowsPath
 
 Path_type = str | Path | PosixPath | WindowsPath
+
+ver = read_configuration(
+        Path(__file__).parent.parent.joinpath('setup.cfg'))['metadata']['version']
 
 def extraction_csv(
         input_folder: Path_type,
@@ -26,7 +31,7 @@ def extraction_csv(
     input_folder : str or Path
         Path to the input folder.
     """
-
+    # TODO Remove ?
     input_folder = str(input_folder)
 
     shutil.copytree(input_folder, input_folder+" CSV ONLY", symlinks=False,
@@ -142,15 +147,19 @@ def get_file_list(
     if isinstance(extension, str):
         extension = [extension]
 
+    input_folder = str(input_folder)
+
+    # Single file
     if input_folder.endswith(tuple(extension)):
         return [str(input_folder)], [Path(input_folder).name]
 
+    # Add comma if not already there
     extension = ['.' + ex if not ex.startswith('.') else ex for ex in extension]
 
     paths = (p for p in Path(input_folder).glob("**/*")
              if p.suffix in set(extension))
     paths = [(str(path), path.name) for path in paths]
-
+    # TODO Extend beyond Path.suffix ?
     if len(paths) == 0:
         warnings.warn(f'No files matching extension {extension}'
                       f'found in specified folder')
@@ -254,9 +263,48 @@ def dict_load(
     dict
         The contents of the YAML file as a dictionary.
     """
-    return yaml.safe_load(open(Path(path).joinpath(f'{name}.yml')))
 
-class Logger():
+    return yaml.safe_load(open(
+                        Path(path).joinpath(f'{name}.yml'
+                            if  not name.endswith(('.yml', '.yaml'))
+                            else f'{name}')))
+
+def create_config_file(
+        cwd: Path_type,
+        ):
+
+    config = dict_load(Path(__file__).parent.parent, 'config.yml')
+    config['input_folder'] = cwd
+
+    dict_dump(
+            path=cwd,
+            data=config,
+            file_name='config',
+            overwrite=False,
+            )
+
+    return cwd
+
+def print_title():
+
+    print('\n')
+    print(' ######################################################################### ')
+    print(' ######################################################################### ')
+    print('\n')
+    print('\n')
+    print('                    ███╗   ███╗   ██╗   ███╗  ██╗████████╗                 ')
+    print('                    ████╗ ████║   ██║   ████╗ ██║╚══██╔══╝                 ')
+    print('                    ██╔████╔██║   ██║   ██╔██╗██║   ██║                    ')
+    print('                    ██║╚██╔╝██║   ██║   ██║╚████║   ██║                    ')
+    print('                    ██║ ╚═╝ ██║██╗██║██╗██║ ╚███║██╗██║                    ')
+    print('                    ╚═╝     ╚═╝╚═╝╚═╝╚═╝╚═╝  ╚══╝╚═╝╚═╝                    ')
+    print('\n')
+    print(f'                                   {ver}                                  ')
+    print('\n')
+    print(' ######################################################################### ')
+    print(' ######################################################################### ')
+
+class Logger(): # TODO Static typing
     def __init__(self):
         self.logged = {}
 

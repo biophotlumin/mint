@@ -41,8 +41,10 @@ stats_vars = { # Variables of interest as keys, labels as values
         'switch_r_to_a': 'Retrograde to anterograde  reversal',
         'phase_dir_go': 'Number of retrograde phases over total number of GO phases',
         'phase_dir_total': 'Number of retrograde phases over total number of phases',
-        'switch_normal': 'Directionality reversal per µm',
+        'switch_normal': 'Directionality reversal per second',
         'switch_var_stop': 'Variation of intensity in STOP phases of reversal',
+        'switch_v': 'Directionality reversal (vectorial)',
+        'switch_v_normal': 'Directionality reversal per second (vectorial)',
         # Theta might cause issues on Windows despite being UTF-8
         'theta_std_go': 'Standard deviation of θ in GO phases',
         'theta_std_stop': 'Standard deviation of θ in STOP phases',
@@ -51,10 +53,11 @@ stats_vars = { # Variables of interest as keys, labels as values
         'pausing_time_switch': 'Pausing time in bidirectional motion (s)',
         # Must be kept last in the dict !
         'fraction_moving': 'Fraction of moving particles',
-        'fraction_moving_msd': 'Fraction of moving particles (MSD)'
+        'fraction_moving_msd': 'Fraction of moving particles (MSD)',
+        'n_traj': 'Number of trajectories',
 
 }
-# Function names as keys, label as values (with a trailing space)
+# Function names as keys, labels as values (with a trailing space)
 statistical_tests = {'kruskal': 'Kruskal-Wallis ',
                      'ranksums': 'rank-sums ',
                      't_test': 't-',
@@ -211,7 +214,7 @@ def run_stats(
 
     results = [item for sublist in results for item in sublist] # Flatten list of list
 
-    text_file = open((Path(input_folder).joinpath("Statistical test results.txt")), 'w')
+    text_file = open((Path(input_folder).joinpath("Statistical test results.md")), 'w')
     text_file.writelines(results)
     text_file.close()
 
@@ -250,23 +253,23 @@ def run_variable(
         List of results.
     """
     var_res = []
-    var_res.append(f'{var.upper()}\n')
+    var_res.append(f'### {var.upper()}\n')
 
     if normal:
-        var_res.append(f'Distribution of {str(var)} is normal \n')
+        var_res.append(f'Distribution of {str(var)} is **normal**\n')
     else:
-        var_res.append(f'Distribution of {str(var)} is not normal \n')
+        var_res.append(f'Distribution of {str(var)} is **not normal**\n')
 
     if test:
         p_value = eval(test)(data, var)
         var_res.append(f'p-value of {statistical_tests[test]}test for '
                        # Formatted to disable scientific notation
-                       f'{var} is {p_value:.10f}\n')
+                       f'{var} is **{p_value:.10f}**\n')
     else:
         p_value = 1
 
     if dunn_b:
-        var_res.append('\n'+dunn(data, var)+'\n\n')
+        var_res.append(f'\n{dunn(data, var)}\n\n')
 
     # Use f'{p_value:.10f} to display the exact p-value
     boxplot(data, var, input_folder, str(round(p_value, 6)), parameters)
@@ -286,7 +289,7 @@ def run_variable(
         subdata = data[data.condition == cond]
         var_df.loc[cond] = [round(i, 6) for i in [*means(subdata, var)]]
 
-    var_res.append(var_df.to_string()+'\n\n')
+    var_res.append(var_df.to_markdown()+'\n')
 
     return var_res
 
@@ -320,7 +323,7 @@ def ranksums(
 
 def kruskal(
         data: pd.DataFrame,
-        variable:  str
+        variable: str
         ) -> float:
     """
     Compute the Kruskal-Wallis H-test for independent samples.
@@ -347,8 +350,8 @@ def kruskal(
     return p
 
 def t_test(
-        data:  pd.DataFrame,
-        variable:  str
+        data: pd.DataFrame,
+        variable: str
         ) -> float:
     """
     Calculates the T-test for the means of two independent samples.
@@ -375,8 +378,8 @@ def t_test(
     return p
 
 def dunn(
-        data:  pd.DataFrame,
-        variable:  str
+        data: pd.DataFrame,
+        variable: str
         ) -> str:
     """
     Dunn's test.
@@ -408,14 +411,14 @@ def dunn(
     label_dict = dict(zip(index, conditions_list))
     p.rename(index=label_dict, columns=label_dict, inplace=True)
 
-    return p.to_string()
+    return p.to_markdown()
 
 def boxplot(
         data: pd.DataFrame,
         variable: str,
         input_folder: Path_type,
         p: str,
-        parameters: dict,
+        parameters: dict, # TODO Pass DPI directly
         ) -> None:
     """
     Bar plot.
@@ -446,7 +449,7 @@ def boxplot(
     plt.ylabel(stats_vars[variable])
     plt.annotate((f'p-value : {p}'), xy=(195, 310), xycoords='figure points')
     plt.savefig(Path(input_folder).joinpath((f'Boxplot '
-                                             f'{str(data["condition"].unique())} '
+                                            #  f'{str(data["condition"].unique())} '
                                              f'{variable}.{parameters["extension_out"]}')),
                                              dpi=parameters["dpi"])
     plt.close()
@@ -485,7 +488,7 @@ def barplot(
                                if len(c_data) > 3 else 0)
 
     # Order isn't properly inferred from DataFrame for columns with missing values
-    # since seaborn 13.0, need to pass order explicitly
+    # since seaborn 13.0, need to pass ordeto_stringr explicitly
 
     data = data.dropna(subset=variable)
     bars = sns.barplot(data=data, y=variable, x='condition', estimator=np.mean,
@@ -503,14 +506,14 @@ def barplot(
     plt.errorbar(x_coordinates, y_coordinates, yerr=error, elinewidth=2, capsize=4,
                  capthick=2, fmt='None', ecolor='black')
     # Uncomment to tilt long labels
-    # plt.xticks(rotation=25)
-    # plt.subplots_adjust(bottom=0.20)
+    plt.xticks(rotation=90)
+    plt.subplots_adjust(bottom=0.5)
     sns.despine(trim=True)
     plt.xlabel("Condition")
     plt.ylabel(stats_vars[variable])
     plt.annotate((f'p-value :  {p}'), xy=(195, 310), xycoords='figure points')
     plt.savefig(Path(input_folder).joinpath(f'Barplot '
-                                            f'{str(data["condition"].unique())} '
+                                            # f'{str(data["condition"].unique())} '
                                             f'{variable}.{parameters["extension_out"]}'),
                                             dpi=parameters["dpi"])
     plt.close()
@@ -611,3 +614,4 @@ if __name__ == '__main__':
                 'antero_retro': True,
                 }
     statistical_analysis(settings, parameters, input_folder)
+# TODO Rename as "stats"

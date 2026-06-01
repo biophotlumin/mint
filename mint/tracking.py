@@ -4,6 +4,7 @@ Main tracking function.
 
 # Imports
 import os
+# import yaml
 import time
 import warnings
 import trackpy as tp
@@ -127,6 +128,15 @@ def per_file(
         log: dict
         ) -> None:
 
+    if "SKIP" in str(path): # TODO Stabilize
+        return
+
+    # already = yaml.safe_load(
+    #     open(Path(r'/media/lumin/DATA/TIRF/RVG29C/already_processed.yml')))
+    # if name in already:
+    #     print_pb(f'\n{name} already processed, skipping', j, j_max)
+    #     return
+
     # Separate subfolder structure from root input folder
     output_subfolder = str(path).replace(str(log['root_input_folder']), '')
     # Merge subfolder structure with root output folder
@@ -136,8 +146,12 @@ def per_file(
     os.makedirs(out_path)  # Create output folder for current file
 
     # Opening video file
-
-    frames = get_frames(path)
+    try:
+        frames = get_frames(path)
+    except ValueError:
+        logger.log('failed_input', path, 'append') # TODO Stabilize
+        print_pb(f'\tCould not open {name}, skipping', j, j_max)
+        return
 
     if len(frames) == 0:
         return
@@ -146,6 +160,9 @@ def per_file(
 
     # Prevent conflict in case of wavelet filtering
     processed_frames = frames.astype('float64')
+
+    # processed_frames = processed_frames - processed_frames[0] # TODO Stabilize
+    # processed_frames = processed_frames*1000
 
     print_pb('\tFiltering', j, j_max)
     if settings['parallel']:
@@ -158,6 +175,8 @@ def per_file(
     filt_time = time.time() - filt_start
     logger.log('t_filt', filt_time, 'append')
 
+    processed_frames = processed_frames - processed_frames[0]
+
     # Localizing particles and finding trajectories
 
     tp.quiet(suppress=True)  # Silencing TrackPy messages
@@ -169,9 +188,13 @@ def per_file(
                                 separation=parameters['separation'],
                                 preprocess=False,
                                 engine='numba',
-                                processes='auto')
+                                processes='auto'
+                                )
 
     del processed_frames
+
+    if len(raw_coordinates) == 0:
+        return # TODO User warning
 
     print_pb('\tLinking', j, j_max)
     raw_trajectory = tp.link(raw_coordinates,
@@ -179,7 +202,11 @@ def per_file(
                                 adaptive_step=parameters['adaptive_step'],
                                 adaptive_stop=parameters['adaptive_stop'],
                                 memory=parameters['memory'],
-                                link_strategy='numba')
+                                # link_strategy=settings['linking']
+                                )
+
+    if len(raw_coordinates) <= 1:
+        return # TODO User warning
 
     if settings['stub_filtering']:
         print_pb('\tStub filtering', j, j_max)
@@ -191,17 +218,24 @@ def per_file(
 
     # Dumping raw trajectories into csv file
     msd_start = time.time()
-    if settings['parallel']:
+    if settings['parallel']: # TODO Set as optional like MSD filtering
         raw_trajectory = MSD_calculation_p(raw_trajectory,
                                             parameters['px'],
-                                            parameters['dt'])
+                                            parameters['dt']
+                                            )
     else:
         raw_trajectory = MSD_calculation(raw_trajectory,
                                             parameters['px'],
-                                            parameters['dt'])
+                                            parameters['dt']
+                                            )
     trajectory_output(out_path, name, "", raw_trajectory)
     msd_time = time.time() - msd_start
     logger.log('t_msd', msd_time, 'append')
+
+    # try:
+    #     print(raw_trajectory.particle.unique())
+    # except AttributeError:
+    #     return
 
     # Optional trajectory processing
     if settings['MSD']:
@@ -209,8 +243,20 @@ def per_file(
         processed_trajectory = MSD_filtering(raw_trajectory, parameters['msd'])
         if len(processed_trajectory) == 0: # Check if any trajectories were found.
             # If not, the threshold might be too high.
+            logger.log('MSD_skipped', path, 'append')
             warnings.warn('No trajectories retained, '
-                            'MSD threshold might be too high')
+                          'MSD threshold might be too high')
+
+            n_particles = len(raw_coordinates[raw_coordinates.frame == 0])
+            static = tp.filter_stubs(raw_trajectory, int(len(frames)*0.9))
+            n_static = static.particle.nunique()
+
+            pd.DataFrame.from_dict(
+                {
+                    'n_particles': [n_particles],
+                    'n_static': [n_static],
+                }
+            ).to_csv(Path(out_path).joinpath('static.csv'))
             return
     else:
         processed_trajectory = raw_trajectory
@@ -234,7 +280,7 @@ def per_file(
                                                     parameters['base_level'])
 
     # Estimating ratio of moving particles
-    first_frame = raw_coordinates[raw_coordinates.frame == 0]
+    first_frame = raw_coordinates[raw_coordinates.frame == 0] # First frame RC == RT ?
     n_particles = len(first_frame)
     n_particles = [n_particles]*len(raw_trajectory)
     n_particles = pd.DataFrame(n_particles, columns=['n_particles'])
@@ -249,7 +295,7 @@ def per_file(
     if len(static) == 0:
         n_static = 0
     else:
-        static = tp.filter_stubs(static, len(frames)//10)
+        static = tp.filter_stubs(static, int(len(frames)*0.9))
         n_static = static.particle.nunique()
 
     n_static = [n_static]*len(raw_trajectory)
@@ -263,6 +309,7 @@ def per_file(
 
     # Dumping rejoined trajectories into csv file
     trajectory_output(out_path, name, "_rejoined", processed_trajectory)
+    # TODO : rejoined -> processed
 
     # Per trajectory data extraction
     if (settings['individual_images'] or
