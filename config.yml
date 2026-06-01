@@ -3,7 +3,7 @@
 input_folder: ''
 
 parameters:
-  extension_in: tif # nd2 
+  extension_in: tif
   #trackpy.batch
   diameter: 7
   minmass:  40
