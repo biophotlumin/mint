@@ -20,7 +20,6 @@ from .utils import (csv_sniffer,
                     print_pb,
                     Path_type,
                     logger)
-# from .output import image_output
 
 list_r_conf = []
 
@@ -235,7 +234,6 @@ class FractionMoving(BaseParameter):
     def calculate_results(self, data, n_trajectories):
         if self.msd is False:
             n_ref = data['n_particles'].unique()
-            # n_ref = n_ref[0] + n_trajectories
             n_ref = n_ref[0]
         else:
             n_ref = data['n_static'].unique()[0]
@@ -439,7 +437,6 @@ class SwitchVectorial(BaseParameter):
         self.switch_v_normal = [] # Normalized number of reversals
         self.switch_v_var_STOP = [] # Variance of signal intensity in STOP phases
         self.pausing_time_switch_v = [] # Pausing time between inverse phases
-        self.temp_save_angles = [] # TODO Delete
 
     def check_index(self, p_data, index):
         if p_data.iloc[0].phase == 0:
@@ -467,7 +464,6 @@ class SwitchVectorial(BaseParameter):
                 vec_first_phase = first_phase['vector']
                 vec_sec_phase = second_phase['vector']
                 angle = angle_between_vectors(vec_first_phase, vec_sec_phase)
-                self.temp_save_angles.append(angle)
 
                 if angle >= 135:
                     switch += 1
@@ -634,7 +630,6 @@ def angle_between_vectors(
     v = np.array(v)
     cos_theta = np.dot(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
     angle_rad = np.arccos(cos_theta)
-    # angle_tan = np.math.atan2(np.linalg.det([u, v]), np.dot(u, v))
     angle_deg = np.degrees(angle_rad)
 
     return angle_deg
@@ -722,7 +717,7 @@ def per_phase(
 
     r_conf = confinement(x, y, sw) # Separate trajectory into phases
 
-    if settings['conf_list'] and condition == 'FND-PEG4-RVG29C': # TODO Delete
+    if settings['conf_list']:
         list_r_conf.append(r_conf)
 
     # Switch from pixels to µm
@@ -827,13 +822,6 @@ def per_phase(
             else:
                 curvilign_velocity = sign * curvilign_velocity
                 vectorial_velocity = sign * vectorial_velocity
-
-            # if ((x[stop-1] - x[start]) > 0):
-            #     curvilign_velocity = 1 * curvilign_velocity
-            #     vectorial_velocity = 1 * vectorial_velocity
-            # else:
-            #     curvilign_velocity = -1 * curvilign_velocity
-            #     vectorial_velocity = -1 * vectorial_velocity
 
         if (phase[start] == 0):
             phase_sign = 0
@@ -1370,5 +1358,4 @@ if __name__ == '__main__':
     data_extraction(input_folder, parameters, settings)
     end = time.time()
     duration = end - start
-    print('%dh%s' % (int(duration//3600), f'{int((duration%3600)/60):02d}'))
     print(f'{int(duration//3600)}h{int((duration%3600)/60):02d}')

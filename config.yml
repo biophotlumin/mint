@@ -45,7 +45,6 @@ settings:
   wavelet: True
   # Processing
   stub_filtering: False
-  linking: numba
   MSD: True
   rejoining: True
   SNR_estimation: False

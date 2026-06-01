@@ -820,7 +820,6 @@ def GFP_mask(
 
     try:
         img = imageio.imread(Path(folder).joinpath(img_name))
-        # print('File found !')
 
     except FileNotFoundError:
         print(f'File not found : {img_name}')

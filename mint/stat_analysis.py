@@ -33,8 +33,8 @@ stats_vars = { # Variables of interest as keys, labels as values
         'fraction_paused': 'Fraction of time paused',
         'directionality': 'Ratio of retrograde to anterograde transport',
         'switch': 'Directionality reversal',
-        # 'variance_go': 'Variance of intensity in GO phases',
-        # 'variance_stop': 'Variance of intensity in STOP phases',
+        'variance_go': 'Variance of intensity in GO phases',
+        'variance_stop': 'Variance of intensity in STOP phases',
         'duration': 'Trajectory duration (s)',
         'curvilign_length': 'Curvilign length (µm)',
         'switch_a_to_r': 'Anterograde to retrograde reversal',
@@ -127,6 +127,7 @@ def run_stats(
 
 
     # Uncomment for subpopulation analysis
+    # TODO
 
     # Everything but purely anterograde trajectories
     # non_antero = data.loc[data['directionality']>0]
@@ -289,7 +290,7 @@ def run_variable(
         subdata = data[data.condition == cond]
         var_df.loc[cond] = [round(i, 6) for i in [*means(subdata, var)]]
 
-    var_res.append(var_df.to_markdown()+'\n')
+    var_res.append(var_df.to_markdown()+'\n') # TODO MD, Latex, PDF
 
     return var_res
 
